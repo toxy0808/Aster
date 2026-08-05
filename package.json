@@ -1,0 +1,27 @@
+{
+  "name": "aster",
+  "version": "1.0.0",
+  "description": "My own custom bot for discord",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/toxy0808/Aster.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/toxy0808/Aster/issues"
+  },
+  "homepage": "https://github.com/toxy0808/Aster#readme",
+  "dependencies": {
+    "better-sqlite3": "^13.0.1",
+    "discord.js": "^14.27.0",
+    "dotenv": "^17.4.2",
+    "node-fetch": "^3.3.2"
+  }
+}
