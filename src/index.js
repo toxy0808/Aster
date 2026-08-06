@@ -29,7 +29,7 @@ client.on("interactionCreate", (interaction) => {
     interactionCreate(interaction);
 });
 
-client.once("ready", () => {
+client.once("clientReady", () => {
     console.log(`${client.user.tag} is online!`);
 
     require("./events/voiceStateUpdate");
@@ -48,7 +48,6 @@ client.commands.set("config", require("./commands/config"));
 
 client.on("voiceStateUpdate", (oldState, newState) => {
 
-    console.log("VOICE EVENT FIRED");
 
     require("./events/voiceStateUpdate")(oldState, newState);
 

@@ -5,23 +5,21 @@ const {
     EmbedBuilder,
     PermissionFlagsBits
 } = require("discord.js");
-console.log("CONFIG FILE REACHED");
 const { getConfig } = require("../utils/serverConfig");
-console.log("CONFIG FILE LOADED");
 module.exports = {
     name: "config",
     aliases: ["setup"],
 
     async execute(message) {
 
-    console.log("CONFIG START");
+   
 
     if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
     return message.reply("❌ You need Administrator permission.");
 }
 
         const config = getConfig(message.guild.id);
-console.log("CONFIG DATA:", config);
+
         const embed = new EmbedBuilder()
             .setColor("#FF006E")
             .setAuthor({

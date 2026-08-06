@@ -1,4 +1,4 @@
-console.log("VOICE EVENT FIRED");
+
 const db = require("../database/database");
 const activityDB = require("../database/activityLogs");
 const activeVoiceUsers = new Map();
@@ -137,9 +137,6 @@ activityDB.prepare(
     minutes
 );
 
-console.log(
-`${member.user.username} gained ${minutes} active VC minutes`
-);
 
 activeVoiceUsers.delete(userId);
 

@@ -1,8 +1,8 @@
 const activeVoiceUsers = global.activeVoiceUsers || new Map();
-
 global.activeVoiceUsers = activeVoiceUsers;
 
 module.exports = (client) => {
+    let recovered = 0;
 
     for (const guild of client.guilds.cache.values()) {
 
@@ -21,11 +21,12 @@ module.exports = (client) => {
                     muted: member.voice.selfMute
                 });
 
-                console.log(
-                    `Recovered VC user: ${member.user.username}`
-                );
+                recovered++;
             }
         }
     }
 
+    if (recovered > 0) {
+        console.log(`Recovered ${recovered} VC sessions`);
+    }
 };

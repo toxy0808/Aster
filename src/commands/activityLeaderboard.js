@@ -1,4 +1,4 @@
-console.log("ACTIVITY LB FILE LOADED");
+
 const db = require("../database/database");
 const createActivityEmbed = require("../utils/activityEmbed");
 
