@@ -19,8 +19,7 @@ function formatTime(minutes) {
 
     return result.trim() || "0m";
 }
-
-function createActivityEmbed(chatUsers, voiceUsers, period) {
+function createActivityEmbed(chatUsers, voiceUsers, period, resetTimestamp = null) {
 
    const emojis = {
     logo: "<a:Weedleaf2:1459619037980921887>",
@@ -63,8 +62,13 @@ const ranks = [
         .setColor("#FF4DA6")
         .setTitle(`${emojis.logo} ASTER Activity Rankings`)
         .setDescription(
-    `${emojis.live} **LIVE • ${period.toUpperCase()}**\n` +
-    `*Weekly rankings • Top 10 earn custom roles • #1 earns Chat/VC Ruler role*`
+`${emojis.live} **LIVE • ${period.toUpperCase()}**\n` +
+`*Weekly rankings • Top 10 earn custom roles • #1 earns Chat/VC Ruler role*` +
+(
+period === "7d" && resetTimestamp
+? `\n\n⏳ **Resets:** <t:${resetTimestamp}:R>\n📅 **Reset:** <t:${resetTimestamp}:F>`
+: ""
+)
 )
         .addFields(
     {
