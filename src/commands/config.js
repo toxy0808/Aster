@@ -27,51 +27,47 @@ module.exports = {
                 iconURL: message.client.user.displayAvatarURL()
             })
             .setDescription(
-                "Configure ASTER settings using the buttons below."
-            )
-            .addFields(
-{
-name: "🏆 Leaderboard Channel",
-value: config.leaderboard_channel
-? `<#${config.leaderboard_channel}>`
-: "Not set",
-inline: true
-},
-{
-name: "👑 Chat King Role",
-value: config.chat_king_role
-? `<@&${config.chat_king_role}>`
-: "Not set",
-inline: true
-},
-{
-name: "🎙 Voice King Role",
-value: config.voice_king_role
-? `<@&${config.voice_king_role}>`
-: "Not set",
-inline: true
-}
-);
+`Manage ASTER activity tracking settings.
+
+🏆 Leaderboards
+> Rankings, channels, reset timing
+
+🎙️ Voice Tracking
+> Voice activity detection settings
+
+💬 Chat Tracking
+> Message tracking settings
+
+👑 Winner Roles
+> Weekly winner rewards`
+)
 
 
-        const buttons = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId("config_leaderboard")
-                    .setLabel("🏆 Leaderboard")
-                    .setStyle(ButtonStyle.Primary),
+       const buttons = new ActionRowBuilder()
+    .addComponents(
+        new ButtonBuilder()
+            .setCustomId("config_leaderboard")
+            .setLabel("🏆 Leaderboards")
+            .setStyle(ButtonStyle.Primary),
 
-                new ButtonBuilder()
-                    .setCustomId("config_roles")
-                    .setLabel("👑 Roles")
-                    .setStyle(ButtonStyle.Secondary)
-            );
+        new ButtonBuilder()
+            .setCustomId("config_voice")
+            .setLabel("🎙️ Voice")
+            .setStyle(ButtonStyle.Secondary),
 
+        new ButtonBuilder()
+            .setCustomId("config_chat")
+            .setLabel("💬 Chat")
+            .setStyle(ButtonStyle.Secondary),
 
-        message.channel.send({
-            embeds: [embed],
-            components: [buttons]
-        });
-
+        new ButtonBuilder()
+            .setCustomId("config_roles")
+            .setLabel("👑 Roles")
+            .setStyle(ButtonStyle.Secondary)
+    );
+await message.channel.send({
+    embeds: [embed],
+    components: [buttons]
+});
     }
 };

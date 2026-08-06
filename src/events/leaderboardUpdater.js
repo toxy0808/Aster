@@ -3,6 +3,15 @@ const db = require("../database/database");
 const leaderboardDB = require("../database/leaderboardMessages");
 const createActivityEmbed = require("../utils/activityEmbed");
 console.log("LEADERBOARD UPDATER LOADED");
+function getNextMondayTimestamp() {
+    const now = new Date();
+    const next = new Date();
+
+    next.setDate(now.getDate() + ((8 - now.getDay()) % 7));
+    next.setHours(0, 0, 0, 0);
+
+    return Math.floor(next.getTime() / 1000);
+}
 module.exports = async (client) => {
 
     const config = getConfig(client.guilds.cache.first().id);
@@ -218,10 +227,13 @@ const activity24hEmbed = createActivityEmbed(
     "24h"
 );
 
+const resetTimestamp = getNextMondayTimestamp();
+
 const activity7dEmbed = createActivityEmbed(
     chat7d,
     voice7d,
-    "7d"
+    "7d",
+    resetTimestamp
 );
 
 
@@ -237,7 +249,7 @@ await sendOrUpdate(
 
 }
 async function updateWinnerRoles() {
-
+console.log("Updating weekly winner roles...");
 const config = getConfig(channel.guild.id);
 
 if (!config.chat_king_role || !config.voice_king_role) {
@@ -320,18 +332,16 @@ nextMonday.setDate(
 );
 
 nextMonday.setHours(0, 0, 0, 0);
+setInterval(() => {
+    const now = new Date();
 
-const delay = nextMonday - now;
+    if (
+        now.getDay() === 1 &&
+        now.getHours() === 0
+    ) {
+        updateWinnerRoles();
+        console.log("Weekly winner roles refreshed");
+    }
 
-
-setTimeout(() => {
-
-    updateWinnerRoles();
-
-    setInterval(
-        updateWinnerRoles,
-        7 * 24 * 60 * 60 * 1000
-    );
-
-}, delay);
+}, 60 * 60 * 1000);
 };

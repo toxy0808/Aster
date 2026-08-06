@@ -5,6 +5,50 @@ const activityDB = require("../database/activityLogs");
 module.exports = async (client, message) => {
     if (message.author.bot) return;
     if (!message.guild) return;
+   if (message.mentions.has(client.user)) {
+
+const { EmbedBuilder } = require("discord.js");
+
+const embed = new EmbedBuilder()
+.setColor("#FF4DA6")
+.setTitle("<a:Weedleaf2:1459619037980921887> ASTER • Activity Intelligence")
+.setDescription(
+`Hey! I'm **ASTER**, a custom activity bot built to track and reward your community.
+
+<a:Fire8:1459590813410660564> **Activity Tracking**
+> Track messages and voice activity
+
+<a:WeedLeaf:1459620147424788703> **Leaderboards**
+> Live rankings and weekly competitions
+
+<a:PinkCrown:1459619059707674809> **Rewards**
+> Top members earn special roles
+
+⚙️ Use \`,help\` to see my commands.`
+)
+.addFields(
+{
+name: "📊 Stats",
+value: "`,activity` • View your activity\n`,rank` • Check your profile",
+inline: true
+},
+{
+name: "🏆 Rankings",
+value: "`,activitylb` • View leaderboard",
+inline: true
+}
+)
+.setThumbnail(client.user.displayAvatarURL())
+.setFooter({
+text: "ASTER • Built for communities"
+})
+.setTimestamp();
+
+return message.reply({
+embeds: [embed]
+});
+
+}
     if (cooldowns.has(message.author.id)) {
     return;
 }
