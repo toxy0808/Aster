@@ -13,6 +13,15 @@ function getStartOfToday() {
     return Math.floor(now.getTime() / 1000);
 }
 
+function getStartOfTomorrow() {
+    const tomorrow = new Date();
+
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+
+    return Math.floor(tomorrow.getTime() / 1000);
+}
+
 function getNextMondayTimestamp() {
     const now = new Date();
     const next = new Date();
@@ -231,13 +240,18 @@ module.exports = async (client) => {
                 voice7dRaw
             );
 
+            const reset24hTimestamp =
+                getStartOfTomorrow();
+
             const activity24hEmbed = createActivityEmbed(
                 chat24h,
                 voice24h,
-                "24h"
+                "24h",
+                reset24hTimestamp
             );
 
-            const resetTimestamp = getNextMondayTimestamp();
+            const resetTimestamp =
+                getNextMondayTimestamp();
 
             const activity7dEmbed = createActivityEmbed(
                 chat7d,
