@@ -44,6 +44,7 @@ client.commands.set("activity", require("./commands/activity"));
 client.commands.set("leaderboard", require("./commands/leaderboard"));
 client.commands.set("activitylb", require("./commands/activityLeaderboard"));
 client.commands.set("config", require("./commands/config"));
+client.commands.set("autoreact",require("./commands/autoreact"));
 
 
 client.on("voiceStateUpdate", (oldState, newState) => {

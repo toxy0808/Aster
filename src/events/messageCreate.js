@@ -2,10 +2,27 @@ const db = require("../database/database");
 const prefix = ",";
 const cooldowns = new Set();
 const activityDB = require("../database/activityLogs");
+db.prepare(`
+        CREATE TABLE IF NOT EXISTS autoreacts (
+                user_id TEXT PRIMARY KEY,
+                        emoji TEXT,
+                                enabled INTEGER DEFAULT 1
+                                    )
+                                    `).run();
 module.exports = async (client, message) => {
     if (message.author.bot) return;
     if (!message.guild) return;
-   if (message.mentions.has(client.user)) {
+
+    // Auto reactions
+    const autoReact = db.prepare(
+        "SELECT emoji FROM autoreacts WHERE user_id = ? AND enabled = 1"
+        ).get(message.author.id);
+
+        if (autoReact) {
+            message.react(autoReact.emoji).catch(() => {});
+            }
+
+            if (message.mentions.has(client.user)) {
 
 const { EmbedBuilder } = require("discord.js");
 
