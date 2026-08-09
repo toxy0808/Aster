@@ -453,17 +453,67 @@ module.exports = async (interaction) => {
         });
     }
 
-    // =========================
-    // REP REWARDS
-    // =========================
+// =========================
+// REP REWARDS
+// =========================
 
-    if (interaction.customId === "rep_rewards") {
+if (interaction.customId === "rep_rewards") {
 
-        return interaction.reply({
-            content:
-                "🏅 **Rep Rewards**\n\n" +
-                "Rep reward roles will be configured here next.",
-            ephemeral: true
-        });
-    }
+    const rewards = db.prepare(`
+        SELECT id, role_id, threshold, type, enabled
+        FROM reputation_rewards
+        WHERE guild_id = ?
+        ORDER BY threshold ASC
+    `).all(interaction.guild.id);
+
+    const rewardText = rewards.length
+        ? rewards.map(reward =>
+            `${reward.type === "negative" ? "−" : "+"} **${reward.threshold}** → <@&${reward.role_id}> ${reward.enabled ? "• Enabled" : "• Disabled"}`
+        ).join("\n")
+        : "No reputation rewards configured yet.";
+
+    const container = new ContainerBuilder()
+        .setAccentColor(0xFF4DA6)
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "# 🏅 ASTER • Reputation Rewards\n" +
+                "Configure role rewards based on reputation thresholds."
+            )
+        )
+
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "### Current Rewards\n" +
+                rewardText
+            )
+        );
+
+    const buttons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId("rep_reward_add")
+                .setLabel("＋ Add Reward")
+                .setStyle(ButtonStyle.Success),
+
+            new ButtonBuilder()
+                .setCustomId("rep_reward_manage")
+                .setLabel("⚙ Manage Rewards")
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+    return interaction.reply({
+        components: [
+            container,
+            buttons
+        ],
+        flags:
+            MessageFlags.IsComponentsV2 |
+            MessageFlags.Ephemeral
+    });
+}
 };
