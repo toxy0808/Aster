@@ -22,6 +22,14 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 `).run();
 
 db.prepare(`
+CREATE TABLE IF NOT EXISTS reputation (
+    user_id TEXT PRIMARY KEY,
+    points INTEGER DEFAULT 0,
+    last_rep INTEGER DEFAULT 0
+)
+`).run();
+
+db.prepare(`
 CREATE TABLE IF NOT EXISTS server_config (
     guild_id TEXT PRIMARY KEY,
     leaderboard_channel TEXT,
