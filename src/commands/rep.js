@@ -1,31 +1,75 @@
 const db = require("../database/database");
 
-const DAILY_LIMITS = {
-    member: 3,
-    staff: 5,
-    funder: 8,
-    staff_funder: 10
-};
-
 const COOLDOWN = 10 * 60 * 1000; // 10 minutes between reps to the same user
 
-function getDailyLimit(member) {
-    const isStaff = member.roles.cache.some(role =>
-        role.name.toLowerCase().includes("staff")
-    );
+function getRepConfig(guildId) {
+    let config = db.prepare(`
+        SELECT
+            rep_staff_role,
+            rep_funder_role,
+            rep_member_limit,
+            rep_staff_limit,
+            rep_funder_limit,
+            rep_staff_funder_limit
+        FROM server_config
+        WHERE guild_id = ?
+    `).get(guildId);
 
-    const isFunder = member.roles.cache.some(role =>
-        role.name.toLowerCase().includes("funder")
-    );
+    if (!config) {
+        db.prepare(`
+            INSERT OR IGNORE INTO server_config (
+                guild_id,
+                rep_member_limit,
+                rep_staff_limit,
+                rep_funder_limit,
+                rep_staff_funder_limit
+            )
+            VALUES (?, 3, 5, 8, 10)
+        `).run(guildId);
 
-    if (isStaff && isFunder) return DAILY_LIMITS.staff_funder;
-    if (isFunder) return DAILY_LIMITS.funder;
-    if (isStaff) return DAILY_LIMITS.staff;
+        config = db.prepare(`
+            SELECT
+                rep_staff_role,
+                rep_funder_role,
+                rep_member_limit,
+                rep_staff_limit,
+                rep_funder_limit,
+                rep_staff_funder_limit
+            FROM server_config
+            WHERE guild_id = ?
+        `).get(guildId);
+    }
 
-    return DAILY_LIMITS.member;
+    return config;
+}
+
+function getDailyLimit(member, config) {
+
+    const isStaff =
+        config.rep_staff_role &&
+        member.roles.cache.has(config.rep_staff_role);
+
+    const isFunder =
+        config.rep_funder_role &&
+        member.roles.cache.has(config.rep_funder_role);
+
+    if (isStaff && isFunder) {
+        return config.rep_staff_funder_limit ?? 10;
+    }
+
+    if (isFunder) {
+        return config.rep_funder_limit ?? 8;
+    }
+
+    if (isStaff) {
+        return config.rep_staff_limit ?? 5;
+    }
+
+    return config.rep_member_limit ?? 3;
 }
 
 function resetDaily(user) {
+
     const now = Date.now();
 
     if (
@@ -37,7 +81,10 @@ function resetDaily(user) {
             SET daily_given = 0,
                 daily_reset = ?
             WHERE user_id = ?
-        `).run(now, user.user_id);
+        `).run(
+            now,
+            user.user_id
+        );
 
         return true;
     }
@@ -46,10 +93,16 @@ function resetDaily(user) {
 }
 
 module.exports = {
+
     name: "rep",
+
     aliases: ["reputation"],
 
     async execute(message, args) {
+
+        // =========================
+        // GET TARGET
+        // =========================
 
         const target = message.mentions.users.first();
 
@@ -82,19 +135,21 @@ module.exports = {
         // =========================
 
         if (target.id === message.author.id) {
+
             return message.reply(
                 "❌ You can't give reputation to yourself."
             );
         }
 
         if (target.bot) {
+
             return message.reply(
                 "❌ You can't give reputation to bots."
             );
         }
 
         // =========================
-        // TYPE
+        // REP TYPE
         // =========================
 
         const typeArg = args[0]?.toLowerCase();
@@ -110,6 +165,14 @@ module.exports = {
         }
 
         // =========================
+        // SERVER CONFIG
+        // =========================
+
+        const config = getRepConfig(
+            message.guild.id
+        );
+
+        // =========================
         // GET GIVER
         // =========================
 
@@ -122,8 +185,13 @@ module.exports = {
         if (!giver) {
 
             db.prepare(`
-                INSERT INTO reputation
-                (user_id, positive, negative, daily_given, daily_reset)
+                INSERT INTO reputation (
+                    user_id,
+                    positive,
+                    negative,
+                    daily_given,
+                    daily_reset
+                )
                 VALUES (?, 0, 0, 0, ?)
             `).run(
                 message.author.id,
@@ -149,9 +217,17 @@ module.exports = {
             WHERE user_id = ?
         `).get(message.author.id);
 
-        const limit = getDailyLimit(message.member);
+        // =========================
+        // DAILY LIMIT
+        // =========================
+
+        const limit = getDailyLimit(
+            message.member,
+            config
+        );
 
         if (giver.daily_given >= limit) {
+
             return message.reply(
                 `⏳ You've reached your daily reputation limit of **${limit}**.`
             );
@@ -175,9 +251,13 @@ module.exports = {
 
         if (recent) {
 
-            const lastTime = new Date(recent.created_at).getTime();
+            const lastTime =
+                new Date(recent.created_at).getTime();
 
-            if (Date.now() - lastTime < COOLDOWN) {
+            if (
+                Date.now() - lastTime < COOLDOWN
+            ) {
+
                 return message.reply(
                     "⏳ You recently gave reputation to this user. Try again later."
                 );
@@ -185,12 +265,17 @@ module.exports = {
         }
 
         // =========================
-        // TARGET
+        // CREATE TARGET PROFILE
         // =========================
 
         db.prepare(`
-            INSERT OR IGNORE INTO reputation
-            (user_id, positive, negative, daily_given, daily_reset)
+            INSERT OR IGNORE INTO reputation (
+                user_id,
+                positive,
+                negative,
+                daily_given,
+                daily_reset
+            )
             VALUES (?, 0, 0, 0, ?)
         `).run(
             target.id,
@@ -219,22 +304,27 @@ module.exports = {
         }
 
         // =========================
-        // UPDATE DAILY USAGE
+        // UPDATE GIVER USAGE
         // =========================
 
         db.prepare(`
             UPDATE reputation
             SET daily_given = daily_given + 1
             WHERE user_id = ?
-        `).run(message.author.id);
+        `).run(
+            message.author.id
+        );
 
         // =========================
-        // LOG
+        // LOG REP
         // =========================
 
         db.prepare(`
-            INSERT INTO reputation_logs
-            (giver_id, receiver_id, type)
+            INSERT INTO reputation_logs (
+                giver_id,
+                receiver_id,
+                type
+            )
             VALUES (?, ?, ?)
         `).run(
             message.author.id,
@@ -243,7 +333,7 @@ module.exports = {
         );
 
         // =========================
-        // RESULT
+        // GET UPDATED REP
         // =========================
 
         const updated = db.prepare(`
@@ -252,7 +342,14 @@ module.exports = {
             WHERE user_id = ?
         `).get(target.id);
 
-        const symbol = type === "negative" ? "⚠️" : "✨";
+        // =========================
+        // RESULT
+        // =========================
+
+        const symbol =
+            type === "negative"
+                ? "⚠️"
+                : "✨";
 
         return message.reply(
             `${symbol} **${target.username}** received **+1 ${type} reputation**!\n` +
