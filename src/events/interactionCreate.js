@@ -15,6 +15,13 @@ const {
 
 const db = require("../database/database");
 
+function ensureServerConfig(guildId) {
+    db.prepare(`
+        INSERT OR IGNORE INTO server_config (guild_id)
+        VALUES (?)
+    `).run(guildId);
+}
+
 module.exports = async (interaction) => {
 
     // =========================
@@ -75,6 +82,8 @@ module.exports = async (interaction) => {
 
         const channelId = interaction.values[0];
 
+ensureServerConfig(interaction.guild.id);
+
         db.prepare(`
             UPDATE server_config
             SET leaderboard_channel = ?
@@ -133,6 +142,8 @@ module.exports = async (interaction) => {
 
     if (interaction.customId === "set_chat_role") {
 
+ensureServerConfig(interaction.guild.id);
+
         db.prepare(`
             UPDATE server_config
             SET chat_king_role = ?
@@ -153,6 +164,9 @@ module.exports = async (interaction) => {
     // =========================
 
     if (interaction.customId === "set_voice_role") {
+
+ensureServerConfig(interaction.guild.id);
+
 
         db.prepare(`
             UPDATE server_config
@@ -261,6 +275,9 @@ module.exports = async (interaction) => {
 
         const roleId = interaction.values[0];
 
+ensureServerConfig(interaction.guild.id);
+
+
         db.prepare(`
             UPDATE server_config
             SET rep_staff_role = ?
@@ -284,6 +301,8 @@ module.exports = async (interaction) => {
     if (interaction.customId === "set_rep_funder_role") {
 
         const roleId = interaction.values[0];
+
+ensureServerConfig(interaction.guild.id);
 
         db.prepare(`
             UPDATE server_config
@@ -425,6 +444,8 @@ module.exports = async (interaction) => {
                 ephemeral: true
             });
         }
+
+ensureServerConfig(interaction.guild.id);
 
         db.prepare(`
             UPDATE server_config
