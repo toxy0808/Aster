@@ -552,6 +552,77 @@ if (interaction.customId === "rep_reward_add_modal") {
 }
 
 
+// =========================
+// MANAGE REP REWARDS
+// =========================
+
+if (interaction.customId === "rep_reward_manage") {
+
+    const rewards = db.prepare(`
+        SELECT id, role_id, threshold, type, enabled
+        FROM reputation_rewards
+        WHERE guild_id = ?
+        ORDER BY threshold ASC
+    `).all(interaction.guild.id);
+
+    if (!rewards.length) {
+        return interaction.reply({
+            content: "ℹ️ There are no reputation rewards to manage yet.",
+            ephemeral: true
+        });
+    }
+
+    const rows = rewards.map(reward => {
+
+        const row = new ActionRowBuilder();
+
+        row.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`rep_reward_toggle_${reward.id}`)
+                .setLabel(
+                    reward.enabled ? "Disable" : "Enable"
+                )
+                .setStyle(
+                    reward.enabled
+                        ? ButtonStyle.Secondary
+                        : ButtonStyle.Success
+                ),
+
+            new ButtonBuilder()
+                .setCustomId(`rep_reward_delete_${reward.id}`)
+                .setLabel("Delete")
+                .setStyle(ButtonStyle.Danger)
+        );
+
+        return row;
+    });
+
+    const description = rewards.map(reward =>
+        `${reward.type === "negative" ? "−" : "+"} **${reward.threshold}** → <@&${reward.role_id}> ` +
+        `${reward.enabled ? "• Enabled" : "• Disabled"}`
+    ).join("\n");
+
+    const container = new ContainerBuilder()
+        .setAccentColor(0xFF4DA6)
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "# ⚙️ ASTER • Manage Rep Rewards\n\n" +
+                description
+            )
+        );
+
+    return interaction.reply({
+        components: [
+            container,
+            ...rows
+        ],
+        flags:
+            MessageFlags.IsComponentsV2 |
+            MessageFlags.Ephemeral
+    });
+}
+
+
 
 // =========================
 // REP REWARDS
