@@ -35,80 +35,106 @@ module.exports = async (client, message) => {
         message.react(autoReact.emoji).catch(() => {});
     }
 
-    // =========================
-    // ASTER INTRO
-    // =========================
-    // Only trigger when ASTER is mentioned directly.
-    // Replies to ASTER will NOT trigger the intro.
+   
+// =========================
+// ASTER INTRO
+// =========================
 
-    if (
-        message.mentions.users.has(client.user.id) &&
-        !message.reference
-    ) {
+if (
+    message.mentions.users.has(client.user.id) &&
+    !message.reference
+) {
 
-        const container = new ContainerBuilder()
-            .setAccentColor(0xFF4DA6)
+    const container = new ContainerBuilder()
+        .setAccentColor(0xFF006E)
 
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    "# 🌸 ASTER • Activity Intelligence\n" +
-                    "Your community's activity tracking system."
-                )
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "# ✦ ASTER\n" +
+                "### Activity • Reputation • Rewards\n\n" +
+                "Your community assistant for tracking activity, " +
+                "competition, reputation and server rewards."
             )
+        )
 
-            .addSeparatorComponents(
-                new SeparatorBuilder()
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "### 📊 Activity\n\n" +
+                "Track messages, XP, levels and voice activity.\n\n" +
+                "`,activity` • `,rank` • `,activitylb`"
             )
+        )
 
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    "### 📊 Activity\n" +
-                    "` ,activity ` — View your activity\n" +
-                    "` ,rank ` — View your activity profile\n" +
-                    "` ,activitylb ` — View the live leaderboard"
-                )
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "### 🏆 Leaderboards\n\n" +
+                "Live **24H** and **7D** activity rankings.\n" +
+                "Top performers can earn configurable winner roles."
             )
+        )
 
-            .addSeparatorComponents(
-                new SeparatorBuilder()
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "### ✨ Reputation\n\n" +
+                "Give reputation with `+rep @user`.\n" +
+                "Remove reputation with `-rep @user`.\n\n" +
+                "Reputation can unlock configurable role rewards."
             )
+        )
 
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    "### 🏆 Leaderboards\n" +
-                    "Live **24H** and **7D** chat & voice rankings.\n" +
-                    "Compete for the top spots and weekly rewards."
-                )
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "### ⚙️ Server Features\n\n" +
+                "• Automatic reactions\n" +
+                "• Activity tracking & XP\n" +
+                "• Activity leaderboard rewards\n" +
+                "• Reputation rewards\n" +
+                "• Staff & Funder reputation limits\n" +
+                "• Custom server configuration"
             )
+        )
 
-            .addSeparatorComponents(
-                new SeparatorBuilder()
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "### 🚀 Getting Started\n\n" +
+                "Use `,help` to explore the available commands.\n" +
+                "Administrators can use `,config` to customize ASTER."
             )
+        )
 
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    "### 🎁 Rewards\n" +
-                    "Top activity members can earn special server roles."
-                )
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "— **ASTER** • Built for communities"
             )
+        );
 
-            .addSeparatorComponents(
-                new SeparatorBuilder()
-            )
+    return message.reply({
+        components: [container],
+        flags: MessageFlags.IsComponentsV2
+    });
+}
 
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    "### ⚙️ Commands\n" +
-                    "Use `,help` to view all available commands.\n\n" +
-                    "ASTER • Built for communities"
-                )
-            );
 
-        return message.reply({
-            components: [container],
-            flags: MessageFlags.IsComponentsV2
-        });
-    }
 
     // =========================
     // MESSAGE COOLDOWN
