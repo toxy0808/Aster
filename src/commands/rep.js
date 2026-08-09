@@ -2,6 +2,37 @@ const db = require("../database/database");
 
 const COOLDOWN = 10 * 60 * 1000; // 10 minutes between reps to the same user
 
+async function updateRepRewards(member, positiveRep) {
+
+    const rewards = db.prepare(`
+        SELECT role_id, threshold
+        FROM reputation_rewards
+        WHERE guild_id = ?
+        AND type = 'positive'
+        AND enabled = 1
+        ORDER BY threshold DESC
+    `).all(member.guild.id);
+
+    for (const reward of rewards) {
+
+        const role = member.guild.roles.cache.get(
+            reward.role_id
+        );
+
+        if (!role) continue;
+
+        if (positiveRep >= reward.threshold) {
+            if (!member.roles.cache.has(role.id)) {
+                await member.roles.add(role);
+            }
+        } else {
+            if (member.roles.cache.has(role.id)) {
+                await member.roles.remove(role);
+            }
+        }
+    }
+}
+
 function getRepConfig(guildId) {
 
     let config = db.prepare(`
