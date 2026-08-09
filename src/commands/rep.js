@@ -1,37 +1,6 @@
 const db = require("../database/database");
 
-const COOLDOWN = 10 * 60 * 1000; // 10 minutes between reps to the same user
-
-async function updateRepRewards(member, positiveRep) {
-
-    const rewards = db.prepare(`
-        SELECT role_id, threshold
-        FROM reputation_rewards
-        WHERE guild_id = ?
-        AND type = 'positive'
-        AND enabled = 1
-        ORDER BY threshold DESC
-    `).all(member.guild.id);
-
-    for (const reward of rewards) {
-
-        const role = member.guild.roles.cache.get(
-            reward.role_id
-        );
-
-        if (!role) continue;
-
-        if (positiveRep >= reward.threshold) {
-            if (!member.roles.cache.has(role.id)) {
-                await member.roles.add(role);
-            }
-        } else {
-            if (member.roles.cache.has(role.id)) {
-                await member.roles.remove(role);
-            }
-        }
-    }
-}
+const COOLDOWN = 10 * 60 * 1000;
 
 function getRepConfig(guildId) {
 
@@ -126,10 +95,10 @@ function resetDaily(user) {
     return false;
 }
 
-async function applyRepRewards(guild, targetId, updated) {
+async function applyRepRewards(guild, targetId, reputation) {
 
     const rewards = db.prepare(`
-        SELECT role_id, threshold, type
+        SELECT role_id, threshold
         FROM reputation_rewards
         WHERE guild_id = ?
         AND enabled = 1
@@ -138,22 +107,13 @@ async function applyRepRewards(guild, targetId, updated) {
 
     if (!rewards.length) return;
 
-    const targetMember = await guild.members
+    const member = await guild.members
         .fetch(targetId)
         .catch(() => null);
 
-    if (!targetMember) return;
+    if (!member) return;
 
     for (const reward of rewards) {
-
-        const value =
-            reward.type === "negative"
-                ? updated.negative
-                : updated.positive;
-
-        if (value < reward.threshold) {
-            continue;
-        }
 
         const role = guild.roles.cache.get(
             reward.role_id
@@ -161,11 +121,17 @@ async function applyRepRewards(guild, targetId, updated) {
 
         if (!role) continue;
 
-        if (!targetMember.roles.cache.has(role.id)) {
+        if (reputation >= reward.threshold) {
 
-            await targetMember.roles
-                .add(role)
-                .catch(() => {});
+            if (!member.roles.cache.has(role.id)) {
+                await member.roles.add(role).catch(() => {});
+            }
+
+        } else {
+
+            if (member.roles.cache.has(role.id)) {
+                await member.roles.remove(role).catch(() => {});
+            }
         }
     }
 }
@@ -179,7 +145,7 @@ module.exports = {
     async execute(message, args) {
 
         // =========================
-        // GET TARGET
+        // TARGET
         // =========================
 
         const target = message.mentions.users.first();
@@ -191,20 +157,15 @@ module.exports = {
         if (!target) {
 
             const user = db.prepare(`
-                SELECT positive, negative
+                SELECT reputation
                 FROM reputation
                 WHERE user_id = ?
             `).get(message.author.id);
 
-            const positive = user?.positive || 0;
-            const negative = user?.negative || 0;
-            const net = positive - negative;
+            const reputation = user?.reputation ?? 0;
 
             return message.reply(
-                `✨ **${message.author.username}**\n` +
-                `Positive: **${positive}**\n` +
-                `Negative: **${negative}**\n` +
-                `Net: **${net}**`
+                `✨ **${message.author.username}** has **${reputation} reputation**.`
             );
         }
 
@@ -232,14 +193,14 @@ module.exports = {
 
         const typeArg = args[0]?.toLowerCase();
 
-        let type = "positive";
+        let amount = 1;
 
         if (
+            typeArg === "-" ||
             typeArg === "negative" ||
-            typeArg === "neg" ||
-            typeArg === "-"
+            typeArg === "neg"
         ) {
-            type = "negative";
+            amount = -1;
         }
 
         // =========================
@@ -265,12 +226,11 @@ module.exports = {
             db.prepare(`
                 INSERT INTO reputation (
                     user_id,
-                    positive,
-                    negative,
+                    reputation,
                     daily_given,
                     daily_reset
                 )
-                VALUES (?, 0, 0, 0, ?)
+                VALUES (?, 0, 0, ?)
             `).run(
                 message.author.id,
                 Date.now()
@@ -312,7 +272,7 @@ module.exports = {
         }
 
         // =========================
-        // ANTI-SPAM
+        // COOLDOWN
         // =========================
 
         const recent = db.prepare(`
@@ -349,43 +309,31 @@ module.exports = {
         db.prepare(`
             INSERT OR IGNORE INTO reputation (
                 user_id,
-                positive,
-                negative,
+                reputation,
                 daily_given,
                 daily_reset
             )
-            VALUES (?, 0, 0, 0, ?)
+            VALUES (?, 0, 0, ?)
         `).run(
             target.id,
             Date.now()
         );
 
+        // =========================
+        // UPDATE REP
+        // =========================
 
-
-// =========================
-// UPDATE REP
-// =========================
-
-if (type === "negative") {
-
-    db.prepare(`
-        UPDATE reputation
-        SET positive = positive - 1
-        WHERE user_id = ?
-    `).run(target.id);
-
-} else {
-
-    db.prepare(`
-        UPDATE reputation
-        SET positive = positive + 1
-        WHERE user_id = ?
-    `).run(target.id);
-}
-
+        db.prepare(`
+            UPDATE reputation
+            SET reputation = reputation + ?
+            WHERE user_id = ?
+        `).run(
+            amount,
+            target.id
+        );
 
         // =========================
-        // UPDATE GIVER USAGE
+        // UPDATE GIVER DAILY USAGE
         // =========================
 
         db.prepare(`
@@ -397,7 +345,7 @@ if (type === "negative") {
         );
 
         // =========================
-        // LOG REP
+        // LOG
         // =========================
 
         db.prepare(`
@@ -410,7 +358,7 @@ if (type === "negative") {
         `).run(
             message.author.id,
             target.id,
-            type
+            amount > 0 ? "positive" : "negative"
         );
 
         // =========================
@@ -418,19 +366,19 @@ if (type === "negative") {
         // =========================
 
         const updated = db.prepare(`
-            SELECT positive, negative
+            SELECT reputation
             FROM reputation
             WHERE user_id = ?
         `).get(target.id);
 
         // =========================
-        // APPLY REP REWARDS
+        // APPLY REWARDS
         // =========================
 
         await applyRepRewards(
             message.guild,
             target.id,
-            updated
+            updated.reputation
         );
 
         // =========================
@@ -438,14 +386,18 @@ if (type === "negative") {
         // =========================
 
         const symbol =
-            type === "negative"
-                ? "⚠️"
-                : "✨";
+            amount > 0
+                ? "✨"
+                : "⚠️";
+
+        const action =
+            amount > 0
+                ? "gained"
+                : "lost";
 
         return message.reply(
-            `${symbol} **${target.username}** received **+1 ${type} reputation**!\n` +
-            `✨ Positive: **${updated.positive}** | ` +
-            `⚠️ Negative: **${updated.negative}**`
+            `${symbol} **${target.username}** ${action} **${Math.abs(amount)} reputation**!\n` +
+            `⭐ Reputation: **${updated.reputation}**`
         );
     }
 };
