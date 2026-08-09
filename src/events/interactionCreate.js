@@ -7,7 +7,10 @@ const {
     ContainerBuilder,
     TextDisplayBuilder,
     SeparatorBuilder,
-    MessageFlags
+    MessageFlags,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle
 } = require("discord.js");
 
 const db = require("../database/database");
@@ -21,7 +24,8 @@ module.exports = async (interaction) => {
     if (
         !interaction.isButton() &&
         !interaction.isChannelSelectMenu() &&
-        !interaction.isRoleSelectMenu()
+        !interaction.isRoleSelectMenu() &&
+        !interaction.isModalSubmit()
     ) {
         return;
     }
@@ -67,13 +71,9 @@ module.exports = async (interaction) => {
     // SAVE LEADERBOARD CHANNEL
     // =========================
 
-    if (
-        interaction.customId ===
-        "set_leaderboard_channel"
-    ) {
+    if (interaction.customId === "set_leaderboard_channel") {
 
-        const channelId =
-            interaction.values[0];
+        const channelId = interaction.values[0];
 
         db.prepare(`
             UPDATE server_config
@@ -95,43 +95,30 @@ module.exports = async (interaction) => {
     // ACTIVITY ROLES
     // =========================
 
-    if (
-        interaction.customId ===
-        "config_roles"
-    ) {
+    if (interaction.customId === "config_roles") {
 
-        const chatMenu =
-            new ActionRowBuilder()
-                .addComponents(
-                    new RoleSelectMenuBuilder()
-                        .setCustomId(
-                            "set_chat_role"
-                        )
-                        .setPlaceholder(
-                            "Select Chat King role"
-                        )
-                        .setMinValues(1)
-                        .setMaxValues(1)
-                );
+        const chatMenu = new ActionRowBuilder()
+            .addComponents(
+                new RoleSelectMenuBuilder()
+                    .setCustomId("set_chat_role")
+                    .setPlaceholder("Select Chat King role")
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            );
 
-        const voiceMenu =
-            new ActionRowBuilder()
-                .addComponents(
-                    new RoleSelectMenuBuilder()
-                        .setCustomId(
-                            "set_voice_role"
-                        )
-                        .setPlaceholder(
-                            "Select Voice King role"
-                        )
-                        .setMinValues(1)
-                        .setMaxValues(1)
-                );
+        const voiceMenu = new ActionRowBuilder()
+            .addComponents(
+                new RoleSelectMenuBuilder()
+                    .setCustomId("set_voice_role")
+                    .setPlaceholder("Select Voice King role")
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            );
 
         return interaction.reply({
             content:
                 "👑 **Activity Roles**\n\n" +
-                "Select the roles ASTER should give to activity winners.",
+                "Select the roles ASTER should use for activity winners.",
             components: [
                 chatMenu,
                 voiceMenu
@@ -144,10 +131,7 @@ module.exports = async (interaction) => {
     // SAVE CHAT ROLE
     // =========================
 
-    if (
-        interaction.customId ===
-        "set_chat_role"
-    ) {
+    if (interaction.customId === "set_chat_role") {
 
         db.prepare(`
             UPDATE server_config
@@ -159,8 +143,7 @@ module.exports = async (interaction) => {
         );
 
         return interaction.update({
-            content:
-                "✅ Chat King role saved!",
+            content: "✅ Chat King role saved!",
             components: []
         });
     }
@@ -169,10 +152,7 @@ module.exports = async (interaction) => {
     // SAVE VOICE ROLE
     // =========================
 
-    if (
-        interaction.customId ===
-        "set_voice_role"
-    ) {
+    if (interaction.customId === "set_voice_role") {
 
         db.prepare(`
             UPDATE server_config
@@ -184,8 +164,7 @@ module.exports = async (interaction) => {
         );
 
         return interaction.update({
-            content:
-                "✅ Voice King role saved!",
+            content: "✅ Voice King role saved!",
             components: []
         });
     }
@@ -194,112 +173,79 @@ module.exports = async (interaction) => {
     // REP CONFIG
     // =========================
 
-    if (
-        interaction.customId ===
-        "config_rep"
-    ) {
+    if (interaction.customId === "config_rep") {
 
-        const staffRole =
-            new ActionRowBuilder()
-                .addComponents(
-                    new RoleSelectMenuBuilder()
-                        .setCustomId(
-                            "set_rep_staff_role"
-                        )
-                        .setPlaceholder(
-                            "Select Staff role"
-                        )
-                        .setMinValues(1)
-                        .setMaxValues(1)
-                );
+        const staffRole = new ActionRowBuilder()
+            .addComponents(
+                new RoleSelectMenuBuilder()
+                    .setCustomId("set_rep_staff_role")
+                    .setPlaceholder("Select Staff role")
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            );
 
-        const funderRole =
-            new ActionRowBuilder()
-                .addComponents(
-                    new RoleSelectMenuBuilder()
-                        .setCustomId(
-                            "set_rep_funder_role"
-                        )
-                        .setPlaceholder(
-                            "Select Funder role"
-                        )
-                        .setMinValues(1)
-                        .setMaxValues(1)
-                );
+        const funderRole = new ActionRowBuilder()
+            .addComponents(
+                new RoleSelectMenuBuilder()
+                    .setCustomId("set_rep_funder_role")
+                    .setPlaceholder("Select Funder role")
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            );
 
-        const limits =
-            new ActionRowBuilder()
-                .addComponents(
+        const buttons = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId("rep_limits")
+                    .setLabel("⚙️ Rep Limits")
+                    .setStyle(ButtonStyle.Primary),
 
-                    new ButtonBuilder()
-                        .setCustomId(
-                            "rep_limits"
-                        )
-                        .setLabel(
-                            "⚙️ Rep Limits"
-                        )
-                        .setStyle(
-                            ButtonStyle.Primary
-                        ),
+                new ButtonBuilder()
+                    .setCustomId("rep_rewards")
+                    .setLabel("🏅 Rep Rewards")
+                    .setStyle(ButtonStyle.Secondary)
+            );
 
-                    new ButtonBuilder()
-                        .setCustomId(
-                            "rep_rewards"
-                        )
-                        .setLabel(
-                            "🏅 Rep Rewards"
-                        )
-                        .setStyle(
-                            ButtonStyle.Secondary
-                        )
-                );
+        const container = new ContainerBuilder()
+            .setAccentColor(0xFF4DA6)
 
-        const container =
-            new ContainerBuilder()
-                .setAccentColor(
-                    0xFF4DA6
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    "# ✨ ASTER • Reputation\n" +
+                    "Configure the server reputation system."
                 )
+            )
 
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder()
-                        .setContent(
-                            "# ✨ ASTER • Reputation\n" +
-                            "Configure the server reputation system."
-                        )
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    "### 🎯 Daily Limits\n" +
+                    "👤 Member — **3/day**\n" +
+                    "🛡️ Staff — **5/day**\n" +
+                    "💎 Funder — **8/day**\n" +
+                    "🛡️💎 Staff + Funder — **10/day**"
                 )
+            )
 
-                .addSeparatorComponents(
-                    new SeparatorBuilder()
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    "Select the Staff and Funder roles below."
                 )
-
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder()
-                        .setContent(
-                            "### 🎯 Daily Limits\n" +
-                            "👤 Member — **3**\n" +
-                            "🛡️ Staff — **5**\n" +
-                            "💎 Funder — **8**\n" +
-                            "🛡️💎 Staff + Funder — **10**"
-                        )
-                )
-
-                .addSeparatorComponents(
-                    new SeparatorBuilder()
-                )
-
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder()
-                        .setContent(
-                            "Select the Staff and Funder roles below."
-                        )
-                );
+            );
 
         return interaction.reply({
             components: [
                 container,
                 staffRole,
                 funderRole,
-                limits
+                buttons
             ],
             flags:
                 MessageFlags.IsComponentsV2 |
@@ -311,13 +257,9 @@ module.exports = async (interaction) => {
     // SAVE REP STAFF ROLE
     // =========================
 
-    if (
-        interaction.customId ===
-        "set_rep_staff_role"
-    ) {
+    if (interaction.customId === "set_rep_staff_role") {
 
-        const roleId =
-            interaction.values[0];
+        const roleId = interaction.values[0];
 
         db.prepare(`
             UPDATE server_config
@@ -339,13 +281,9 @@ module.exports = async (interaction) => {
     // SAVE REP FUNDER ROLE
     // =========================
 
-    if (
-        interaction.customId ===
-        "set_rep_funder_role"
-    ) {
+    if (interaction.customId === "set_rep_funder_role") {
 
-        const roleId =
-            interaction.values[0];
+        const roleId = interaction.values[0];
 
         db.prepare(`
             UPDATE server_config
@@ -364,23 +302,153 @@ module.exports = async (interaction) => {
     }
 
     // =========================
-    // REP LIMITS
+    // OPEN REP LIMIT MODAL
     // =========================
 
-    if (
-        interaction.customId ===
-        "rep_limits"
-    ) {
+    if (interaction.customId === "rep_limits") {
+
+        const config = db.prepare(`
+            SELECT
+                rep_member_limit,
+                rep_staff_limit,
+                rep_funder_limit,
+                rep_staff_funder_limit
+            FROM server_config
+            WHERE guild_id = ?
+        `).get(interaction.guild.id);
+
+        const modal = new ModalBuilder()
+            .setCustomId("rep_limits_modal")
+            .setTitle("ASTER • Rep Limits");
+
+        const memberInput = new TextInputBuilder()
+            .setCustomId("rep_member_limit")
+            .setLabel("Member daily limit")
+            .setStyle(TextInputStyle.Short)
+            .setValue(
+                String(config?.rep_member_limit ?? 3)
+            )
+            .setRequired(true);
+
+        const staffInput = new TextInputBuilder()
+            .setCustomId("rep_staff_limit")
+            .setLabel("Staff daily limit")
+            .setStyle(TextInputStyle.Short)
+            .setValue(
+                String(config?.rep_staff_limit ?? 5)
+            )
+            .setRequired(true);
+
+        const funderInput = new TextInputBuilder()
+            .setCustomId("rep_funder_limit")
+            .setLabel("Funder daily limit")
+            .setStyle(TextInputStyle.Short)
+            .setValue(
+                String(config?.rep_funder_limit ?? 8)
+            )
+            .setRequired(true);
+
+        const combinedInput = new TextInputBuilder()
+            .setCustomId("rep_staff_funder_limit")
+            .setLabel("Staff + Funder daily limit")
+            .setStyle(TextInputStyle.Short)
+            .setValue(
+                String(config?.rep_staff_funder_limit ?? 10)
+            )
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder()
+                .addComponents(memberInput),
+
+            new ActionRowBuilder()
+                .addComponents(staffInput),
+
+            new ActionRowBuilder()
+                .addComponents(funderInput),
+
+            new ActionRowBuilder()
+                .addComponents(combinedInput)
+        );
+
+        return interaction.showModal(modal);
+    }
+
+    // =========================
+    // SAVE REP LIMITS
+    // =========================
+
+    if (interaction.customId === "rep_limits_modal") {
+
+        const memberLimit = parseInt(
+            interaction.fields.getTextInputValue(
+                "rep_member_limit"
+            )
+        );
+
+        const staffLimit = parseInt(
+            interaction.fields.getTextInputValue(
+                "rep_staff_limit"
+            )
+        );
+
+        const funderLimit = parseInt(
+            interaction.fields.getTextInputValue(
+                "rep_funder_limit"
+            )
+        );
+
+        const combinedLimit = parseInt(
+            interaction.fields.getTextInputValue(
+                "rep_staff_funder_limit"
+            )
+        );
+
+        const limits = [
+            memberLimit,
+            staffLimit,
+            funderLimit,
+            combinedLimit
+        ];
+
+        if (
+            limits.some(
+                limit =>
+                    !Number.isInteger(limit) ||
+                    limit < 0 ||
+                    limit > 100
+            )
+        ) {
+            return interaction.reply({
+                content:
+                    "❌ All limits must be whole numbers between **0 and 100**.",
+                ephemeral: true
+            });
+        }
+
+        db.prepare(`
+            UPDATE server_config
+            SET
+                rep_member_limit = ?,
+                rep_staff_limit = ?,
+                rep_funder_limit = ?,
+                rep_staff_funder_limit = ?
+            WHERE guild_id = ?
+        `).run(
+            memberLimit,
+            staffLimit,
+            funderLimit,
+            combinedLimit,
+            interaction.guild.id
+        );
 
         return interaction.reply({
             content:
-                "⚙️ **Rep Limits**\n\n" +
-                "Current defaults:\n\n" +
-                "👤 Member: **3/day**\n" +
-                "🛡️ Staff: **5/day**\n" +
-                "💎 Funder: **8/day**\n" +
-                "🛡️💎 Staff + Funder: **10/day**\n\n" +
-                "Custom limit controls will be added here.",
+                "✅ **Rep limits updated!**\n\n" +
+                `👤 Member: **${memberLimit}/day**\n` +
+                `🛡️ Staff: **${staffLimit}/day**\n` +
+                `💎 Funder: **${funderLimit}/day**\n` +
+                `🛡️💎 Staff + Funder: **${combinedLimit}/day**`,
             ephemeral: true
         });
     }
@@ -389,15 +457,12 @@ module.exports = async (interaction) => {
     // REP REWARDS
     // =========================
 
-    if (
-        interaction.customId ===
-        "rep_rewards"
-    ) {
+    if (interaction.customId === "rep_rewards") {
 
         return interaction.reply({
             content:
                 "🏅 **Rep Rewards**\n\n" +
-                "The reputation reward roles will be configured here next.",
+                "Rep reward roles will be configured here next.",
             ephemeral: true
         });
     }
