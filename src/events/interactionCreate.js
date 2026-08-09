@@ -488,6 +488,72 @@ if (interaction.customId === "rep_reward_add") {
 
 
 // =========================
+// SAVE REP REWARD
+// =========================
+
+if (interaction.customId === "rep_reward_add_modal") {
+
+    const roleId = interaction.fields.getTextInputValue(
+        "rep_reward_role"
+    ).trim();
+
+    const threshold = parseInt(
+        interaction.fields.getTextInputValue(
+            "rep_reward_threshold"
+        ).trim()
+    );
+
+    if (!/^\d{17,20}$/.test(roleId)) {
+        return interaction.reply({
+            content: "❌ Invalid Discord role ID.",
+            ephemeral: true
+        });
+    }
+
+    if (
+        !Number.isInteger(threshold) ||
+        threshold <= 0 ||
+        threshold > 1000000
+    ) {
+        return interaction.reply({
+            content:
+                "❌ The reputation threshold must be a whole number greater than 0.",
+            ephemeral: true
+        });
+    }
+
+    const role = interaction.guild.roles.cache.get(roleId);
+
+    if (!role) {
+        return interaction.reply({
+            content:
+                "❌ That role doesn't exist in this server.",
+            ephemeral: true
+        });
+    }
+
+    db.prepare(`
+        INSERT INTO reputation_rewards
+        (guild_id, role_id, threshold, type, enabled)
+        VALUES (?, ?, ?, 'positive', 1)
+    `).run(
+        interaction.guild.id,
+        roleId,
+        threshold
+    );
+
+    return interaction.reply({
+        content:
+            `✅ Rep reward added!\n\n` +
+            `Role: <@&${roleId}>\n` +
+            `Threshold: **+${threshold} reputation**`,
+        ephemeral: true
+    });
+}
+
+
+
+// =========================
 // REP REWARDS
 // =========================
 
