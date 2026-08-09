@@ -24,8 +24,20 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 db.prepare(`
 CREATE TABLE IF NOT EXISTS reputation (
     user_id TEXT PRIMARY KEY,
-    points INTEGER DEFAULT 0,
-    last_rep INTEGER DEFAULT 0
+    positive INTEGER DEFAULT 0,
+    negative INTEGER DEFAULT 0,
+    daily_given INTEGER DEFAULT 0,
+    daily_reset INTEGER DEFAULT 0
+)
+`).run();
+
+db.prepare(`
+CREATE TABLE IF NOT EXISTS reputation_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    giver_id TEXT NOT NULL,
+    receiver_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 `).run();
 
