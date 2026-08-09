@@ -47,6 +47,7 @@ client.commands.set("config", require("./commands/config"));
 client.commands.set("autoreact",require("./commands/autoreact"));
 client.commands.set("rep", require("./commands/rep"));
 client.commands.set("help", require("./commands/help"));
+client.commands.set("ping", require("./commands/ping"));
 
 
 client.on("voiceStateUpdate", (oldState, newState) => {
