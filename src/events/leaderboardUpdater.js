@@ -5,6 +5,10 @@ const createActivityEmbed = require("../utils/activityEmbed");
 
 console.log("LEADERBOARD UPDATER LOADED");
 
+// =========================
+// TIME HELPERS
+// =========================
+
 function getStartOfToday() {
     const now = new Date();
 
@@ -13,7 +17,7 @@ function getStartOfToday() {
     return Math.floor(now.getTime() / 1000);
 }
 
-function getStartOfTomorrow() {
+function getNextMidnightTimestamp() {
     const tomorrow = new Date();
 
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -24,10 +28,24 @@ function getStartOfTomorrow() {
 
 function getNextMondayTimestamp() {
     const now = new Date();
-    const next = new Date();
+
+    const next = new Date(now);
+
+    const currentDay = now.getDay();
+
+    // Sunday = 0
+    // Monday = 1
+    //
+    // Always get the NEXT Monday.
+    let daysUntilMonday =
+        (8 - currentDay) % 7;
+
+    if (daysUntilMonday === 0) {
+        daysUntilMonday = 7;
+    }
 
     next.setDate(
-        now.getDate() + ((8 - now.getDay()) % 7)
+        now.getDate() + daysUntilMonday
     );
 
     next.setHours(0, 0, 0, 0);
@@ -35,7 +53,22 @@ function getNextMondayTimestamp() {
     return Math.floor(next.getTime() / 1000);
 }
 
+// =========================
+// LEADERBOARD QUERIES
+// =========================
+//
+// activity_logs.created_at is stored as:
+// YYYY-MM-DD HH:MM:SS
+//
+// SQLite's strftime('%s', created_at)
+// converts that timestamp to Unix seconds.
+//
+// This lets us compare it safely against
+// the JS-generated reset timestamps.
+// =========================
+
 function getChatTop24h() {
+
     const since = getStartOfToday();
 
     return db.prepare(`
@@ -44,7 +77,7 @@ function getChatTop24h() {
             SUM(amount) AS messages
         FROM activity_logs
         WHERE type = 'chat'
-        AND created_at >= ?
+        AND strftime('%s', created_at) >= ?
         GROUP BY user_id
         ORDER BY messages DESC
         LIMIT 5
@@ -52,6 +85,7 @@ function getChatTop24h() {
 }
 
 function getVoiceTop24h() {
+
     const since = getStartOfToday();
 
     return db.prepare(`
@@ -60,7 +94,7 @@ function getVoiceTop24h() {
             SUM(amount) AS voice_time
         FROM activity_logs
         WHERE type = 'voice'
-        AND created_at >= ?
+        AND strftime('%s', created_at) >= ?
         GROUP BY user_id
         ORDER BY voice_time DESC
         LIMIT 5
@@ -68,8 +102,10 @@ function getVoiceTop24h() {
 }
 
 function getChatTop7d() {
+
     const since =
-        Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
+        Math.floor(Date.now() / 1000) -
+        (7 * 24 * 60 * 60);
 
     return db.prepare(`
         SELECT
@@ -77,7 +113,7 @@ function getChatTop7d() {
             SUM(amount) AS messages
         FROM activity_logs
         WHERE type = 'chat'
-        AND created_at >= ?
+        AND strftime('%s', created_at) >= ?
         GROUP BY user_id
         ORDER BY messages DESC
         LIMIT 5
@@ -85,8 +121,10 @@ function getChatTop7d() {
 }
 
 function getVoiceTop7d() {
+
     const since =
-        Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
+        Math.floor(Date.now() / 1000) -
+        (7 * 24 * 60 * 60);
 
     return db.prepare(`
         SELECT
@@ -94,12 +132,16 @@ function getVoiceTop7d() {
             SUM(amount) AS voice_time
         FROM activity_logs
         WHERE type = 'voice'
-        AND created_at >= ?
+        AND strftime('%s', created_at) >= ?
         GROUP BY user_id
         ORDER BY voice_time DESC
         LIMIT 5
     `).all(since);
 }
+
+// =========================
+// USER DATA
+// =========================
 
 async function addUserData(channel, users) {
 
@@ -128,6 +170,10 @@ async function addUserData(channel, users) {
     );
 }
 
+// =========================
+// SEND / UPDATE LEADERBOARD
+// =========================
+
 async function sendOrUpdate(channel, type, embed) {
 
     const old = leaderboardDB.prepare(
@@ -151,12 +197,16 @@ async function sendOrUpdate(channel, type, embed) {
         } catch (error) {
 
             /*
-             * Error 10008 means the Discord message
-             * genuinely no longer exists.
+             * 10008 = Unknown Message.
              *
-             * Other errors are treated as temporary/API
-             * problems and the saved message ID is kept.
+             * Only delete the saved message ID when
+             * the message genuinely no longer exists.
+             *
+             * Network/API timeout:
+             * KEEP the saved message ID and try again
+             * on the next update.
              */
+
             if (error.code !== 10008) {
 
                 console.error(
@@ -173,17 +223,33 @@ async function sendOrUpdate(channel, type, embed) {
         }
     }
 
-    const message = await channel.send({
-        embeds: [embed]
-    });
+    try {
 
-    leaderboardDB.prepare(
-        "INSERT INTO leaderboard_messages (type, message_id) VALUES (?, ?)"
-    ).run(
-        type,
-        message.id
-    );
+        const message = await channel.send({
+            embeds: [embed]
+        });
+
+        leaderboardDB.prepare(`
+            INSERT INTO leaderboard_messages
+            (type, message_id)
+            VALUES (?, ?)
+        `).run(
+            type,
+            message.id
+        );
+
+    } catch (error) {
+
+        console.error(
+            `Failed to send ${type}:`,
+            error.message
+        );
+    }
 }
+
+// =========================
+// MODULE
+// =========================
 
 module.exports = async (client) => {
 
@@ -194,17 +260,32 @@ module.exports = async (client) => {
     const config = getConfig(guild.id);
 
     if (!config.leaderboard_channel) {
-        console.log("No leaderboard channel configured.");
+
+        console.log(
+            "No leaderboard channel configured."
+        );
+
         return;
     }
 
-    const channel = await client.channels.fetch(
-        config.leaderboard_channel
-    );
+    const channel = await client.channels
+        .fetch(config.leaderboard_channel)
+        .catch(() => null);
 
-    if (!channel) return;
+    if (!channel) {
+
+        console.log(
+            "Leaderboard channel could not be fetched."
+        );
+
+        return;
+    }
 
     let updating = false;
+
+    // =========================
+    // UPDATE LEADERBOARDS
+    // =========================
 
     async function updateLeaderboard() {
 
@@ -214,51 +295,75 @@ module.exports = async (client) => {
 
         try {
 
-            const chat24hRaw = getChatTop24h();
-            const voice24hRaw = getVoiceTop24h();
+            const chat24hRaw =
+                getChatTop24h();
 
-            const chat7dRaw = getChatTop7d();
-            const voice7dRaw = getVoiceTop7d();
+            const voice24hRaw =
+                getVoiceTop24h();
 
-            const chat24h = await addUserData(
-                channel,
-                chat24hRaw
-            );
+            const chat7dRaw =
+                getChatTop7d();
 
-            const voice24h = await addUserData(
-                channel,
-                voice24hRaw
-            );
+            const voice7dRaw =
+                getVoiceTop7d();
 
-            const chat7d = await addUserData(
-                channel,
-                chat7dRaw
-            );
+            const chat24h =
+                await addUserData(
+                    channel,
+                    chat24hRaw
+                );
 
-            const voice7d = await addUserData(
-                channel,
-                voice7dRaw
-            );
+            const voice24h =
+                await addUserData(
+                    channel,
+                    voice24hRaw
+                );
+
+            const chat7d =
+                await addUserData(
+                    channel,
+                    chat7dRaw
+                );
+
+            const voice7d =
+                await addUserData(
+                    channel,
+                    voice7dRaw
+                );
+
+            // =========================
+            // 24H LEADERBOARD
+            // =========================
 
             const reset24hTimestamp =
-                getStartOfTomorrow();
+                getNextMidnightTimestamp();
 
-            const activity24hEmbed = createActivityEmbed(
-                chat24h,
-                voice24h,
-                "24h",
-                reset24hTimestamp
-            );
+            const activity24hEmbed =
+                createActivityEmbed(
+                    chat24h,
+                    voice24h,
+                    "24h",
+                    reset24hTimestamp
+                );
 
-            const resetTimestamp =
+            // =========================
+            // 7D LEADERBOARD
+            // =========================
+
+            const reset7dTimestamp =
                 getNextMondayTimestamp();
 
-            const activity7dEmbed = createActivityEmbed(
-                chat7d,
-                voice7d,
-                "7d",
-                resetTimestamp
-            );
+            const activity7dEmbed =
+                createActivityEmbed(
+                    chat7d,
+                    voice7d,
+                    "7d",
+                    reset7dTimestamp
+                );
+
+            // =========================
+            // SAVE / UPDATE
+            // =========================
 
             await sendOrUpdate(
                 channel,
@@ -285,96 +390,152 @@ module.exports = async (client) => {
         }
     }
 
+    // =========================
+    // WEEKLY WINNER ROLES
+    // =========================
+
     async function updateWinnerRoles() {
 
-        console.log("Updating weekly winner roles...");
+        console.log(
+            "Updating weekly winner roles..."
+        );
 
-        const config = getConfig(channel.guild.id);
+        const config =
+            getConfig(channel.guild.id);
 
         if (
             !config.chat_king_role ||
             !config.voice_king_role
         ) {
-            console.log("Activity roles not configured.");
+
+            console.log(
+                "Activity roles not configured."
+            );
+
             return;
         }
 
-        const chatTop = getChatTop7d()[0];
-        const voiceTop = getVoiceTop7d()[0];
+        const chatTop =
+            getChatTop7d()[0];
 
-        const guild = channel.guild;
+        const voiceTop =
+            getVoiceTop7d()[0];
+
+        const guild =
+            channel.guild;
+
+        // =========================
+        // CHAT WINNER
+        // =========================
 
         const oldChatRole =
-            guild.roles.cache.get(config.chat_king_role);
+            guild.roles.cache.get(
+                config.chat_king_role
+            );
 
         if (oldChatRole) {
 
-            for (const member of oldChatRole.members.values()) {
+            for (
+                const member of oldChatRole.members.values()
+            ) {
 
-                if (!chatTop || member.id !== chatTop.user_id) {
+                if (
+                    !chatTop ||
+                    member.id !== chatTop.user_id
+                ) {
 
-                    await member.roles.remove(
-                        config.chat_king_role
-                    );
+                    await member.roles
+                        .remove(config.chat_king_role)
+                        .catch(() => {});
                 }
             }
         }
 
+        // =========================
+        // VOICE WINNER
+        // =========================
+
         const oldVoiceRole =
-            guild.roles.cache.get(config.voice_king_role);
+            guild.roles.cache.get(
+                config.voice_king_role
+            );
 
         if (oldVoiceRole) {
 
-            for (const member of oldVoiceRole.members.values()) {
+            for (
+                const member of oldVoiceRole.members.values()
+            ) {
 
-                if (!voiceTop || member.id !== voiceTop.user_id) {
+                if (
+                    !voiceTop ||
+                    member.id !== voiceTop.user_id
+                ) {
 
-                    await member.roles.remove(
-                        config.voice_king_role
-                    );
+                    await member.roles
+                        .remove(config.voice_king_role)
+                        .catch(() => {});
                 }
             }
         }
 
+        // =========================
+        // ADD CHAT WINNER
+        // =========================
+
         if (chatTop) {
 
-            const member = await guild.members
-                .fetch(chatTop.user_id)
-                .catch(() => null);
+            const member =
+                await guild.members
+                    .fetch(chatTop.user_id)
+                    .catch(() => null);
 
             if (member) {
 
-                await member.roles.add(
-                    config.chat_king_role
-                );
+                await member.roles
+                    .add(config.chat_king_role)
+                    .catch(() => {});
             }
         }
 
+        // =========================
+        // ADD VOICE WINNER
+        // =========================
+
         if (voiceTop) {
 
-            const member = await guild.members
-                .fetch(voiceTop.user_id)
-                .catch(() => null);
+            const member =
+                await guild.members
+                    .fetch(voiceTop.user_id)
+                    .catch(() => null);
 
             if (member) {
 
-                await member.roles.add(
-                    config.voice_king_role
-                );
+                await member.roles
+                    .add(config.voice_king_role)
+                    .catch(() => {});
             }
         }
     }
 
-    // Update immediately when ASTER starts.
+    // =========================
+    // INITIAL UPDATE
+    // =========================
+
     await updateLeaderboard();
 
-    // Update leaderboards every 5 minutes.
+    // =========================
+    // UPDATE EVERY 5 MINUTES
+    // =========================
+
     setInterval(
         updateLeaderboard,
         5 * 60 * 1000
     );
 
-    // Check weekly winner roles every hour.
+    // =========================
+    // CHECK WEEKLY ROLES
+    // =========================
+
     setInterval(() => {
 
         const now = new Date();
