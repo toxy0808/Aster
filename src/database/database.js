@@ -23,6 +23,24 @@ CREATE TABLE IF NOT EXISTS server_config (
 )
 `);
 
+const serverConfigColumns = [
+    ["rep_staff_role", "TEXT"],
+    ["rep_funder_role", "TEXT"],
+    ["rep_member_limit", "INTEGER DEFAULT 3"],
+    ["rep_staff_limit", "INTEGER DEFAULT 5"],
+    ["rep_funder_limit", "INTEGER DEFAULT 8"],
+    ["rep_staff_funder_limit", "INTEGER DEFAULT 10"]
+];
+
+for (const [column, type] of serverConfigColumns) {
+    try {
+        db.prepare(
+            `ALTER TABLE server_config ADD COLUMN ${column} ${type}`
+        ).run();
+    } catch {}
+}
+
+
 // =========================
 // ACTIVITY LOGS
 // =========================
