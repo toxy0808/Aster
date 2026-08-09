@@ -79,4 +79,11 @@ CREATE TABLE IF NOT EXISTS reputation_rewards (
 )
 `).run();
 
+try {
+    db.prepare(`
+        ALTER TABLE reputation_rewards
+        ADD COLUMN enabled INTEGER DEFAULT 1
+    `).run();
+} catch {}
+
 module.exports = db;
