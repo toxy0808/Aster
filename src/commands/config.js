@@ -9,25 +9,19 @@ const {
     PermissionFlagsBits
 } = require("discord.js");
 
-const { getConfig } = require("../utils/serverConfig");
-
 module.exports = {
     name: "config",
     aliases: ["setup"],
 
     async execute(message) {
 
-        if (
-            !message.member.permissions.has(
-                PermissionFlagsBits.Administrator
-            )
-        ) {
+        if (!message.member.permissions.has(
+            PermissionFlagsBits.Administrator
+        )) {
             return message.reply(
                 "❌ You need Administrator permission."
             );
         }
-
-        const config = getConfig(message.guild.id);
 
         const container = new ContainerBuilder()
             .setAccentColor(0xFF006E)
@@ -46,35 +40,11 @@ module.exports = {
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
                     "### 🏆 Leaderboards\n" +
-                    "Rankings, channels and activity leaderboard settings."
-                )
-            )
-
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    "### 🎙️ Voice Tracking\n" +
-                    "Configure voice activity detection."
-                )
-            )
-
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    "### 💬 Chat Tracking\n" +
-                    "Configure message and chat activity tracking."
-                )
-            )
-
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
+                    "Manage activity rankings and leaderboard settings.\n\n" +
                     "### 👑 Winner Roles\n" +
-                    "Configure activity leaderboard rewards."
-                )
-            )
-
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
+                    "Configure activity leaderboard rewards.\n\n" +
                     "### ✨ Reputation\n" +
-                    "Configure positive/negative reputation, daily limits and rewards."
+                    "Manage reputation limits, roles and rewards."
                 )
             )
 
@@ -88,7 +58,7 @@ module.exports = {
                 )
             );
 
-        const row1 = new ActionRowBuilder()
+        const buttons = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId("config_leaderboard")
@@ -96,21 +66,8 @@ module.exports = {
                     .setStyle(ButtonStyle.Primary),
 
                 new ButtonBuilder()
-                    .setCustomId("config_voice")
-                    .setLabel("🎙️ Voice")
-                    .setStyle(ButtonStyle.Secondary),
-
-                new ButtonBuilder()
-                    .setCustomId("config_chat")
-                    .setLabel("💬 Chat")
-                    .setStyle(ButtonStyle.Secondary)
-            );
-
-        const row2 = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
                     .setCustomId("config_roles")
-                    .setLabel("👑 Roles")
+                    .setLabel("👑 Winner Roles")
                     .setStyle(ButtonStyle.Secondary),
 
                 new ButtonBuilder()
@@ -122,8 +79,7 @@ module.exports = {
         return message.channel.send({
             components: [
                 container,
-                row1,
-                row2
+                buttons
             ],
             flags: MessageFlags.IsComponentsV2
         });
