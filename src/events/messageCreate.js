@@ -160,6 +160,44 @@ if (
     });
 }
 
+// =========================
+// PREFIX COMMANDS
+// =========================
+
+if (!message.content.startsWith(prefix)) {
+    return;
+}
+
+const args = message.content
+    .slice(prefix.length)
+    .trim()
+    .split(/ +/);
+
+const commandName = args
+    .shift()
+    .toLowerCase();
+
+console.log("COMMAND:", commandName);
+
+let command = client.commands.get(commandName);
+
+if (!command) {
+    command = [...client.commands.values()]
+        .find(cmd =>
+            cmd.aliases &&
+            cmd.aliases.includes(commandName)
+        );
+}
+
+if (!command) return;
+
+try {
+    await command.execute(message, args);
+} catch (error) {
+    console.error("COMMAND ERROR:", error);
+    message.reply("Command error, check console.");
+}
+
 
 
     // =========================
@@ -276,56 +314,5 @@ if (
 
         return;
     }
-
-
-    // =========================
-    // PREFIX COMMANDS
-    // =========================
-
-    if (!message.content.startsWith(prefix)) {
-        return;
-    }
-
-    const args = message.content
-        .slice(prefix.length)
-        .trim()
-        .split(/ +/);
-
-    const commandName = args
-        .shift()
-        .toLowerCase();
-
-    console.log("COMMAND:", commandName);
-
-    let command = client.commands.get(commandName);
-
-    if (!command) {
-
-        command = [...client.commands.values()]
-            .find(cmd =>
-                cmd.aliases &&
-                cmd.aliases.includes(commandName)
-            );
-    }
-
-    if (!command) return;
-
-    try {
-
-        await command.execute(
-            message,
-            args
-        );
-
-    } catch (error) {
-
-        console.error(
-            "COMMAND ERROR:",
-            error
-        );
-
-        message.reply(
-            "Command error, check console."
-        );
-    }
+    
 };
