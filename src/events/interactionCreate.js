@@ -453,6 +453,40 @@ module.exports = async (interaction) => {
         });
     }
 
+
+// =========================
+// ADD REP REWARD
+// =========================
+
+if (interaction.customId === "rep_reward_add") {
+
+    const modal = new ModalBuilder()
+        .setCustomId("rep_reward_add_modal")
+        .setTitle("ASTER • Add Rep Reward");
+
+    const roleInput = new TextInputBuilder()
+        .setCustomId("rep_reward_role")
+        .setLabel("Role ID")
+        .setPlaceholder("Enter the Discord role ID")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
+    const thresholdInput = new TextInputBuilder()
+        .setCustomId("rep_reward_threshold")
+        .setLabel("Positive rep threshold")
+        .setPlaceholder("Example: 10")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(roleInput),
+        new ActionRowBuilder().addComponents(thresholdInput)
+    );
+
+    return interaction.showModal(modal);
+}
+
+
 // =========================
 // REP REWARDS
 // =========================
