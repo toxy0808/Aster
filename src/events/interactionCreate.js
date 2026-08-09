@@ -680,6 +680,58 @@ if (interaction.customId.startsWith("rep_reward_toggle_")) {
 
 
 // =========================
+// DELETE REP REWARD
+// =========================
+
+if (interaction.customId.startsWith("rep_reward_delete_")) {
+
+    const rewardId = parseInt(
+        interaction.customId.replace("rep_reward_delete_", "")
+    );
+
+    if (!Number.isInteger(rewardId)) {
+        return interaction.reply({
+            content: "❌ Invalid reward.",
+            ephemeral: true
+        });
+    }
+
+    const reward = db.prepare(`
+        SELECT role_id, threshold, type
+        FROM reputation_rewards
+        WHERE id = ?
+        AND guild_id = ?
+    `).get(
+        rewardId,
+        interaction.guild.id
+    );
+
+    if (!reward) {
+        return interaction.reply({
+            content: "❌ Reward not found.",
+            ephemeral: true
+        });
+    }
+
+    db.prepare(`
+        DELETE FROM reputation_rewards
+        WHERE id = ?
+        AND guild_id = ?
+    `).run(
+        rewardId,
+        interaction.guild.id
+    );
+
+    return interaction.reply({
+        content:
+            `🗑️ Removed the **${reward.type === "negative" ? "-" : "+"}${reward.threshold}** reputation reward.`,
+        ephemeral: true
+    });
+}
+
+
+
+// =========================
 // REP REWARDS
 // =========================
 
