@@ -3,6 +3,7 @@ const db = require("../database/database");
 const COOLDOWN = 10 * 60 * 1000; // 10 minutes between reps to the same user
 
 function getRepConfig(guildId) {
+
     let config = db.prepare(`
         SELECT
             rep_staff_role,
@@ -16,6 +17,7 @@ function getRepConfig(guildId) {
     `).get(guildId);
 
     if (!config) {
+
         db.prepare(`
             INSERT OR IGNORE INTO server_config (
                 guild_id,
@@ -76,6 +78,7 @@ function resetDaily(user) {
         !user.daily_reset ||
         now - user.daily_reset >= 24 * 60 * 60 * 1000
     ) {
+
         db.prepare(`
             UPDATE reputation
             SET daily_given = 0,
@@ -90,6 +93,50 @@ function resetDaily(user) {
     }
 
     return false;
+}
+
+async function applyRepRewards(guild, targetId, updated) {
+
+    const rewards = db.prepare(`
+        SELECT role_id, threshold, type
+        FROM reputation_rewards
+        WHERE guild_id = ?
+        AND enabled = 1
+        ORDER BY threshold ASC
+    `).all(guild.id);
+
+    if (!rewards.length) return;
+
+    const targetMember = await guild.members
+        .fetch(targetId)
+        .catch(() => null);
+
+    if (!targetMember) return;
+
+    for (const reward of rewards) {
+
+        const value =
+            reward.type === "negative"
+                ? updated.negative
+                : updated.positive;
+
+        if (value < reward.threshold) {
+            continue;
+        }
+
+        const role = guild.roles.cache.get(
+            reward.role_id
+        );
+
+        if (!role) continue;
+
+        if (!targetMember.roles.cache.has(role.id)) {
+
+            await targetMember.roles
+                .add(role)
+                .catch(() => {});
+        }
+    }
 }
 
 module.exports = {
@@ -341,6 +388,16 @@ module.exports = {
             FROM reputation
             WHERE user_id = ?
         `).get(target.id);
+
+        // =========================
+        // APPLY REP REWARDS
+        // =========================
+
+        await applyRepRewards(
+            message.guild,
+            target.id,
+            updated
+        );
 
         // =========================
         // RESULT
