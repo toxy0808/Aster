@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 )
 `).run();
 
+
 // =========================
 // REPUTATION
 // =========================
@@ -62,12 +63,29 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 db.prepare(`
 CREATE TABLE IF NOT EXISTS reputation (
     user_id TEXT PRIMARY KEY,
-    positive INTEGER DEFAULT 0,
-    negative INTEGER DEFAULT 0,
+    reputation INTEGER DEFAULT 0,
     daily_given INTEGER DEFAULT 0,
     daily_reset INTEGER DEFAULT 0
 )
 `).run();
+
+// Add new reputation column to existing databases
+try {
+    db.prepare(`
+        ALTER TABLE reputation
+        ADD COLUMN reputation INTEGER DEFAULT 0
+    `).run();
+} catch {}
+
+// Make sure old positive/negative data is converted
+try {
+    db.prepare(`
+        UPDATE reputation
+        SET reputation = positive - negative
+        WHERE reputation = 0
+    `).run();
+} catch {}
+
 
 // =========================
 // REPUTATION LOGS
