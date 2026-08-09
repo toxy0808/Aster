@@ -360,26 +360,29 @@ module.exports = {
             Date.now()
         );
 
-        // =========================
-        // UPDATE REP
-        // =========================
 
-        if (type === "negative") {
 
-            db.prepare(`
-                UPDATE reputation
-                SET negative = negative + 1
-                WHERE user_id = ?
-            `).run(target.id);
+// =========================
+// UPDATE REP
+// =========================
 
-        } else {
+if (type === "negative") {
 
-            db.prepare(`
-                UPDATE reputation
-                SET positive = positive + 1
-                WHERE user_id = ?
-            `).run(target.id);
-        }
+    db.prepare(`
+        UPDATE reputation
+        SET positive = positive - 1
+        WHERE user_id = ?
+    `).run(target.id);
+
+} else {
+
+    db.prepare(`
+        UPDATE reputation
+        SET positive = positive + 1
+        WHERE user_id = ?
+    `).run(target.id);
+}
+
 
         // =========================
         // UPDATE GIVER USAGE
