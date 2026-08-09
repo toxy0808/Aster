@@ -183,89 +183,123 @@ ensureServerConfig(interaction.guild.id);
         });
     }
 
-    // =========================
-    // REP CONFIG
-    // =========================
+    
 
-    if (interaction.customId === "config_rep") {
+// =========================
+// REP CONFIG
+// =========================
 
-        const staffRole = new ActionRowBuilder()
-            .addComponents(
-                new RoleSelectMenuBuilder()
-                    .setCustomId("set_rep_staff_role")
-                    .setPlaceholder("Select Staff role")
-                    .setMinValues(1)
-                    .setMaxValues(1)
-            );
+if (interaction.customId === "config_rep") {
 
-        const funderRole = new ActionRowBuilder()
-            .addComponents(
-                new RoleSelectMenuBuilder()
-                    .setCustomId("set_rep_funder_role")
-                    .setPlaceholder("Select Funder role")
-                    .setMinValues(1)
-                    .setMaxValues(1)
-            );
+    const staffRole = new ActionRowBuilder()
+        .addComponents(
+            new RoleSelectMenuBuilder()
+                .setCustomId("set_rep_staff_role")
+                .setPlaceholder("🛡️ Select the Staff role")
+                .setMinValues(1)
+                .setMaxValues(1)
+        );
 
-        const buttons = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId("rep_limits")
-                    .setLabel("⚙️ Rep Limits")
-                    .setStyle(ButtonStyle.Primary),
+    const funderRole = new ActionRowBuilder()
+        .addComponents(
+            new RoleSelectMenuBuilder()
+                .setCustomId("set_rep_funder_role")
+                .setPlaceholder("💎 Select the Funder role")
+                .setMinValues(1)
+                .setMaxValues(1)
+        );
 
-                new ButtonBuilder()
-                    .setCustomId("rep_rewards")
-                    .setLabel("🏅 Rep Rewards")
-                    .setStyle(ButtonStyle.Secondary)
-            );
+    const buttons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId("rep_limits")
+                .setLabel("⚙️ Daily Limits")
+                .setStyle(ButtonStyle.Primary),
 
-        const container = new ContainerBuilder()
-            .setAccentColor(0xFF4DA6)
+            new ButtonBuilder()
+                .setCustomId("rep_rewards")
+                .setLabel("🏅 Rewards")
+                .setStyle(ButtonStyle.Secondary)
+        );
 
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    "# ✨ ASTER • Reputation\n" +
-                    "Configure the server reputation system."
-                )
+    const container = new ContainerBuilder()
+        .setAccentColor(0xFF006E)
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "# ✨ ASTER • Reputation\n" +
+                "Configure how reputation works in this server.\n\n" +
+                "Members can give **+1 reputation** with `+rep` " +
+                "or remove **1 reputation** with `-rep`."
             )
+        )
 
-            .addSeparatorComponents(
-                new SeparatorBuilder()
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "### 🎯 Daily Giving Limits\n\n" +
+                "👤 **Member** — 3 reputation/day\n" +
+                "🛡️ **Staff** — 5 reputation/day\n" +
+                "💎 **Funder** — 8 reputation/day\n" +
+                "🛡️💎 **Staff + Funder** — 10 reputation/day"
             )
+        )
 
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    "### 🎯 Daily Limits\n" +
-                    "👤 Member — **3/day**\n" +
-                    "🛡️ Staff — **5/day**\n" +
-                    "💎 Funder — **8/day**\n" +
-                    "🛡️💎 Staff + Funder — **10/day**"
-                )
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "### 🛡️ Staff Role\n" +
+                "Select the role that should receive the Staff reputation limit.\n\n" +
+                "### 💎 Funder Role\n" +
+                "Select the role that should receive the Funder reputation limit."
             )
+        )
 
-            .addSeparatorComponents(
-                new SeparatorBuilder()
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "### ⚙️ Configuration\n" +
+                "Use **Daily Limits** to change how much reputation each member " +
+                "type can give per day.\n\n" +
+                "Use **Rewards** to configure roles members can unlock from " +
+                "their reputation score."
             )
+        )
 
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    "Select the Staff and Funder roles below."
-                )
-            );
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
 
-        return interaction.reply({
-            components: [
-                container,
-                staffRole,
-                funderRole,
-                buttons
-            ],
-            flags:
-                MessageFlags.IsComponentsV2 |
-                MessageFlags.Ephemeral
-        });
-    }
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "💡 **Tip:** Staff + Funder members automatically receive the " +
+                "highest daily limit when they have both roles."
+            )
+        );
+
+    return interaction.reply({
+        components: [
+            container,
+            staffRole,
+            funderRole,
+            buttons
+        ],
+        flags:
+            MessageFlags.IsComponentsV2 |
+            MessageFlags.Ephemeral
+    });
+}
+
+
 
     // =========================
     // SAVE REP STAFF ROLE
