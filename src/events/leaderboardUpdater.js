@@ -522,6 +522,7 @@ module.exports = async (client) => {
     // =========================
 
     await updateLeaderboard();
+    await updateWinnerRoles();
 
     // =========================
     // UPDATE EVERY 5 MINUTES
