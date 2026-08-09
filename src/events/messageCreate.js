@@ -3,10 +3,12 @@ const {
     TextDisplayBuilder,
     SeparatorBuilder,
     MessageFlags
+    PermissionFlagsBits
 } = require("discord.js");
 
 const db = require("../database/database");
 const prefix = ",";
+const introCooldowns = new Set();
 const cooldowns = new Set();
 const activityDB = require("../database/activityLogs");
 
@@ -39,6 +41,21 @@ module.exports = async (client, message) => {
 // =========================
 // ASTER INTRO
 // =========================
+
+if (
+    !message.member.permissions.has(PermissionFlagsBits.Administrator) &&
+    introCooldowns.has(message.author.id)
+) return;
+
+if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    introCooldowns.add(message.author.id);
+
+    setTimeout(() => {
+        introCooldowns.delete(message.author.id);
+    }, 10 * 60 * 1000);
+}
+
+
 
 if (
     message.mentions.users.has(client.user.id) &&
