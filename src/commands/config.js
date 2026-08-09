@@ -1,73 +1,131 @@
 const {
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder,
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
-    EmbedBuilder,
+    MessageFlags,
     PermissionFlagsBits
 } = require("discord.js");
+
 const { getConfig } = require("../utils/serverConfig");
+
 module.exports = {
     name: "config",
     aliases: ["setup"],
 
     async execute(message) {
 
-   
-
-    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-    return message.reply("❌ You need Administrator permission.");
-}
+        if (
+            !message.member.permissions.has(
+                PermissionFlagsBits.Administrator
+            )
+        ) {
+            return message.reply(
+                "❌ You need Administrator permission."
+            );
+        }
 
         const config = getConfig(message.guild.id);
 
-        const embed = new EmbedBuilder()
-            .setColor("#FF006E")
-            .setAuthor({
-                name: "✦ ASTER Configuration",
-                iconURL: message.client.user.displayAvatarURL()
-            })
-            .setDescription(
-`Manage ASTER activity tracking settings.
+        const container = new ContainerBuilder()
+            .setAccentColor(0xFF006E)
 
-🏆 Leaderboards
-> Rankings, channels, reset timing
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    "# ✦ ASTER Configuration\n" +
+                    "Manage ASTER's server systems and settings."
+                )
+            )
 
-🎙️ Voice Tracking
-> Voice activity detection settings
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
 
-💬 Chat Tracking
-> Message tracking settings
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    "### 🏆 Leaderboards\n" +
+                    "Rankings, channels and activity leaderboard settings."
+                )
+            )
 
-👑 Winner Roles
-> Weekly winner rewards`
-)
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    "### 🎙️ Voice Tracking\n" +
+                    "Configure voice activity detection."
+                )
+            )
 
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    "### 💬 Chat Tracking\n" +
+                    "Configure message and chat activity tracking."
+                )
+            )
 
-       const buttons = new ActionRowBuilder()
-    .addComponents(
-        new ButtonBuilder()
-            .setCustomId("config_leaderboard")
-            .setLabel("🏆 Leaderboards")
-            .setStyle(ButtonStyle.Primary),
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    "### 👑 Winner Roles\n" +
+                    "Configure activity leaderboard rewards."
+                )
+            )
 
-        new ButtonBuilder()
-            .setCustomId("config_voice")
-            .setLabel("🎙️ Voice")
-            .setStyle(ButtonStyle.Secondary),
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    "### ✨ Reputation\n" +
+                    "Configure positive/negative reputation, daily limits and rewards."
+                )
+            )
 
-        new ButtonBuilder()
-            .setCustomId("config_chat")
-            .setLabel("💬 Chat")
-            .setStyle(ButtonStyle.Secondary),
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
 
-        new ButtonBuilder()
-            .setCustomId("config_roles")
-            .setLabel("👑 Roles")
-            .setStyle(ButtonStyle.Secondary)
-    );
-await message.channel.send({
-    embeds: [embed],
-    components: [buttons]
-});
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    "Select a system below to manage its settings."
+                )
+            );
+
+        const row1 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId("config_leaderboard")
+                    .setLabel("🏆 Leaderboards")
+                    .setStyle(ButtonStyle.Primary),
+
+                new ButtonBuilder()
+                    .setCustomId("config_voice")
+                    .setLabel("🎙️ Voice")
+                    .setStyle(ButtonStyle.Secondary),
+
+                new ButtonBuilder()
+                    .setCustomId("config_chat")
+                    .setLabel("💬 Chat")
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+        const row2 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId("config_roles")
+                    .setLabel("👑 Roles")
+                    .setStyle(ButtonStyle.Secondary),
+
+                new ButtonBuilder()
+                    .setCustomId("config_rep")
+                    .setLabel("✨ Reputation")
+                    .setStyle(ButtonStyle.Success)
+            );
+
+        return message.channel.send({
+            components: [
+                container,
+                row1,
+                row2
+            ],
+            flags: MessageFlags.IsComponentsV2
+        });
     }
 };
