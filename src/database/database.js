@@ -65,4 +65,18 @@ CREATE TABLE IF NOT EXISTS reputation_logs (
 )
 `).run();
 
+// =========================
+// REPUTATION REWARDS
+// =========================
+
+db.prepare(`
+CREATE TABLE IF NOT EXISTS reputation_rewards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
+    role_id TEXT NOT NULL,
+    threshold INTEGER NOT NULL,
+    type TEXT DEFAULT 'positive'
+)
+`).run();
+
 module.exports = db;
