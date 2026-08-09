@@ -20,6 +20,17 @@ db.prepare(`
     )
 `).run();
 
+
+const autoreactCache = new Map();
+
+for (const row of db.prepare(`
+    SELECT user_id, emoji
+    FROM autoreacts
+    WHERE enabled = 1
+`).all()) {
+    autoreactCache.set(row.user_id, row.emoji);
+}
+
 module.exports = async (client, message) => {
 
     if (message.author.bot) return;
@@ -29,13 +40,11 @@ module.exports = async (client, message) => {
     // AUTO REACTIONS
     // =========================
 
-    const autoReact = db.prepare(
-        "SELECT emoji FROM autoreacts WHERE user_id = ? AND enabled = 1"
-    ).get(message.author.id);
+    const emoji = autoreactCache.get(message.author.id);
 
-    if (autoReact) {
-        message.react(autoReact.emoji).catch(() => {});
-    }
+if (emoji) {
+    message.react(emoji).catch(() => {});
+}
 
    
 // =========================
