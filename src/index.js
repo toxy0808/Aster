@@ -49,6 +49,8 @@ client.commands.set("autoreact",require("./commands/autoreact"));
 client.commands.set("rep", require("./commands/rep"));
 client.commands.set("help", require("./commands/help"));
 client.commands.set("ping", require("./commands/ping"));
+client.commands.set("repleaderboard", require("./commands/repleaderboard"));
+client.commands.set("rephistory", require("./commands/rephistory"));
 
 
 
