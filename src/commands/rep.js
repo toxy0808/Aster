@@ -1,5 +1,5 @@
 const db = require("../database/database");
-
+const { syncRepRewards } = require("../utils/repRewards");
 const COOLDOWN = 10 * 60 * 1000;
 
 function getRepConfig(guildId) {
@@ -96,68 +96,6 @@ function resetDaily(user) {
 }
 
 
-// =========================
-// APPLY REP REWARDS
-// =========================
-
-async function applyRepRewards(guild, targetId, reputation) {
-
-    const rewards = db.prepare(`
-        SELECT role_id, threshold
-        FROM reputation_rewards
-        WHERE guild_id = ?
-        AND enabled = 1
-        ORDER BY threshold ASC
-    `).all(guild.id);
-
-    if (!rewards.length) return;
-
-    const member = await guild.members
-        .fetch(targetId)
-        .catch(() => null);
-
-    if (!member) return;
-
-    for (const reward of rewards) {
-
-        const role = guild.roles.cache.get(
-            reward.role_id
-        );
-
-        if (!role) continue;
-
-        if (reputation >= reward.threshold) {
-
-            if (!member.roles.cache.has(role.id)) {
-
-                await member.roles
-                    .add(role)
-                    .catch(() => {});
-            }
-
-        } else {
-
-            if (member.roles.cache.has(role.id)) {
-
-                await member.roles
-                    .remove(role)
-                    .catch(() => {});
-            }
-        }
-    }
-}
-
-
-module.exports = {
-
-    name: "rep",
-
-    aliases: ["reputation"],
-
-    // Export reward function for admin management
-    applyRepRewards,
-
-    async execute(message, args) {
 
         // =========================
         // TARGET
@@ -417,11 +355,7 @@ module.exports = {
         // APPLY REWARDS
         // =========================
 
-        await applyRepRewards(
-            message.guild,
-            target.id,
-            updated.reputation
-        );
+        await syncRepRewards(message.guild, target.id);
 
 
         // =========================
