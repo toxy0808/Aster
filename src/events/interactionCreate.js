@@ -597,6 +597,9 @@ if (interaction.customId === "rep_reward_add_modal") {
         threshold
     );
 
+for (const u of db.prepare("SELECT user_id FROM reputation").all())
+    await syncRepRewards(interaction.guild, u.user_id);
+
     return interaction.reply({
         content:
             `✅ Rep reward added!\n\n` +
@@ -706,6 +709,9 @@ if (interaction.customId.startsWith("rep_reward_toggle_")) {
         interaction.guild.id
     );
 
+for (const u of db.prepare("SELECT user_id FROM reputation").all())
+    await syncRepRewards(interaction.guild, u.user_id);
+
     if (!reward) {
         return interaction.reply({
             content: "❌ Reward not found.",
@@ -760,6 +766,9 @@ if (interaction.customId.startsWith("rep_reward_delete_")) {
         rewardId,
         interaction.guild.id
     );
+
+for (const u of db.prepare("SELECT user_id FROM reputation").all())
+    await syncRepRewards(interaction.guild, u.user_id);
 
     if (!reward) {
         return interaction.reply({
