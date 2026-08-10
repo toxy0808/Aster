@@ -49,8 +49,14 @@ client.commands.set("autoreact",require("./commands/autoreact"));
 client.commands.set("rep", require("./commands/rep"));
 client.commands.set("help", require("./commands/help"));
 client.commands.set("ping", require("./commands/ping"));
+
+const repLeaderboard = require("./commands/repleaderboard");
 client.commands.set("repleaderboard", require("./commands/repleaderboard"));
 client.commands.set("replb", require("./commands/repleaderboard"));
+
+const repHistory = require("./commands/rephistory");
+client.commands.set("rephistory", repHistory);
+client.commands.set("reph", repHistory);
 
 
 client.on("voiceStateUpdate", (oldState, newState) => {
