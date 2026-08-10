@@ -95,6 +95,11 @@ function resetDaily(user) {
     return false;
 }
 
+
+// =========================
+// APPLY REP REWARDS
+// =========================
+
 async function applyRepRewards(guild, targetId, reputation) {
 
     const rewards = db.prepare(`
@@ -124,17 +129,24 @@ async function applyRepRewards(guild, targetId, reputation) {
         if (reputation >= reward.threshold) {
 
             if (!member.roles.cache.has(role.id)) {
-                await member.roles.add(role).catch(() => {});
+
+                await member.roles
+                    .add(role)
+                    .catch(() => {});
             }
 
         } else {
 
             if (member.roles.cache.has(role.id)) {
-                await member.roles.remove(role).catch(() => {});
+
+                await member.roles
+                    .remove(role)
+                    .catch(() => {});
             }
         }
     }
 }
+
 
 module.exports = {
 
@@ -142,13 +154,18 @@ module.exports = {
 
     aliases: ["reputation"],
 
+    // Export reward function for admin management
+    applyRepRewards,
+
     async execute(message, args) {
 
         // =========================
         // TARGET
         // =========================
 
-        const target = message.mentions.users.first();
+        const target =
+            message.mentions.users.first();
+
 
         // =========================
         // VIEW REP
@@ -162,18 +179,23 @@ module.exports = {
                 WHERE user_id = ?
             `).get(message.author.id);
 
-            const reputation = user?.reputation ?? 0;
+            const reputation =
+                user?.reputation ?? 0;
 
             return message.reply(
                 `✨ **${message.author.username}** has **${reputation} reputation**.`
             );
         }
 
+
         // =========================
         // VALIDATION
         // =========================
 
-        if (target.id === message.author.id) {
+        if (
+            target.id ===
+            message.author.id
+        ) {
 
             return message.reply(
                 "❌ You can't give reputation to yourself."
@@ -187,11 +209,13 @@ module.exports = {
             );
         }
 
+
         // =========================
         // REP TYPE
         // =========================
 
-        const typeArg = args[0]?.toLowerCase();
+        const typeArg =
+            args[0]?.toLowerCase();
 
         let amount = 1;
 
@@ -203,13 +227,16 @@ module.exports = {
             amount = -1;
         }
 
+
         // =========================
         // SERVER CONFIG
         // =========================
 
-        const config = getRepConfig(
-            message.guild.id
-        );
+        const config =
+            getRepConfig(
+                message.guild.id
+            );
+
 
         // =========================
         // GET GIVER
@@ -243,6 +270,7 @@ module.exports = {
             `).get(message.author.id);
         }
 
+
         // =========================
         // DAILY RESET
         // =========================
@@ -255,14 +283,16 @@ module.exports = {
             WHERE user_id = ?
         `).get(message.author.id);
 
+
         // =========================
         // DAILY LIMIT
         // =========================
 
-        const limit = getDailyLimit(
-            message.member,
-            config
-        );
+        const limit =
+            getDailyLimit(
+                message.member,
+                config
+            );
 
         if (giver.daily_given >= limit) {
 
@@ -270,6 +300,7 @@ module.exports = {
                 `⏳ You've reached your daily reputation limit of **${limit}**.`
             );
         }
+
 
         // =========================
         // COOLDOWN
@@ -290,10 +321,13 @@ module.exports = {
         if (recent) {
 
             const lastTime =
-                new Date(recent.created_at).getTime();
+                new Date(
+                    recent.created_at
+                ).getTime();
 
             if (
-                Date.now() - lastTime < COOLDOWN
+                Date.now() - lastTime <
+                COOLDOWN
             ) {
 
                 return message.reply(
@@ -301,6 +335,7 @@ module.exports = {
                 );
             }
         }
+
 
         // =========================
         // CREATE TARGET PROFILE
@@ -319,6 +354,7 @@ module.exports = {
             Date.now()
         );
 
+
         // =========================
         // UPDATE REP
         // =========================
@@ -332,6 +368,7 @@ module.exports = {
             target.id
         );
 
+
         // =========================
         // UPDATE GIVER DAILY USAGE
         // =========================
@@ -343,6 +380,7 @@ module.exports = {
         `).run(
             message.author.id
         );
+
 
         // =========================
         // LOG
@@ -358,8 +396,11 @@ module.exports = {
         `).run(
             message.author.id,
             target.id,
-            amount > 0 ? "positive" : "negative"
+            amount > 0
+                ? "positive"
+                : "negative"
         );
+
 
         // =========================
         // GET UPDATED REP
@@ -371,6 +412,7 @@ module.exports = {
             WHERE user_id = ?
         `).get(target.id);
 
+
         // =========================
         // APPLY REWARDS
         // =========================
@@ -380,6 +422,7 @@ module.exports = {
             target.id,
             updated.reputation
         );
+
 
         // =========================
         // RESULT
