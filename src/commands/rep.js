@@ -95,7 +95,11 @@ function resetDaily(user) {
     return false;
 }
 
+module.exports = {
+    name: "rep",
+    aliases: ["reputation"],
 
+    async execute(message, args) {
 
         // =========================
         // TARGET
