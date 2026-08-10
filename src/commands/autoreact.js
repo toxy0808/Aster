@@ -44,7 +44,7 @@ message.client.autoreacts.set(user.id, emoji);
                                                                                                                                                                                                                                                                                                                                                                     WHERE user_id = ?
                                                                                                                                                                                                                                                                                                                                                                                 `).run(user.id);
 
-message.client.autoreacts.set(user.id, emoji);
+message.client.autoreacts.delete(user.id);
 
                                                                                                                                                                                                                                                                                                                                                                                             return message.reply(
                                                                                                                                                                                                                                                                                                                                                                                                             `Auto react disabled for ${user}.`
