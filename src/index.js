@@ -15,6 +15,7 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+client.autoreacts = new Map();
 
 const messageCreate = require("./events/messageCreate");
 
