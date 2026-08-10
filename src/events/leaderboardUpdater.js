@@ -6,127 +6,63 @@ const createActivityEmbed = require("../utils/activityEmbed");
 console.log("LEADERBOARD UPDATER LOADED");
 
 // =========================
-// PERIOD DATABASE
-// =========================
-
-db.prepare(`
-    CREATE TABLE IF NOT EXISTS leaderboard_periods (
-        type TEXT PRIMARY KEY,
-        start_at INTEGER NOT NULL,
-        end_at INTEGER NOT NULL
-    )
-`).run();
-
-// =========================
 // TIME HELPERS
 // =========================
 
-const DAY = 24 * 60 * 60;
-const WEEK = 7 * DAY;
-
-function nowTimestamp() {
-    return Math.floor(Date.now() / 1000);
+function getNow() {
+    return new Date();
 }
 
-function getNextMondayTimestamp(fromTimestamp) {
+// Next 24-hour reset
+function getNext24hTimestamp() {
+    return Math.floor(
+        (Date.now() + 24 * 60 * 60 * 1000) / 1000
+    );
+}
 
-    const date = new Date(fromTimestamp * 1000);
+// Start of the current week: Monday 00:00
+function getStartOfWeek() {
+    const now = new Date();
 
-    const next = new Date(date);
+    const day = now.getDay();
 
-    const currentDay = next.getDay();
+    // Sunday = 0
+    // Monday = 1
+    const daysSinceMonday = (day + 6) % 7;
+
+    now.setDate(
+        now.getDate() - daysSinceMonday
+    );
+
+    now.setHours(0, 0, 0, 0);
+
+    return Math.floor(
+        now.getTime() / 1000
+    );
+}
+
+// Next Monday 00:00
+function getNextMondayTimestamp() {
+    const now = new Date();
+    const next = new Date(now);
+
+    const day = now.getDay();
 
     let daysUntilMonday =
-        (8 - currentDay) % 7;
+        (8 - day) % 7;
 
     if (daysUntilMonday === 0) {
         daysUntilMonday = 7;
     }
 
     next.setDate(
-        next.getDate() + daysUntilMonday
+        now.getDate() + daysUntilMonday
     );
 
     next.setHours(0, 0, 0, 0);
 
-    return Math.floor(next.getTime() / 1000);
-}
-
-// =========================
-// CREATE INITIAL PERIODS
-// =========================
-
-function initializePeriods() {
-
-    const now = nowTimestamp();
-
-    // 24H
-    const daily = db.prepare(
-        "SELECT * FROM leaderboard_periods WHERE type = ?"
-    ).get("24h");
-
-    if (!daily) {
-
-        db.prepare(`
-            INSERT INTO leaderboard_periods
-            (type, start_at, end_at)
-            VALUES (?, ?, ?)
-        `).run(
-            "24h",
-            now,
-            now + DAY
-        );
-
-        console.log("24H leaderboard period initialized.");
-    }
-
-    // 7D
-    const weekly = db.prepare(
-        "SELECT * FROM leaderboard_periods WHERE type = ?"
-    ).get("7d");
-
-    if (!weekly) {
-
-        const nextMonday =
-            getNextMondayTimestamp(now);
-
-        db.prepare(`
-            INSERT INTO leaderboard_periods
-            (type, start_at, end_at)
-            VALUES (?, ?, ?)
-        `).run(
-            "7d",
-            now,
-            nextMonday
-        );
-
-        console.log("7D leaderboard period initialized.");
-    }
-}
-
-initializePeriods();
-
-// =========================
-// PERIOD MANAGEMENT
-// =========================
-
-function getPeriod(type) {
-
-    return db.prepare(
-        "SELECT * FROM leaderboard_periods WHERE type = ?"
-    ).get(type);
-}
-
-function setPeriod(type, startAt, endAt) {
-
-    db.prepare(`
-        UPDATE leaderboard_periods
-        SET start_at = ?, end_at = ?
-        WHERE type = ?
-    `).run(
-        startAt,
-        endAt,
-        type
+    return Math.floor(
+        next.getTime() / 1000
     );
 }
 
@@ -134,7 +70,17 @@ function setPeriod(type, startAt, endAt) {
 // LEADERBOARD QUERIES
 // =========================
 
-function getChatTop(startAt, endAt) {
+// =========================
+// 24H
+// =========================
+// Rolling last 24 hours.
+// This matches the 24h reset timestamp.
+
+function getChatTop24h() {
+
+    const since =
+        Math.floor(Date.now() / 1000) -
+        (24 * 60 * 60);
 
     return db.prepare(`
         SELECT
@@ -143,17 +89,17 @@ function getChatTop(startAt, endAt) {
         FROM activity_logs
         WHERE type = 'chat'
         AND strftime('%s', created_at) >= ?
-        AND strftime('%s', created_at) < ?
         GROUP BY user_id
         ORDER BY messages DESC
         LIMIT 5
-    `).all(
-        startAt,
-        endAt
-    );
+    `).all(since);
 }
 
-function getVoiceTop(startAt, endAt) {
+function getVoiceTop24h() {
+
+    const since =
+        Math.floor(Date.now() / 1000) -
+        (24 * 60 * 60);
 
     return db.prepare(`
         SELECT
@@ -162,14 +108,51 @@ function getVoiceTop(startAt, endAt) {
         FROM activity_logs
         WHERE type = 'voice'
         AND strftime('%s', created_at) >= ?
-        AND strftime('%s', created_at) < ?
         GROUP BY user_id
         ORDER BY voice_time DESC
         LIMIT 5
-    `).all(
-        startAt,
-        endAt
-    );
+    `).all(since);
+}
+
+// =========================
+// 7D
+// =========================
+// Current Monday -> next Monday.
+// This is an actual weekly leaderboard,
+// not a rolling 7-day leaderboard.
+
+function getChatTop7d() {
+
+    const since = getStartOfWeek();
+
+    return db.prepare(`
+        SELECT
+            user_id,
+            SUM(amount) AS messages
+        FROM activity_logs
+        WHERE type = 'chat'
+        AND strftime('%s', created_at) >= ?
+        GROUP BY user_id
+        ORDER BY messages DESC
+        LIMIT 5
+    `).all(since);
+}
+
+function getVoiceTop7d() {
+
+    const since = getStartOfWeek();
+
+    return db.prepare(`
+        SELECT
+            user_id,
+            SUM(amount) AS voice_time
+        FROM activity_logs
+        WHERE type = 'voice'
+        AND strftime('%s', created_at) >= ?
+        GROUP BY user_id
+        ORDER BY voice_time DESC
+        LIMIT 5
+    `).all(since);
 }
 
 // =========================
@@ -181,9 +164,10 @@ async function addUserData(channel, users) {
     return Promise.all(
         users.map(async (user) => {
 
-            const member = await channel.guild.members
-                .fetch(user.user_id)
-                .catch(() => null);
+            const member =
+                await channel.guild.members
+                    .fetch(user.user_id)
+                    .catch(() => null);
 
             return {
                 ...user,
@@ -204,7 +188,7 @@ async function addUserData(channel, users) {
 }
 
 // =========================
-// SEND / UPDATE MESSAGE
+// SEND / UPDATE
 // =========================
 
 async function sendOrUpdate(channel, type, embed) {
@@ -272,235 +256,6 @@ async function sendOrUpdate(channel, type, embed) {
 }
 
 // =========================
-// WEEKLY WINNER ROLES
-// =========================
-
-async function updateWinnerRoles(
-    guild,
-    chatTop,
-    voiceTop
-) {
-
-    console.log(
-        "Updating weekly winner roles..."
-    );
-
-    const config =
-        getConfig(guild.id);
-
-    if (
-        !config.chat_king_role ||
-        !config.voice_king_role
-    ) {
-
-        console.log(
-            "Activity roles not configured."
-        );
-
-        return;
-    }
-
-    // =========================
-    // REMOVE OLD CHAT RULER
-    // =========================
-
-    const oldChatRole =
-        guild.roles.cache.get(
-            config.chat_king_role
-        );
-
-    if (oldChatRole) {
-
-        for (
-            const member of oldChatRole.members.values()
-        ) {
-
-            if (
-                !chatTop ||
-                member.id !== chatTop.user_id
-            ) {
-
-                await member.roles
-                    .remove(config.chat_king_role)
-                    .catch(() => {});
-            }
-        }
-    }
-
-    // =========================
-    // REMOVE OLD VOICE RULER
-    // =========================
-
-    const oldVoiceRole =
-        guild.roles.cache.get(
-            config.voice_king_role
-        );
-
-    if (oldVoiceRole) {
-
-        for (
-            const member of oldVoiceRole.members.values()
-        ) {
-
-            if (
-                !voiceTop ||
-                member.id !== voiceTop.user_id
-            ) {
-
-                await member.roles
-                    .remove(config.voice_king_role)
-                    .catch(() => {});
-            }
-        }
-    }
-
-    // =========================
-    // GIVE CHAT RULER
-    // =========================
-
-    if (chatTop) {
-
-        const member =
-            await guild.members
-                .fetch(chatTop.user_id)
-                .catch(() => null);
-
-        if (member) {
-
-            await member.roles
-                .add(config.chat_king_role)
-                .catch(() => {});
-        }
-    }
-
-    // =========================
-    // GIVE VOICE RULER
-    // =========================
-
-    if (voiceTop) {
-
-        const member =
-            await guild.members
-                .fetch(voiceTop.user_id)
-                .catch(() => null);
-
-        if (member) {
-
-            await member.roles
-                .add(config.voice_king_role)
-                .catch(() => {});
-        }
-    }
-
-    console.log(
-        "Weekly winner roles updated."
-    );
-}
-
-// =========================
-// CHECK / RESET PERIODS
-// =========================
-
-async function checkPeriods(guild) {
-
-    const now = nowTimestamp();
-
-    // =========================
-    // 24H RESET
-    // =========================
-
-    let daily =
-        getPeriod("24h");
-
-    if (now >= daily.end_at) {
-
-        const missedPeriods =
-            Math.floor(
-                (now - daily.start_at) / DAY
-            );
-
-        const newStart =
-            daily.start_at +
-            ((missedPeriods + 1) * DAY);
-
-        const newEnd =
-            newStart + DAY;
-
-        setPeriod(
-            "24h",
-            newStart,
-            newEnd
-        );
-
-        console.log(
-            "24H leaderboard RESET."
-        );
-    }
-
-    // =========================
-    // 7D RESET
-    // =========================
-
-    let weekly =
-        getPeriod("7d");
-
-    if (now >= weekly.end_at) {
-
-        // Previous completed week
-        const previousStart =
-            weekly.start_at;
-
-        const previousEnd =
-            weekly.end_at;
-
-        // Find previous week's winners
-        const chatWinner =
-            getChatTop(
-                previousStart,
-                previousEnd
-            )[0];
-
-        const voiceWinner =
-            getVoiceTop(
-                previousStart,
-                previousEnd
-            )[0];
-
-        // Give roles to previous week's winners
-        await updateWinnerRoles(
-            guild,
-            chatWinner,
-            voiceWinner
-        );
-
-        // Start new weekly period
-        const newStart =
-            previousEnd;
-
-        let newEnd =
-            getNextMondayTimestamp(
-                newStart
-            );
-
-        // Safety in case timestamp is already Monday midnight
-        if (newEnd <= newStart) {
-            newEnd =
-                newStart + WEEK;
-        }
-
-        setPeriod(
-            "7d",
-            newStart,
-            newEnd
-        );
-
-        console.log(
-            "7D leaderboard RESET."
-        );
-    }
-}
-
-// =========================
 // MODULE
 // =========================
 
@@ -551,53 +306,17 @@ module.exports = async (client) => {
 
         try {
 
-            // Check whether either period
-            // needs to reset first.
-            await checkPeriods(
-                channel.guild
-            );
-
-            const daily =
-                getPeriod("24h");
-
-            const weekly =
-                getPeriod("7d");
-
-            // =========================
-            // CURRENT 24H STATS
-            // =========================
-
             const chat24hRaw =
-                getChatTop(
-                    daily.start_at,
-                    daily.end_at
-                );
+                getChatTop24h();
 
             const voice24hRaw =
-                getVoiceTop(
-                    daily.start_at,
-                    daily.end_at
-                );
-
-            // =========================
-            // CURRENT 7D STATS
-            // =========================
+                getVoiceTop24h();
 
             const chat7dRaw =
-                getChatTop(
-                    weekly.start_at,
-                    weekly.end_at
-                );
+                getChatTop7d();
 
             const voice7dRaw =
-                getVoiceTop(
-                    weekly.start_at,
-                    weekly.end_at
-                );
-
-            // =========================
-            // USER DATA
-            // =========================
+                getVoiceTop7d();
 
             const chat24h =
                 await addUserData(
@@ -624,27 +343,33 @@ module.exports = async (client) => {
                 );
 
             // =========================
-            // 24H EMBED
+            // 24H
             // =========================
+
+            const reset24hTimestamp =
+                getNext24hTimestamp();
 
             const activity24hEmbed =
                 createActivityEmbed(
                     chat24h,
                     voice24h,
                     "24h",
-                    daily.end_at
+                    reset24hTimestamp
                 );
 
             // =========================
-            // 7D EMBED
+            // 7D
             // =========================
+
+            const reset7dTimestamp =
+                getNextMondayTimestamp();
 
             const activity7dEmbed =
                 createActivityEmbed(
                     chat7d,
                     voice7d,
                     "7d",
-                    weekly.end_at
+                    reset7dTimestamp
                 );
 
             // =========================
@@ -677,13 +402,142 @@ module.exports = async (client) => {
     }
 
     // =========================
-    // START
+    // WEEKLY WINNER ROLES
+    // =========================
+
+    async function updateWinnerRoles() {
+
+        console.log(
+            "Updating weekly winner roles..."
+        );
+
+        const config =
+            getConfig(channel.guild.id);
+
+        if (
+            !config.chat_king_role ||
+            !config.voice_king_role
+        ) {
+
+            console.log(
+                "Activity roles not configured."
+            );
+
+            return;
+        }
+
+        const guild =
+            channel.guild;
+
+        const chatTop =
+            getChatTop7d()[0];
+
+        const voiceTop =
+            getVoiceTop7d()[0];
+
+        // =========================
+        // REMOVE OLD CHAT RULER
+        // =========================
+
+        const chatRole =
+            guild.roles.cache.get(
+                config.chat_king_role
+            );
+
+        if (chatRole) {
+
+            for (
+                const member of chatRole.members.values()
+            ) {
+
+                if (
+                    !chatTop ||
+                    member.id !== chatTop.user_id
+                ) {
+
+                    await member.roles
+                        .remove(config.chat_king_role)
+                        .catch(() => {});
+                }
+            }
+        }
+
+        // =========================
+        // REMOVE OLD VOICE RULER
+        // =========================
+
+        const voiceRole =
+            guild.roles.cache.get(
+                config.voice_king_role
+            );
+
+        if (voiceRole) {
+
+            for (
+                const member of voiceRole.members.values()
+            ) {
+
+                if (
+                    !voiceTop ||
+                    member.id !== voiceTop.user_id
+                ) {
+
+                    await member.roles
+                        .remove(config.voice_king_role)
+                        .catch(() => {});
+                }
+            }
+        }
+
+        // =========================
+        // ADD CHAT RULER
+        // =========================
+
+        if (chatTop) {
+
+            const member =
+                await guild.members
+                    .fetch(chatTop.user_id)
+                    .catch(() => null);
+
+            if (member) {
+
+                await member.roles
+                    .add(config.chat_king_role)
+                    .catch(() => {});
+            }
+        }
+
+        // =========================
+        // ADD VOICE RULER
+        // =========================
+
+        if (voiceTop) {
+
+            const member =
+                await guild.members
+                    .fetch(voiceTop.user_id)
+                    .catch(() => null);
+
+            if (member) {
+
+                await member.roles
+                    .add(config.voice_king_role)
+                    .catch(() => {});
+            }
+        }
+    }
+
+    // =========================
+    // INITIAL UPDATE
     // =========================
 
     await updateLeaderboard();
 
+    await updateWinnerRoles();
+
     // =========================
-    // UPDATE EVERY 5 MINUTES
+    // LIVE UPDATE
     // =========================
 
     setInterval(
@@ -691,7 +545,46 @@ module.exports = async (client) => {
         5 * 60 * 1000
     );
 
-    console.log(
-        "Activity leaderboards running."
-    );
+    // =========================
+    // WEEKLY RESET SCHEDULER
+    // =========================
+
+    function scheduleWeeklyReset() {
+
+        const now = Date.now();
+
+        const nextMonday =
+            getNextMondayTimestamp() * 1000;
+
+        const delay =
+            Math.max(
+                nextMonday - now,
+                1000
+            );
+
+        console.log(
+            `Next weekly reset scheduled in ${
+                Math.round(delay / 1000 / 60)
+            } minutes.`
+        );
+
+        setTimeout(async () => {
+
+            console.log(
+                "WEEKLY RESET TRIGGERED"
+            );
+
+            // Remove old #1 roles.
+            await updateWinnerRoles();
+
+            // Refresh leaderboard immediately.
+            await updateLeaderboard();
+
+            // Schedule the next Monday.
+            scheduleWeeklyReset();
+
+        }, delay);
+    }
+
+    scheduleWeeklyReset();
 };
