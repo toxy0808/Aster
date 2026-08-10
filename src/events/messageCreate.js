@@ -21,32 +21,35 @@ db.prepare(`
 `).run();
 
 
-const autoreactCache = new Map();
-
-for (const row of db.prepare(`
-    SELECT user_id, emoji
-    FROM autoreacts
-    WHERE enabled = 1
-`).all()) {
-    autoreactCache.set(row.user_id, row.emoji);
-}
-
 module.exports = async (client, message) => {
 
     if (message.author.bot) return;
     if (!message.guild) return;
 
-    // =========================
-    // AUTO REACTIONS
-    // =========================
+ 
 
-    const emoji = autoreactCache.get(message.author.id);
+// =========================
+// AUTO REACTIONS
+// =========================
+
+if (!client.autoreacts) {
+    client.autoreacts = new Map(
+        db.prepare(`
+            SELECT user_id, emoji
+            FROM autoreacts
+            WHERE enabled = 1
+        `).all().map(row => [row.user_id, row.emoji])
+    );
+}
+
+const emoji = client.autoreacts.get(message.author.id);
 
 if (emoji) {
     message.react(emoji).catch(() => {});
 }
 
-   
+
+
 // =========================
 // ASTER INTRO
 // =========================
