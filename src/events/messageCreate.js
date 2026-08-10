@@ -160,6 +160,62 @@ if (
     });
 }
 
+
+
+
+// =========================
+    // +REP / -REP COMMANDS
+    // =========================
+
+    const content = message.content.trim();
+
+    if (
+        content.toLowerCase().startsWith("+rep") ||
+        content.toLowerCase().startsWith("-rep")
+    ) {
+
+        const isNegative =
+            content.toLowerCase().startsWith("-rep");
+
+        const args = content
+            .slice(4)
+            .trim()
+            .split(/ +/)
+            .filter(Boolean);
+
+        const command = client.commands.get("rep");
+
+        if (!command) return;
+
+        if (isNegative) {
+            args.unshift("negative");
+        }
+
+        try {
+
+            await command.execute(
+                message,
+                args
+            );
+
+        } catch (error) {
+
+            console.error(
+                "COMMAND ERROR:",
+                error
+            );
+
+            message.reply(
+                "Command error, check console."
+            );
+        }
+
+        return;
+    }
+    
+
+
+
 // =========================
 // PREFIX COMMANDS
 // =========================
@@ -262,57 +318,4 @@ try {
         );
     }
 
-
-
-
-    // =========================
-    // +REP / -REP COMMANDS
-    // =========================
-
-    const content = message.content.trim();
-
-    if (
-        content.toLowerCase().startsWith("+rep") ||
-        content.toLowerCase().startsWith("-rep")
-    ) {
-
-        const isNegative =
-            content.toLowerCase().startsWith("-rep");
-
-        const args = content
-            .slice(4)
-            .trim()
-            .split(/ +/)
-            .filter(Boolean);
-
-        const command = client.commands.get("rep");
-
-        if (!command) return;
-
-        if (isNegative) {
-            args.unshift("negative");
-        }
-
-        try {
-
-            await command.execute(
-                message,
-                args
-            );
-
-        } catch (error) {
-
-            console.error(
-                "COMMAND ERROR:",
-                error
-            );
-
-            message.reply(
-                "Command error, check console."
-            );
-        }
-
-        return;
-    }
-    
 };
