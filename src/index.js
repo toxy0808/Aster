@@ -64,6 +64,7 @@ client.commands.set("help", require("./commands/help"));
 client.commands.set("ping", require("./commands/ping"));
 client.commands.set("repleaderboard", require("./commands/repleaderboard"));
 client.commands.set("rephistory", require("./commands/rephistory"));
+client.commands.set("pulse", require("./commands/pulse"));
 
 
 
