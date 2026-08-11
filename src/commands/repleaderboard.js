@@ -23,21 +23,18 @@ module.exports = {
 
         const container = new ContainerBuilder();
 
-        // =========================
-        // HEADER
-        // =========================
-
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                "**ASTER / REPUTATION**"
+                "**ASTER**\n" +
+                "REPUTATION LEADERBOARD"
             )
         );
 
-        // =========================
-        // EMPTY
-        // =========================
-
         if (!users.length) {
+
+            container.addSeparatorComponents(
+                new SeparatorBuilder()
+            );
 
             container.addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
@@ -54,9 +51,9 @@ module.exports = {
             });
         }
 
-        // =========================
-        // LEADERBOARD
-        // =========================
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
 
         const lines = [];
 
@@ -73,27 +70,19 @@ module.exports = {
             } else if (i === 2) {
                 rank = "🥉";
             } else {
-                rank = `#${i + 1}`;
+                rank = `**#${i + 1}**`;
             }
 
             lines.push(
-                `${rank} <@${user.user_id}> · **${user.reputation.toLocaleString()} REP**`
+                `${rank}  <@${user.user_id}>  ·  **${user.reputation.toLocaleString()} REP**`
             );
         }
-
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 lines.join("\n")
             )
         );
-
-        // =========================
-        // YOUR STANDING
-        // =========================
 
         const myRep = db.prepare(`
             SELECT reputation
@@ -115,7 +104,8 @@ module.exports = {
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `**YOU** · #${rankResult.rank} · **${myReputation.toLocaleString()} REP**`
+                `**YOUR RANK**\n` +
+                `#${rankResult.rank}  ·  **${myReputation.toLocaleString()} REP**`
             )
         );
 
