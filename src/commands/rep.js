@@ -1,3 +1,10 @@
+const {
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder,
+    MessageFlags
+} = require("discord.js");
+
 const db = require("../database/database");
 const { syncRepRewards } = require("../utils/repRewards");
 
@@ -79,16 +86,12 @@ function resetDaily(user) {
         !user.daily_reset ||
         now - user.daily_reset >= 24 * 60 * 60 * 1000
     ) {
-
         db.prepare(`
             UPDATE reputation
             SET daily_given = 0,
                 daily_reset = ?
             WHERE user_id = ?
-        `).run(
-            now,
-            user.user_id
-        );
+        `).run(now, user.user_id);
 
         return true;
     }
@@ -102,12 +105,7 @@ module.exports = {
 
     async execute(message, args) {
 
-        // =========================
-        // TARGET
-        // =========================
-
         const target = message.mentions.users.first();
-
 
         // =========================
         // VIEW REP
@@ -123,33 +121,56 @@ module.exports = {
 
             const reputation = user?.reputation ?? 0;
 
+            const rank = db.prepare(`
+                SELECT COUNT(*) + 1 AS rank
+                FROM reputation
+                WHERE reputation > ?
+            `).get(reputation).rank;
+
+            const container = new ContainerBuilder();
+
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    "**ASTER**\n" +
+                    "REPUTATION"
+                )
+            );
+
+            container.addSeparatorComponents(
+                new SeparatorBuilder()
+            );
+
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `**${message.author.username}**\n` +
+                    `**${reputation.toLocaleString()} REP**  ·  #${rank}`
+                )
+            );
+
             return message.reply({
-                content:
-                    `**ASTER / REPUTATION**\n\n` +
-                    `@${message.author.username}\n` +
-                    `**${reputation.toLocaleString()} REP**`
+                components: [container],
+                flags: MessageFlags.IsComponentsV2,
+                allowedMentions: {
+                    parse: []
+                }
             });
         }
-
 
         // =========================
         // VALIDATION
         // =========================
 
         if (target.id === message.author.id) {
-
             return message.reply(
                 "You can't give reputation to yourself."
             );
         }
 
         if (target.bot) {
-
             return message.reply(
                 "You can't give reputation to bots."
             );
         }
-
 
         // =========================
         // REP TYPE
@@ -167,16 +188,14 @@ module.exports = {
             amount = -1;
         }
 
-
         // =========================
-        // SERVER CONFIG
+        // CONFIG
         // =========================
 
         const config = getRepConfig(message.guild.id);
 
-
         // =========================
-        // GET GIVER
+        // GIVER
         // =========================
 
         let giver = db.prepare(`
@@ -207,7 +226,6 @@ module.exports = {
             `).get(message.author.id);
         }
 
-
         // =========================
         // DAILY RESET
         // =========================
@@ -220,7 +238,6 @@ module.exports = {
             WHERE user_id = ?
         `).get(message.author.id);
 
-
         // =========================
         // DAILY LIMIT
         // =========================
@@ -231,12 +248,10 @@ module.exports = {
         );
 
         if (giver.daily_given >= limit) {
-
             return message.reply(
                 `Daily reputation limit reached · **${limit}**`
             );
         }
-
 
         // =========================
         // COOLDOWN
@@ -260,16 +275,14 @@ module.exports = {
                 new Date(recent.created_at).getTime();
 
             if (Date.now() - lastTime < COOLDOWN) {
-
                 return message.reply(
                     "Reputation cooldown active · Try again later."
                 );
             }
         }
 
-
         // =========================
-        // CREATE TARGET PROFILE
+        // TARGET
         // =========================
 
         db.prepare(`
@@ -285,9 +298,8 @@ module.exports = {
             Date.now()
         );
 
-
         // =========================
-        // UPDATE REP
+        // UPDATE
         // =========================
 
         db.prepare(`
@@ -299,11 +311,6 @@ module.exports = {
             target.id
         );
 
-
-        // =========================
-        // UPDATE GIVER DAILY USAGE
-        // =========================
-
         db.prepare(`
             UPDATE reputation
             SET daily_given = daily_given + 1
@@ -311,7 +318,6 @@ module.exports = {
         `).run(
             message.author.id
         );
-
 
         // =========================
         // LOG
@@ -332,9 +338,8 @@ module.exports = {
                 : "negative"
         );
 
-
         // =========================
-        // GET UPDATED REP
+        // UPDATED REP
         // =========================
 
         const updated = db.prepare(`
@@ -343,31 +348,48 @@ module.exports = {
             WHERE user_id = ?
         `).get(target.id);
 
-
-        // =========================
-        // APPLY REWARDS
-        // =========================
-
         await syncRepRewards(
             message.guild,
             target.id
         );
 
-
         // =========================
         // RESULT
         // =========================
 
-        const action =
-            amount > 0
-                ? "+"
-                : "-";
+        const container = new ContainerBuilder();
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "**ASTER**\n" +
+                "REPUTATION"
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `${amount > 0 ? "+" : "-"}${Math.abs(amount)} REP\n` +
+                `<@${target.id}>`
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `**${updated.reputation.toLocaleString()} REP**  ·  TOTAL`
+            )
+        );
 
         return message.reply({
-            content:
-                `**ASTER / REPUTATION**\n\n` +
-                `${action}${Math.abs(amount)} REP → <@${target.id}>\n` +
-                `**${updated.reputation.toLocaleString()} REP**`,
+            components: [container],
+            flags: MessageFlags.IsComponentsV2,
             allowedMentions: {
                 parse: []
             }
