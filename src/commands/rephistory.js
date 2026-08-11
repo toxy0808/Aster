@@ -88,7 +88,7 @@ module.exports = {
 
         return message.reply({
             components: [container],
-            flags: MessageFlags.IsComponentsV2
+            flags: MessageFlags.IsComponentsV2,
             allowedMentions: {
                 parse: []
             } 
