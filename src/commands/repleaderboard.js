@@ -67,14 +67,6 @@ module.exports = {
 
             const user = users[i];
 
-            const member = await message.guild.members
-                .fetch(user.user_id)
-                .catch(() => null);
-
-            const name =
-                member?.displayName ||
-                member?.user?.username ||
-                "Unknown User";
 
             let rank;
 
@@ -89,9 +81,9 @@ module.exports = {
             }
 
             lines.push(
-                `${rank} **${name}**\n` +
-                `> ⭐ **${user.reputation.toLocaleString()} Rep**`
-            );
+    `${rank} <@${user.user_id}>\n` +
+    `> ⭐ **${user.reputation.toLocaleString()} Rep**`
+);
 
             if (i < users.length - 1) {
                 lines.push("");
