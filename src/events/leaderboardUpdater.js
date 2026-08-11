@@ -5,82 +5,235 @@ const createActivityEmbed = require("../utils/activityEmbed");
 
 console.log("LEADERBOARD UPDATER LOADED");
 
-// =========================
-// TIME HELPERS
-// =========================
+// ============================================================
+// TIMEZONE
+// ============================================================
 
-function getNow() {
-    return new Date();
+const TIME_ZONE = "Europe/Stockholm";
+
+// Get date/time parts in Stockholm.
+function getStockholmParts(date = new Date()) {
+
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23"
+    }).formatToParts(date);
+
+    const result = {};
+
+    for (const part of parts) {
+        if (part.type !== "literal") {
+            result[part.type] = Number(part.value);
+        }
+    }
+
+    return result;
 }
 
-// Next 24-hour reset
-function getNext24hTimestamp() {
-    return Math.floor(
-        (Date.now() + 24 * 60 * 60 * 1000) / 1000
+
+// Convert a Stockholm local date/time to Unix seconds.
+// Handles CET/CEST automatically.
+function stockholmToUnix({
+    year,
+    month,
+    day,
+    hour = 0,
+    minute = 0,
+    second = 0
+}) {
+
+    let timestamp = Date.UTC(
+        year,
+        month - 1,
+        day,
+        hour,
+        minute,
+        second
     );
+
+    // Correct for Stockholm's current UTC offset.
+    for (let i = 0; i < 3; i++) {
+
+        const stockholm = getStockholmParts(
+            new Date(timestamp)
+        );
+
+        const displayedAsUTC = Date.UTC(
+            stockholm.year,
+            stockholm.month - 1,
+            stockholm.day,
+            stockholm.hour,
+            stockholm.minute,
+            stockholm.second
+        );
+
+        const offset =
+            displayedAsUTC - timestamp;
+
+        const corrected =
+            Date.UTC(
+                year,
+                month - 1,
+                day,
+                hour,
+                minute,
+                second
+            ) - offset;
+
+        if (corrected === timestamp) {
+            break;
+        }
+
+        timestamp = corrected;
+    }
+
+    return Math.floor(timestamp / 1000);
 }
 
-// Start of the current week: Monday 00:00
-function getStartOfWeek() {
-    const now = new Date();
 
-    const day = now.getDay();
+// ============================================================
+// RESET TIMESTAMPS
+// ============================================================
+
+function getStartOfToday() {
+
+    const now = getStockholmParts();
+
+    return stockholmToUnix({
+        year: now.year,
+        month: now.month,
+        day: now.day,
+        hour: 0,
+        minute: 0,
+        second: 0
+    });
+}
+
+
+function getNextMidnightTimestamp() {
+
+    const now = getStockholmParts();
+
+    const tomorrow = new Date(
+        Date.UTC(
+            now.year,
+            now.month - 1,
+            now.day + 1
+        )
+    );
+
+    return stockholmToUnix({
+        year: tomorrow.getUTCFullYear(),
+        month: tomorrow.getUTCMonth() + 1,
+        day: tomorrow.getUTCDate(),
+        hour: 0,
+        minute: 0,
+        second: 0
+    });
+}
+
+
+function getStartOfWeek() {
+
+    const now = getStockholmParts();
+
+    const currentDate = new Date(
+        Date.UTC(
+            now.year,
+            now.month - 1,
+            now.day
+        )
+    );
 
     // Sunday = 0
     // Monday = 1
-    const daysSinceMonday = (day + 6) % 7;
+    const day = currentDate.getUTCDay();
 
-    now.setDate(
-        now.getDate() - daysSinceMonday
+    const daysSinceMonday =
+        day === 0 ? 6 : day - 1;
+
+    currentDate.setUTCDate(
+        currentDate.getUTCDate() -
+        daysSinceMonday
     );
 
-    now.setHours(0, 0, 0, 0);
-
-    return Math.floor(
-        now.getTime() / 1000
-    );
+    return stockholmToUnix({
+        year: currentDate.getUTCFullYear(),
+        month: currentDate.getUTCMonth() + 1,
+        day: currentDate.getUTCDate(),
+        hour: 0,
+        minute: 0,
+        second: 0
+    });
 }
 
-// Next Monday 00:00
+
 function getNextMondayTimestamp() {
-    const now = new Date();
-    const next = new Date(now);
 
-    const day = now.getDay();
+    const now = getStockholmParts();
 
-    let daysUntilMonday =
-        (8 - day) % 7;
-
-    if (daysUntilMonday === 0) {
-        daysUntilMonday = 7;
-    }
-
-    next.setDate(
-        now.getDate() + daysUntilMonday
+    const currentDate = new Date(
+        Date.UTC(
+            now.year,
+            now.month - 1,
+            now.day
+        )
     );
 
-    next.setHours(0, 0, 0, 0);
+    const day = currentDate.getUTCDay();
 
-    return Math.floor(
-        next.getTime() / 1000
+    const daysUntilMonday =
+        day === 0
+            ? 1
+            : 8 - day;
+
+    currentDate.setUTCDate(
+        currentDate.getUTCDate() +
+        daysUntilMonday
     );
+
+    return stockholmToUnix({
+        year: currentDate.getUTCFullYear(),
+        month: currentDate.getUTCMonth() + 1,
+        day: currentDate.getUTCDate(),
+        hour: 0,
+        minute: 0,
+        second: 0
+    });
 }
 
-// =========================
-// LEADERBOARD QUERIES
-// =========================
 
-// =========================
-// 24H
-// =========================
-// Rolling last 24 hours.
-// This matches the 24h reset timestamp.
+// ============================================================
+// LEADERBOARD QUERIES
+// ============================================================
+
+// IMPORTANT:
+//
+// activity_logs.created_at is stored as:
+// YYYY-MM-DD HH:MM:SS
+//
+// strftime('%s', created_at) converts it
+// into Unix seconds.
+//
+// The reset boundaries above are generated
+// specifically for Europe/Stockholm.
+//
+// ============================================================
+
+
+// -------------------------
+// 24H CHAT
+// -------------------------
 
 function getChatTop24h() {
 
-    const since =
-        Math.floor(Date.now() / 1000) -
-        (24 * 60 * 60);
+    const since = getStartOfToday();
 
     return db.prepare(`
         SELECT
@@ -95,11 +248,14 @@ function getChatTop24h() {
     `).all(since);
 }
 
+
+// -------------------------
+// 24H VOICE
+// -------------------------
+
 function getVoiceTop24h() {
 
-    const since =
-        Math.floor(Date.now() / 1000) -
-        (24 * 60 * 60);
+    const since = getStartOfToday();
 
     return db.prepare(`
         SELECT
@@ -114,12 +270,10 @@ function getVoiceTop24h() {
     `).all(since);
 }
 
-// =========================
-// 7D
-// =========================
-// Current Monday -> next Monday.
-// This is an actual weekly leaderboard,
-// not a rolling 7-day leaderboard.
+
+// -------------------------
+// WEEKLY CHAT
+// -------------------------
 
 function getChatTop7d() {
 
@@ -138,6 +292,11 @@ function getChatTop7d() {
     `).all(since);
 }
 
+
+// -------------------------
+// WEEKLY VOICE
+// -------------------------
+
 function getVoiceTop7d() {
 
     const since = getStartOfWeek();
@@ -155,13 +314,15 @@ function getVoiceTop7d() {
     `).all(since);
 }
 
-// =========================
+
+// ============================================================
 // USER DATA
-// =========================
+// ============================================================
 
 async function addUserData(channel, users) {
 
     return Promise.all(
+
         users.map(async (user) => {
 
             const member =
@@ -187,16 +348,24 @@ async function addUserData(channel, users) {
     );
 }
 
-// =========================
-// SEND / UPDATE
-// =========================
 
-async function sendOrUpdate(channel, type, embed) {
+// ============================================================
+// SEND / UPDATE LEADERBOARD MESSAGE
+// ============================================================
 
-    const old = leaderboardDB.prepare(
-        "SELECT * FROM leaderboard_messages WHERE type = ?"
-    ).get(type);
+async function sendOrUpdate(
+    channel,
+    type,
+    embed
+) {
 
+    const old =
+        leaderboardDB.prepare(
+            "SELECT * FROM leaderboard_messages WHERE type = ?"
+        ).get(type);
+
+
+    // Existing message
     if (old) {
 
         try {
@@ -214,6 +383,12 @@ async function sendOrUpdate(channel, type, embed) {
 
         } catch (error) {
 
+            // 10008 = Unknown Message
+            //
+            // The message was actually deleted.
+            // Remove its database entry so ASTER
+            // can create a replacement.
+
             if (error.code !== 10008) {
 
                 console.error(
@@ -230,6 +405,8 @@ async function sendOrUpdate(channel, type, embed) {
         }
     }
 
+
+    // Create replacement message
     try {
 
         const message =
@@ -255,19 +432,24 @@ async function sendOrUpdate(channel, type, embed) {
     }
 }
 
-// =========================
+
+// ============================================================
 // MODULE
-// =========================
+// ============================================================
 
 module.exports = async (client) => {
 
     const guild =
         client.guilds.cache.first();
 
-    if (!guild) return;
+    if (!guild) {
+        return;
+    }
+
 
     const config =
         getConfig(guild.id);
+
 
     if (!config.leaderboard_channel) {
 
@@ -278,10 +460,12 @@ module.exports = async (client) => {
         return;
     }
 
+
     const channel =
         await client.channels
             .fetch(config.leaderboard_channel)
             .catch(() => null);
+
 
     if (!channel) {
 
@@ -292,19 +476,30 @@ module.exports = async (client) => {
         return;
     }
 
+
     let updating = false;
 
-    // =========================
+    let lastWinnerWeek =
+        getStartOfWeek();
+
+
+    // ========================================================
     // UPDATE LEADERBOARDS
-    // =========================
+    // ========================================================
 
     async function updateLeaderboard() {
 
-        if (updating) return;
+        if (updating) {
+            return;
+        }
 
         updating = true;
 
         try {
+
+            // -------------------------
+            // GET CURRENT DATA
+            // -------------------------
 
             const chat24hRaw =
                 getChatTop24h();
@@ -317,6 +512,11 @@ module.exports = async (client) => {
 
             const voice7dRaw =
                 getVoiceTop7d();
+
+
+            // -------------------------
+            // USER DATA
+            // -------------------------
 
             const chat24h =
                 await addUserData(
@@ -342,12 +542,14 @@ module.exports = async (client) => {
                     voice7dRaw
                 );
 
-            // =========================
+
+            // =================================================
             // 24H
-            // =========================
+            // =================================================
 
             const reset24hTimestamp =
-                getNext24hTimestamp();
+                getNextMidnightTimestamp();
+
 
             const activity24hEmbed =
                 createActivityEmbed(
@@ -357,12 +559,14 @@ module.exports = async (client) => {
                     reset24hTimestamp
                 );
 
-            // =========================
+
+            // =================================================
             // 7D
-            // =========================
+            // =================================================
 
             const reset7dTimestamp =
                 getNextMondayTimestamp();
+
 
             const activity7dEmbed =
                 createActivityEmbed(
@@ -372,15 +576,17 @@ module.exports = async (client) => {
                     reset7dTimestamp
                 );
 
-            // =========================
+
+            // =================================================
             // UPDATE MESSAGES
-            // =========================
+            // =================================================
 
             await sendOrUpdate(
                 channel,
                 "activity24h",
                 activity24hEmbed
             );
+
 
             await sendOrUpdate(
                 channel,
@@ -401,9 +607,10 @@ module.exports = async (client) => {
         }
     }
 
-    // =========================
+
+    // ========================================================
     // WEEKLY WINNER ROLES
-    // =========================
+    // ========================================================
 
     async function updateWinnerRoles() {
 
@@ -411,8 +618,14 @@ module.exports = async (client) => {
             "Updating weekly winner roles..."
         );
 
+
+        const currentWeek =
+            getStartOfWeek();
+
+
         const config =
             getConfig(channel.guild.id);
+
 
         if (
             !config.chat_king_role ||
@@ -426,28 +639,33 @@ module.exports = async (client) => {
             return;
         }
 
-        const guild =
-            channel.guild;
 
         const chatTop =
             getChatTop7d()[0];
 
+
         const voiceTop =
             getVoiceTop7d()[0];
 
-        // =========================
-        // REMOVE OLD CHAT RULER
-        // =========================
 
-        const chatRole =
+        const guild =
+            channel.guild;
+
+
+        // ====================================================
+        // REMOVE OLD CHAT RULER
+        // ====================================================
+
+        const oldChatRole =
             guild.roles.cache.get(
                 config.chat_king_role
             );
 
-        if (chatRole) {
+
+        if (oldChatRole) {
 
             for (
-                const member of chatRole.members.values()
+                const member of oldChatRole.members.values()
             ) {
 
                 if (
@@ -456,25 +674,29 @@ module.exports = async (client) => {
                 ) {
 
                     await member.roles
-                        .remove(config.chat_king_role)
+                        .remove(
+                            config.chat_king_role
+                        )
                         .catch(() => {});
                 }
             }
         }
 
-        // =========================
-        // REMOVE OLD VOICE RULER
-        // =========================
 
-        const voiceRole =
+        // ====================================================
+        // REMOVE OLD VOICE RULER
+        // ====================================================
+
+        const oldVoiceRole =
             guild.roles.cache.get(
                 config.voice_king_role
             );
 
-        if (voiceRole) {
+
+        if (oldVoiceRole) {
 
             for (
-                const member of voiceRole.members.values()
+                const member of oldVoiceRole.members.values()
             ) {
 
                 if (
@@ -483,15 +705,18 @@ module.exports = async (client) => {
                 ) {
 
                     await member.roles
-                        .remove(config.voice_king_role)
+                        .remove(
+                            config.voice_king_role
+                        )
                         .catch(() => {});
                 }
             }
         }
 
-        // =========================
-        // ADD CHAT RULER
-        // =========================
+
+        // ====================================================
+        // GIVE CHAT RULER
+        // ====================================================
 
         if (chatTop) {
 
@@ -500,17 +725,21 @@ module.exports = async (client) => {
                     .fetch(chatTop.user_id)
                     .catch(() => null);
 
+
             if (member) {
 
                 await member.roles
-                    .add(config.chat_king_role)
+                    .add(
+                        config.chat_king_role
+                    )
                     .catch(() => {});
             }
         }
 
-        // =========================
-        // ADD VOICE RULER
-        // =========================
+
+        // ====================================================
+        // GIVE VOICE RULER
+        // ====================================================
 
         if (voiceTop) {
 
@@ -519,72 +748,83 @@ module.exports = async (client) => {
                     .fetch(voiceTop.user_id)
                     .catch(() => null);
 
+
             if (member) {
 
                 await member.roles
-                    .add(config.voice_king_role)
+                    .add(
+                        config.voice_king_role
+                    )
                     .catch(() => {});
             }
         }
+
+
+        lastWinnerWeek = currentWeek;
+
+
+        console.log(
+            "Weekly winner roles updated."
+        );
     }
 
-    // =========================
+
+    // ========================================================
     // INITIAL UPDATE
-    // =========================
+    // ========================================================
 
     await updateLeaderboard();
 
+    // Make sure the current weekly #1 has the role
+    // when ASTER starts/restarts.
     await updateWinnerRoles();
 
-    // =========================
-    // LIVE UPDATE
-    // =========================
+
+    // ========================================================
+    // LEADERBOARD UPDATE
+    // ========================================================
 
     setInterval(
-        updateLeaderboard,
+        async () => {
+
+            await updateLeaderboard();
+
+        },
         5 * 60 * 1000
     );
 
-    // =========================
-    // WEEKLY RESET SCHEDULER
-    // =========================
 
-    function scheduleWeeklyReset() {
+    // ========================================================
+    // WEEKLY RESET / WINNER CHECK
+    // ========================================================
 
-        const now = Date.now();
+    setInterval(
+        async () => {
 
-        const nextMonday =
-            getNextMondayTimestamp() * 1000;
+            const currentWeek =
+                getStartOfWeek();
 
-        const delay =
-            Math.max(
-                nextMonday - now,
-                1000
-            );
 
-        console.log(
-            `Next weekly reset scheduled in ${
-                Math.round(delay / 1000 / 60)
-            } minutes.`
-        );
+            if (
+                currentWeek !== lastWinnerWeek
+            ) {
 
-        setTimeout(async () => {
+                console.log(
+                    "New weekly period detected."
+                );
 
-            console.log(
-                "WEEKLY RESET TRIGGERED"
-            );
 
-            // Remove old #1 roles.
-            await updateWinnerRoles();
+                await updateLeaderboard();
 
-            // Refresh leaderboard immediately.
-            await updateLeaderboard();
+                await updateWinnerRoles();
 
-            // Schedule the next Monday.
-            scheduleWeeklyReset();
 
-        }, delay);
-    }
+                console.log(
+                    "Weekly leaderboard and winner roles refreshed."
+                );
+            }
 
-    scheduleWeeklyReset();
+        },
+        60 * 1000
+    );
 };
