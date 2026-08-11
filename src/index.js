@@ -14,8 +14,18 @@ const client = new Client({
     ]
 });
 
+const db = require("./database/database");
+
 client.commands = new Collection();
 client.autoreacts = new Map();
+
+const rows = db.prepare(
+    "SELECT user_id, emoji FROM autoreacts WHERE enabled = 1"
+).all();
+
+for (const row of rows) {
+    client.autoreacts.set(row.user_id, row.emoji);
+}
 
 const messageCreate = require("./events/messageCreate");
 
