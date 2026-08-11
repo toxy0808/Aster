@@ -1,6 +1,14 @@
+const {
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder,
+    SectionBuilder,
+    ThumbnailBuilder,
+    MessageFlags
+} = require("discord.js");
+
 const db = require("../database/database");
 const { getXPData } = require("../utils/xp");
-const { EmbedBuilder } = require("discord.js");
 
 module.exports = {
     name: "rank",
@@ -12,6 +20,10 @@ module.exports = {
 
     async execute(message, args) {
 
+        // =========================
+        // USER DATA
+        // =========================
+
         const user = db.prepare(
             "SELECT * FROM users WHERE user_id = ?"
         ).get(message.author.id);
@@ -20,12 +32,22 @@ module.exports = {
             return message.reply("No rank data found.");
         }
 
+
+        // =========================
+        // MESSAGE COUNT
+        // =========================
+
         const messages = db.prepare(`
             SELECT COALESCE(SUM(amount), 0) AS total
             FROM activity_logs
             WHERE user_id = ?
             AND type = 'chat'
         `).get(message.author.id).total;
+
+
+        // =========================
+        // ACTIVITY RANK
+        // =========================
 
         const rank = db.prepare(`
             SELECT COUNT(*) + 1 AS rank
@@ -38,39 +60,73 @@ module.exports = {
             WHERE messages > ?
         `).get(messages).rank;
 
+
+        // =========================
+        // XP
+        // =========================
+
         const xpData = getXPData(user);
 
         const currentXP = xpData.currentXP;
         const nextXP = xpData.neededXP;
 
-        const embed = new EmbedBuilder()
-            .setTitle(`${message.author.username}'s Rank`)
-            .setThumbnail(message.author.displayAvatarURL())
-            .addFields(
-                {
-                    name: "🏆 Activity Rank",
-                    value: `#${rank}`,
-                    inline: true
-                },
-                {
-                    name: "💬 Messages",
-                    value: `${messages}`,
-                    inline: true
-                },
-                {
-                    name: "⭐ Level",
-                    value: `${user.level}`,
-                    inline: true
-                },
-                {
-                    name: "✨ XP",
-                    value: `${currentXP}/${nextXP}`,
-                    inline: true
-                }
-            );
+
+        // =========================
+        // ASTER PROFILE
+        // =========================
+
+        const container = new ContainerBuilder();
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                "**ASTER / PROFILE**"
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        // =========================
+        // USER
+        // =========================
+
+        container.addSectionComponents(
+            new SectionBuilder()
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        `**${message.author.username}**\n` +
+                        `Level ${user.level} · Rank #${rank}`
+                    )
+                )
+                .setThumbnailAccessory(
+                    new ThumbnailBuilder({
+                        media: {
+                            url: message.author.displayAvatarURL()
+                        }
+                    })
+                )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        // =========================
+        // STATS
+        // =========================
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `**MESSAGES**  ${messages.toLocaleString()}\n` +
+                `**LEVEL**     ${user.level}\n` +
+                `**XP**        ${currentXP.toLocaleString()} / ${nextXP.toLocaleString()}`
+            )
+        );
 
         return message.reply({
-            embeds: [embed]
+            components: [container],
+            flags: MessageFlags.IsComponentsV2
         });
     }
 };
