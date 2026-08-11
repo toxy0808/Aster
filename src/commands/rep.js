@@ -1,5 +1,6 @@
 const db = require("../database/database");
 const { syncRepRewards } = require("../utils/repRewards");
+
 const COOLDOWN = 10 * 60 * 1000;
 
 function getRepConfig(guildId) {
@@ -105,8 +106,7 @@ module.exports = {
         // TARGET
         // =========================
 
-        const target =
-            message.mentions.users.first();
+        const target = message.mentions.users.first();
 
 
         // =========================
@@ -121,12 +121,14 @@ module.exports = {
                 WHERE user_id = ?
             `).get(message.author.id);
 
-            const reputation =
-                user?.reputation ?? 0;
+            const reputation = user?.reputation ?? 0;
 
-            return message.reply(
-                `✨ **${message.author.username}** has **${reputation} reputation**.`
-            );
+            return message.reply({
+                content:
+                    `**ASTER / REPUTATION**\n\n` +
+                    `@${message.author.username}\n` +
+                    `**${reputation.toLocaleString()} REP**`
+            });
         }
 
 
@@ -134,20 +136,17 @@ module.exports = {
         // VALIDATION
         // =========================
 
-        if (
-            target.id ===
-            message.author.id
-        ) {
+        if (target.id === message.author.id) {
 
             return message.reply(
-                "❌ You can't give reputation to yourself."
+                "You can't give reputation to yourself."
             );
         }
 
         if (target.bot) {
 
             return message.reply(
-                "❌ You can't give reputation to bots."
+                "You can't give reputation to bots."
             );
         }
 
@@ -156,8 +155,7 @@ module.exports = {
         // REP TYPE
         // =========================
 
-        const typeArg =
-            args[0]?.toLowerCase();
+        const typeArg = args[0]?.toLowerCase();
 
         let amount = 1;
 
@@ -174,10 +172,7 @@ module.exports = {
         // SERVER CONFIG
         // =========================
 
-        const config =
-            getRepConfig(
-                message.guild.id
-            );
+        const config = getRepConfig(message.guild.id);
 
 
         // =========================
@@ -230,16 +225,15 @@ module.exports = {
         // DAILY LIMIT
         // =========================
 
-        const limit =
-            getDailyLimit(
-                message.member,
-                config
-            );
+        const limit = getDailyLimit(
+            message.member,
+            config
+        );
 
         if (giver.daily_given >= limit) {
 
             return message.reply(
-                `⏳ You've reached your daily reputation limit of **${limit}**.`
+                `Daily reputation limit reached · **${limit}**`
             );
         }
 
@@ -263,17 +257,12 @@ module.exports = {
         if (recent) {
 
             const lastTime =
-                new Date(
-                    recent.created_at
-                ).getTime();
+                new Date(recent.created_at).getTime();
 
-            if (
-                Date.now() - lastTime <
-                COOLDOWN
-            ) {
+            if (Date.now() - lastTime < COOLDOWN) {
 
                 return message.reply(
-                    "⏳ You recently gave reputation to this user. Try again later."
+                    "Reputation cooldown active · Try again later."
                 );
             }
         }
@@ -359,26 +348,29 @@ module.exports = {
         // APPLY REWARDS
         // =========================
 
-        await syncRepRewards(message.guild, target.id);
+        await syncRepRewards(
+            message.guild,
+            target.id
+        );
 
 
         // =========================
         // RESULT
         // =========================
 
-        const symbol =
-            amount > 0
-                ? "✨"
-                : "⚠️";
-
         const action =
             amount > 0
-                ? "gained"
-                : "lost";
+                ? "+"
+                : "-";
 
-        return message.reply(
-            `${symbol} **${target.username}** ${action} **${Math.abs(amount)} reputation**!\n` +
-            `⭐ Reputation: **${updated.reputation}**`
-        );
+        return message.reply({
+            content:
+                `**ASTER / REPUTATION**\n\n` +
+                `${action}${Math.abs(amount)} REP → <@${target.id}>\n` +
+                `**${updated.reputation.toLocaleString()} REP**`,
+            allowedMentions: {
+                parse: []
+            }
+        });
     }
 };
