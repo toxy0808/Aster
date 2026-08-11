@@ -47,6 +47,9 @@ client.once("clientReady", () => {
     require("./events/voiceRecovery")(client);
 
     require("./events/leaderboardUpdater")(client);
+
+    // ASTER Pulse
+    require("./utils/asterPulse").startPulse(client);
 });
 
 
