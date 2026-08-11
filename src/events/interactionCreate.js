@@ -321,11 +321,10 @@ ensureServerConfig(interaction.guild.id);
             interaction.guild.id
         );
 
-        return interaction.update({
-            content:
-                `✅ Rep Staff role set to <@&${roleId}>`,
-            components: []
-        });
+        return interaction.reply({
+    content: `✅ Staff role set to <@&${roleId}>`,
+    ephemeral: true
+});
     }
 
     // =========================
@@ -347,11 +346,10 @@ ensureServerConfig(interaction.guild.id);
             interaction.guild.id
         );
 
-        return interaction.update({
-            content:
-                `✅ Rep Funder role set to <@&${roleId}>`,
-            components: []
-        });
+        return interaction.reply({
+    content: `✅ Funder role set to <@&${roleId}>`,
+    ephemeral: true
+});
     }
 
     // =========================
