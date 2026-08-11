@@ -29,13 +29,8 @@ module.exports = {
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                "✨ **ASTER • REPUTATION LEADERBOARD**\n" +
-                "🏆 *The most respected members of the community*"
+                "**ASTER / REPUTATION**"
             )
-        );
-
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
         );
 
         // =========================
@@ -46,14 +41,16 @@ module.exports = {
 
             container.addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    "📭 **No reputation yet.**\n" +
-                    "Be the first to earn some reputation!"
+                    "No reputation data yet."
                 )
             );
 
             return message.reply({
                 components: [container],
-                flags: MessageFlags.IsComponentsV2
+                flags: MessageFlags.IsComponentsV2,
+                allowedMentions: {
+                    parse: []
+                }
             });
         }
 
@@ -67,7 +64,6 @@ module.exports = {
 
             const user = users[i];
 
-
             let rank;
 
             if (i === 0) {
@@ -77,18 +73,17 @@ module.exports = {
             } else if (i === 2) {
                 rank = "🥉";
             } else {
-                rank = `**#${i + 1}**`;
+                rank = `#${i + 1}`;
             }
 
             lines.push(
-    `${rank} <@${user.user_id}>\n` +
-    `> ⭐ **${user.reputation.toLocaleString()} Rep**`
-);
-
-            if (i < users.length - 1) {
-                lines.push("");
-            }
+                `${rank} <@${user.user_id}> · **${user.reputation.toLocaleString()} REP**`
+            );
         }
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
@@ -96,12 +91,8 @@ module.exports = {
             )
         );
 
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
         // =========================
-        // FOOTER
+        // YOUR STANDING
         // =========================
 
         const myRep = db.prepare(`
@@ -118,21 +109,13 @@ module.exports = {
             WHERE reputation > ?
         `).get(myReputation);
 
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `💫 **Your Standing**\n` +
-                `⭐ ${myReputation.toLocaleString()} Rep • ` +
-                `🏅 Rank **#${rankResult.rank}**`
-            )
-        );
-
         container.addSeparatorComponents(
             new SeparatorBuilder()
         );
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                "💖 Keep contributing • Keep earning • Keep climbing"
+                `**YOU** · #${rankResult.rank} · **${myReputation.toLocaleString()} REP**`
             )
         );
 
@@ -140,8 +123,8 @@ module.exports = {
             components: [container],
             flags: MessageFlags.IsComponentsV2,
             allowedMentions: {
-               parse: []
-             }
+                parse: []
+            }
         });
     }
 };
