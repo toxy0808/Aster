@@ -65,7 +65,7 @@ module.exports = {
 
                 lines.push(
                     `${positive ? "🟢" : "🔴"} **${positive ? "+1" : "-1"} Rep**\n` +
-                    `> 👤 ${name} • 🕐 <t:${Math.floor(new Date(log.created_at).getTime() / 1000)}:R>`
+                    `> 👤 <@${log.giver_id}> • 🕐 <t:${Math.floor(new Date(log.created_at).getTime() / 1000)}:R>`
                 );
             }
 
