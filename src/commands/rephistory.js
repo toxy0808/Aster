@@ -1,17 +1,11 @@
 const {
-    EmbedBuilder
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder,
+    MessageFlags
 } = require("discord.js");
 
 const db = require("../database/database");
-
-const EMOJI = {
-    aster: "<a:pinkogniK:1537116042466164868>",
-    rep: "<a:Arrow_setupxD:1537115995171459103>",
-    up: "<a:auraup:1537116075106508892>",
-    down: "<a:4w_PinkArrowDown:1537716113899491358>",
-    history: "<a:brownclock:1537116208435040388>",
-    stats: "<a:795108partykillerpenguin:1537116231067377734>"
-};
 
 module.exports = {
     name: "rephistory",
@@ -35,40 +29,59 @@ module.exports = {
             message.author.id
         );
 
-        const embed = new EmbedBuilder()
-            .setColor(0xFF4FA3)
-            .setAuthor({
-                name: "ASTER  /  REP",
-                iconURL: message.client.user.displayAvatarURL({
-                    extension: "png",
-                    size: 128
-                })
-            })
-            .setTitle(`${EMOJI.history}  REPUTATION HISTORY`)
-            .setDescription(
-                `Recent reputation activity for **${message.author.username}**`
+        const container = new ContainerBuilder();
+
+        // =========================
+        // HEADER
+        // =========================
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `# 𝘼𝙎𝙏𝙀𝙍\n` +
+                `### 𝙍𝙀𝙋  /  𝙃𝙄𝙎𝙏𝙊𝙍𝙔`
             )
-            .setTimestamp();
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        // =========================
+        // NO ACTIVITY
+        // =========================
 
         if (!logs.length) {
 
-            embed.addFields({
-                name: `${EMOJI.rep}  ACTIVITY`,
-                value: "No reputation activity yet.",
-                inline: false
-            });
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `### ✦ 𝘼𝘾𝙏𝙄𝙑𝙄𝙏𝙔\n` +
+                    `No reputation activity yet.`
+                )
+            );
 
-            embed.setFooter({
-                text: "ASTER • Reputation System"
-            });
+            container.addSeparatorComponents(
+                new SeparatorBuilder()
+            );
+
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `> 𝙍𝙀𝙋 𝙎𝙔𝙎𝙏𝙀𝙈\n` +
+                    `Your reputation history will appear here.`
+                )
+            );
 
             return message.reply({
-                embeds: [embed],
+                components: [container],
+                flags: MessageFlags.IsComponentsV2,
                 allowedMentions: {
                     parse: []
                 }
             });
         }
+
+        // =========================
+        // HISTORY
+        // =========================
 
         const lines = [];
 
@@ -79,13 +92,13 @@ module.exports = {
 
             const direction =
                 received
-                    ? "+"
-                    : "−";
+                    ? "↑"
+                    : "↓";
 
-            const actionEmoji =
+            const amount =
                 received
-                    ? EMOJI.up
-                    : EMOJI.down;
+                    ? "+1"
+                    : "−1";
 
             const otherUser =
                 received
@@ -98,15 +111,20 @@ module.exports = {
                 );
 
             lines.push(
-                `${actionEmoji}  **${direction}1 REP**  <@${otherUser}>  ·  <t:${timestamp}:R>`
+                `${direction}  **${amount} REP**  <@${otherUser}>  ·  <t:${timestamp}:R>`
             );
         }
 
-        embed.addFields({
-            name: `${EMOJI.history}  RECENT ACTIVITY`,
-            value: lines.join("\n"),
-            inline: false
-        });
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### 𝙍𝙀𝘾𝙀𝙉𝙏 𝘼𝘾𝙏𝙄𝙑𝙄𝙏𝙔\n\n` +
+                lines.join("\n")
+            )
+        );
+
+        // =========================
+        // STATISTICS
+        // =========================
 
         const totals = db.prepare(`
             SELECT
@@ -133,20 +151,35 @@ module.exports = {
             message.author.id
         );
 
-        embed.addFields({
-            name: `${EMOJI.stats}  REP STATISTICS`,
-            value:
-                `${EMOJI.up}  **GIVEN**  \`${totals.given || 0}\`\n` +
-                `${EMOJI.down}  **RECEIVED**  \`${totals.received || 0}\``,
-            inline: false
-        });
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
 
-        embed.setFooter({
-            text: "ASTER • Reputation System"
-        });
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### 𝙍𝙀𝙋 𝙎𝙏𝘼𝙏𝙎\n\n` +
+                `↑  **𝙂𝙄𝙑𝙀𝙉**  ·  **${totals.given || 0}**\n` +
+                `↓  **𝙍𝙀𝘾𝙀𝙄𝙑𝙀𝘿**  ·  **${totals.received || 0}**`
+            )
+        );
+
+        // =========================
+        // FOOTER
+        // =========================
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `> 𝘼𝙎𝙏𝙀𝙍  ·  𝙍𝙀𝙋𝙐𝙏𝘼𝙏𝙄𝙊𝙉 𝙎𝙔𝙎𝙏𝙀𝙈`
+            )
+        );
 
         return message.reply({
-            embeds: [embed],
+            components: [container],
+            flags: MessageFlags.IsComponentsV2,
             allowedMentions: {
                 parse: []
             }
