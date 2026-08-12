@@ -8,11 +8,11 @@ const {
 const db = require("../database/database");
 
 const EMOJI = {
-    aster: "<a:pinkogniK:139064268480008284>",
-    rep: "<a:Arrow_setupxD:1371755199965954099>",
-    leaderboard: "<a:va_red_crown:1425339660942704670>",
-    rank: "<a:01x_diamond:1479136752093626551>",
-    stats: "<a:795108partykillerpenguin:1467048442395365437>"
+        aster: "<a:pinkogniK:1537116042466164868>",
+    rep: "<a:Arrow_setupxD:1537115995171459103>",
+    leaderboard: "<a:va_red_crown:1537116142211047496>",
+    rank: "<a:01x_diamond:1537116171185164388>",
+    stats: "<a:795108partykillerpenguin:1537116231067377734>"
 };
 
 module.exports = {
