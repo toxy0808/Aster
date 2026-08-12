@@ -1,11 +1,14 @@
-const {
-    ContainerBuilder,
-    TextDisplayBuilder,
-    SeparatorBuilder,
-    MessageFlags
-} = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 
 const { getPulseData } = require("../utils/asterPulse");
+
+const EMOJI = {
+    aster: "<a:pinkogniK:1537116042466164868>",
+    pulse: "<a:Arrow_setupxD:1537115995171459103>",
+    chat: "<a:795108partykillerpenguin:1537116231067377734>",
+    voice: "<a:brownclock:1537116208435040388>",
+    score: "<a:01x_diamond:1537116171185164388>"
+};
 
 module.exports = {
     name: "pulse",
@@ -14,40 +17,44 @@ module.exports = {
 
         const pulse = getPulseData(message.guild);
 
-        const container = new ContainerBuilder();
-
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                "**ASTER**\n" +
-                "PULSE"
+        const embed = new EmbedBuilder()
+            .setColor(0xFF4FA3)
+            .setAuthor({
+                name: "ASTER  /  ACTIVITY",
+                iconURL: message.client.user.displayAvatarURL({
+                    extension: "png",
+                    size: 128
+                })
+            })
+            .setTitle(`${EMOJI.pulse}  ASTER PULSE`)
+            .setDescription(
+                `**${pulse.state}**\n` +
+                `Live server activity overview`
             )
-        );
-
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `**${pulse.state}**`
+            .addFields(
+                {
+                    name: `${EMOJI.chat}  CHAT`,
+                    value: `**${pulse.messagesPerMinute}** messages/min`,
+                    inline: true
+                },
+                {
+                    name: `${EMOJI.voice}  VOICE`,
+                    value: `**${pulse.voiceUsers}** active`,
+                    inline: true
+                },
+                {
+                    name: `${EMOJI.score}  SCORE`,
+                    value: `**${pulse.score}**`,
+                    inline: true
+                }
             )
-        );
-
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `**CHAT**  ${pulse.messagesPerMinute}/min\n` +
-                `**VOICE**  ${pulse.voiceUsers}\n` +
-                `**SCORE**  ${pulse.score}`
-            )
-        );
+            .setTimestamp()
+            .setFooter({
+                text: "ASTER • Activity Tracking"
+            });
 
         return message.reply({
-            components: [container],
-            flags: MessageFlags.IsComponentsV2
+            embeds: [embed]
         });
     }
 };
