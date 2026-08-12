@@ -270,16 +270,13 @@ try {
     // =========================
     // MESSAGE TRACKING
     // =========================
+const userId = message.author.id;
 
-    const userId = message.author.id;
-
-    db.prepare(
-        "INSERT INTO activity_logs (user_id, type, amount) VALUES (?, ?, ?)"
-    ).run(
-        userId,
-        "message",
-        1
-    );
+activityDB.prepare(`
+    INSERT INTO activity_logs
+    (user_id, type, amount)
+    VALUES (?, ?, ?)
+`).run(userId, "chat", 1);
 
     const user = db.prepare(
         "SELECT * FROM users WHERE user_id = ?"
@@ -302,15 +299,6 @@ try {
         const newLevel =
             Math.floor(Math.sqrt(newXp / 100)) + 1;
 
-        activityDB.prepare(`
-            INSERT INTO activity_logs
-            (user_id, type, amount)
-            VALUES (?, ?, ?)
-        `).run(
-            userId,
-            "chat",
-            1
-        );
 
         db.prepare(
             "UPDATE users SET messages = messages + 1, xp = ?, level = ? WHERE user_id = ?"
