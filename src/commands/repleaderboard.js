@@ -1,8 +1,5 @@
 const {
-    ContainerBuilder,
-    TextDisplayBuilder,
-    SeparatorBuilder,
-    MessageFlags
+    EmbedBuilder
 } = require("discord.js");
 
 const db = require("../database/database");
@@ -10,152 +7,119 @@ const db = require("../database/database");
 const EMOJI = {
     aster: "<a:pinkogniK:1537116042466164868>",
     rep: "<a:Arrow_setupxD:1537115995171459103>",
-    up: "<a:auraup:15371160755106508892>",
-    down: "<a:4w_PinkArrowDown:1537716113899491358>",
-    history: "<a:brownclock:1537116208435040388>",
+    leaderboard: "<a:va_red_crown:1537116142211047496>",
+    rank: "<a:01x_diamond:1537116171185164388>",
     stats: "<a:795108partykillerpenguin:1537116231067377734>"
 };
 
 module.exports = {
-    name: "rephistory",
-    aliases: ["reph", "rep-history"],
+    name: "repleaderboard",
+    aliases: ["replb", "reputationlb"],
 
     async execute(message) {
 
-        const logs = db.prepare(`
-            SELECT
-                giver_id,
-                receiver_id,
-                type,
-                created_at
-            FROM reputation_logs
-            WHERE giver_id = ?
-               OR receiver_id = ?
-            ORDER BY id DESC
+        const users = db.prepare(`
+            SELECT user_id, reputation
+            FROM reputation
+            WHERE reputation > 0
+            ORDER BY reputation DESC
             LIMIT 10
-        `).all(
-            message.author.id,
-            message.author.id
-        );
+        `).all();
 
-        const container = new ContainerBuilder();
-
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `${EMOJI.aster}  **𝘼𝙎𝙏𝙀𝙍**  /  **𝙍𝙀𝙋**`
+        const embed = new EmbedBuilder()
+            .setColor(0xFF4FA3)
+            .setAuthor({
+                name: "ASTER  /  REP",
+                iconURL: message.client.user.displayAvatarURL({
+                    extension: "png",
+                    size: 128
+                })
+            })
+            .setTitle(`${EMOJI.leaderboard}  REP LEADERBOARD`)
+            .setDescription(
+                `${EMOJI.rep}  **Top reputation holders in the server**`
             )
-        );
+            .setTimestamp();
 
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `${EMOJI.history}  **𝙃𝙄𝙎𝙏𝙊𝙍𝙔**`
-            )
-        );
+        if (!users.length) {
 
-        if (!logs.length) {
+            embed.addFields({
+                name: `${EMOJI.rep}  LEADERBOARD`,
+                value: "No reputation data yet.",
+                inline: false
+            });
 
-            container.addSeparatorComponents(
-                new SeparatorBuilder()
-            );
-
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `${EMOJI.rep}  No reputation activity yet.`
-                )
-            );
+            embed.setFooter({
+                text: "ASTER • Reputation System"
+            });
 
             return message.reply({
-                components: [container],
-                flags: MessageFlags.IsComponentsV2,
+                embeds: [embed],
                 allowedMentions: {
                     parse: []
                 }
             });
         }
 
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
         const lines = [];
 
-        for (const log of logs) {
+        for (let i = 0; i < users.length; i++) {
 
-            const received =
-                log.receiver_id === message.author.id;
+            const user = users[i];
 
-            const direction =
-                received
-                    ? "+"
-                    : "−";
+            let rank;
 
-            const actionEmoji =
-                received
-                    ? EMOJI.up
-                    : EMOJI.down;
-
-            const otherUser =
-                received
-                    ? log.giver_id
-                    : log.receiver_id;
-
-            const timestamp =
-                Math.floor(
-                    new Date(log.created_at).getTime() / 1000
-                );
+            if (i === 0) {
+                rank = "🥇";
+            } else if (i === 1) {
+                rank = "🥈";
+            } else if (i === 2) {
+                rank = "🥉";
+            } else {
+                rank =
+                    `**${String(i + 1).padStart(2, "0")}**`;
+            }
 
             lines.push(
-                `${actionEmoji}  **${direction}1**  <@${otherUser}>  ·  <t:${timestamp}:R>`
+                `${rank}  <@${user.user_id}>  ·  **${user.reputation.toLocaleString()} REP**`
             );
         }
 
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                lines.join("\n")
-            )
-        );
+        embed.addFields({
+            name: `${EMOJI.leaderboard}  TOP 10`,
+            value: lines.join("\n"),
+            inline: false
+        });
 
-        const totals = db.prepare(`
-            SELECT
-                SUM(
-                    CASE
-                        WHEN receiver_id = ?
-                        AND type = 'positive'
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS received,
+        const myRep = db.prepare(`
+            SELECT reputation
+            FROM reputation
+            WHERE user_id = ?
+        `).get(message.author.id);
 
-                SUM(
-                    CASE
-                        WHEN giver_id = ?
-                        AND type = 'positive'
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS given
-            FROM reputation_logs
-        `).get(
-            message.author.id,
-            message.author.id
-        );
+        const myReputation =
+            myRep?.reputation ?? 0;
 
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
+        const rankResult = db.prepare(`
+            SELECT COUNT(*) + 1 AS rank
+            FROM reputation
+            WHERE reputation > ?
+        `).get(myReputation);
 
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `╭  ${EMOJI.stats}  **𝙍𝙀𝙋 𝙎𝙏𝘼𝙏𝙎**\n` +
-                `│  ◈  GIVEN  **${totals.given || 0}**\n` +
-                `│  ◇  RECEIVED  **${totals.received || 0}**\n` +
-                `╰  ${EMOJI.rep}  ACTIVITY`
-            )
-        );
+        embed.addFields({
+            name: `${EMOJI.rank}  YOUR STANDING`,
+            value:
+                `**#${rankResult.rank}**  ·  **${myReputation.toLocaleString()} REP**\n` +
+                `${EMOJI.stats}  Server Ranking`,
+            inline: false
+        });
+
+        embed.setFooter({
+            text: "ASTER • Reputation System"
+        });
 
         return message.reply({
-            components: [container],
-            flags: MessageFlags.IsComponentsV2,
+            embeds: [embed],
             allowedMentions: {
                 parse: []
             }
