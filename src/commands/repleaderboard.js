@@ -7,30 +7,52 @@ const {
 
 const db = require("../database/database");
 
+const EMOJI = {
+    aster: "<a:pinkogniK:139064268480008284>",
+    rep: "<a:Arrow_setupxD:1371755199965954099>",
+    up: "<a:auraup:1520369745583538307>",
+    down: "<a:4w_PinkArrowDown:1386173879046639666>",
+    history: "<a:brownclock:1413889485552484465>",
+    stats: "<a:795108partykillerpenguin:1467048442395365437>"
+};
+
 module.exports = {
-    name: "repleaderboard",
-    aliases: ["replb", "reputationlb"],
+    name: "rephistory",
+    aliases: ["reph", "rep-history"],
 
     async execute(message) {
 
-        const users = db.prepare(`
-            SELECT user_id, reputation
-            FROM reputation
-            WHERE reputation > 0
-            ORDER BY reputation DESC
+        const logs = db.prepare(`
+            SELECT
+                giver_id,
+                receiver_id,
+                type,
+                created_at
+            FROM reputation_logs
+            WHERE giver_id = ?
+               OR receiver_id = ?
+            ORDER BY id DESC
             LIMIT 10
-        `).all();
+        `).all(
+            message.author.id,
+            message.author.id
+        );
 
         const container = new ContainerBuilder();
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                "**ASTER**\n" +
-                "REPUTATION LEADERBOARD"
+                `${EMOJI.aster}  **𝘼𝙎𝙏𝙀𝙍**  /  **𝙍𝙀𝙋**`
             )
         );
 
-        if (!users.length) {
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `${EMOJI.history}  **𝙃𝙄𝙎𝙏𝙊𝙍𝙔**`
+            )
+        );
+
+        if (!logs.length) {
 
             container.addSeparatorComponents(
                 new SeparatorBuilder()
@@ -38,7 +60,7 @@ module.exports = {
 
             container.addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    "No reputation data yet."
+                    `${EMOJI.rep}  No reputation activity yet.`
                 )
             );
 
@@ -57,24 +79,33 @@ module.exports = {
 
         const lines = [];
 
-        for (let i = 0; i < users.length; i++) {
+        for (const log of logs) {
 
-            const user = users[i];
+            const received =
+                log.receiver_id === message.author.id;
 
-            let rank;
+            const direction =
+                received
+                    ? "+"
+                    : "−";
 
-            if (i === 0) {
-                rank = "🥇";
-            } else if (i === 1) {
-                rank = "🥈";
-            } else if (i === 2) {
-                rank = "🥉";
-            } else {
-                rank = `**#${i + 1}**`;
-            }
+            const actionEmoji =
+                received
+                    ? EMOJI.up
+                    : EMOJI.down;
+
+            const otherUser =
+                received
+                    ? log.giver_id
+                    : log.receiver_id;
+
+            const timestamp =
+                Math.floor(
+                    new Date(log.created_at).getTime() / 1000
+                );
 
             lines.push(
-                `${rank}  <@${user.user_id}>  ·  **${user.reputation.toLocaleString()} REP**`
+                `${actionEmoji}  **${direction}1**  <@${otherUser}>  ·  <t:${timestamp}:R>`
             );
         }
 
@@ -84,19 +115,30 @@ module.exports = {
             )
         );
 
-        const myRep = db.prepare(`
-            SELECT reputation
-            FROM reputation
-            WHERE user_id = ?
-        `).get(message.author.id);
+        const totals = db.prepare(`
+            SELECT
+                SUM(
+                    CASE
+                        WHEN receiver_id = ?
+                        AND type = 'positive'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS received,
 
-        const myReputation = myRep?.reputation ?? 0;
-
-        const rankResult = db.prepare(`
-            SELECT COUNT(*) + 1 AS rank
-            FROM reputation
-            WHERE reputation > ?
-        `).get(myReputation);
+                SUM(
+                    CASE
+                        WHEN giver_id = ?
+                        AND type = 'positive'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS given
+            FROM reputation_logs
+        `).get(
+            message.author.id,
+            message.author.id
+        );
 
         container.addSeparatorComponents(
             new SeparatorBuilder()
@@ -104,8 +146,10 @@ module.exports = {
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `**YOUR RANK**\n` +
-                `#${rankResult.rank}  ·  **${myReputation.toLocaleString()} REP**`
+                `╭  ${EMOJI.stats}  **𝙍𝙀𝙋 𝙎𝙏𝘼𝙏𝙎**\n` +
+                `│  ◈  GIVEN  **${totals.given || 0}**\n` +
+                `│  ◇  RECEIVED  **${totals.received || 0}**\n` +
+                `╰  ${EMOJI.rep}  ACTIVITY`
             )
         );
 
