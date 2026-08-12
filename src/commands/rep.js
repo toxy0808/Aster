@@ -10,6 +10,21 @@ const { syncRepRewards } = require("../utils/repRewards");
 
 const COOLDOWN = 10 * 60 * 1000;
 
+// =========================
+// ASTER UI
+// =========================
+
+const EMOJI = {
+    aster: "<a:pinkogniK:139064268480008284>",
+    rep: "<a:Arrow_setupxD:1371755199965954099>",
+    up: "<a:auraup:1520369745583538307>",
+    down: "<a:4w_PinkArrowDown:1386173879046639666>",
+    leaderboard: "<a:va_red_crown:1425339660942704670>",
+    rank: "<a:01x_diamond:1479136752093626551>",
+    history: "<a:brownclock:1413889485552484465>",
+    stats: "<a:795108partykillerpenguin:1467048442395365437>"
+};
+
 function getRepConfig(guildId) {
 
     let config = db.prepare(`
@@ -86,12 +101,16 @@ function resetDaily(user) {
         !user.daily_reset ||
         now - user.daily_reset >= 24 * 60 * 60 * 1000
     ) {
+
         db.prepare(`
             UPDATE reputation
             SET daily_given = 0,
                 daily_reset = ?
             WHERE user_id = ?
-        `).run(now, user.user_id);
+        `).run(
+            now,
+            user.user_id
+        );
 
         return true;
     }
@@ -131,8 +150,7 @@ module.exports = {
 
             container.addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    "**ASTER**\n" +
-                    "REPUTATION"
+                    `${EMOJI.aster}  **𝘼𝙎𝙏𝙀𝙍**  /  **𝙍𝙀𝙋**`
                 )
             );
 
@@ -142,8 +160,11 @@ module.exports = {
 
             container.addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    `**${message.author.username}**\n` +
-                    `**${reputation.toLocaleString()} REP**  ·  #${rank}`
+                    `╭  **${message.author.username}**\n` +
+                    `│\n` +
+                    `│  ${EMOJI.rep}  **${reputation.toLocaleString()}**  REP\n` +
+                    `│  ${EMOJI.rank}  **#${rank}**  ·  SERVER STANDING\n` +
+                    `╰`
                 )
             );
 
@@ -282,7 +303,7 @@ module.exports = {
         }
 
         // =========================
-        // TARGET
+        // TARGET PROFILE
         // =========================
 
         db.prepare(`
@@ -299,7 +320,7 @@ module.exports = {
         );
 
         // =========================
-        // UPDATE
+        // UPDATE REP
         // =========================
 
         db.prepare(`
@@ -310,6 +331,10 @@ module.exports = {
             amount,
             target.id
         );
+
+        // =========================
+        // UPDATE GIVER
+        // =========================
 
         db.prepare(`
             UPDATE reputation
@@ -348,6 +373,10 @@ module.exports = {
             WHERE user_id = ?
         `).get(target.id);
 
+        // =========================
+        // REWARDS
+        // =========================
+
         await syncRepRewards(
             message.guild,
             target.id
@@ -357,12 +386,21 @@ module.exports = {
         // RESULT
         // =========================
 
+        const actionEmoji =
+            amount > 0
+                ? EMOJI.up
+                : EMOJI.down;
+
+        const action =
+            amount > 0
+                ? "+"
+                : "−";
+
         const container = new ContainerBuilder();
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                "**ASTER**\n" +
-                "REPUTATION"
+                `${EMOJI.aster}  **𝘼𝙎𝙏𝙀𝙍**  /  **𝙍𝙀𝙋**`
             )
         );
 
@@ -372,18 +410,10 @@ module.exports = {
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `${amount > 0 ? "+" : "-"}${Math.abs(amount)} REP\n` +
-                `<@${target.id}>`
-            )
-        );
-
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `**${updated.reputation.toLocaleString()} REP**  ·  TOTAL`
+                `╭  ${actionEmoji}  <@${target.id}>\n` +
+                `│\n` +
+                `│  **${action}${Math.abs(amount)}**  REP\n` +
+                `╰  **${updated.reputation.toLocaleString()}**  TOTAL`
             )
         );
 
