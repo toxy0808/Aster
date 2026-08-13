@@ -257,13 +257,46 @@ function getNextMondayTimestamp() {
 // ============================================================
 
 function getCurrent24hPeriod() {
-    return getStartOfTodayString();
+    return stockholmToUnix({
+        ...getStockholmParts(),
+        hour: 0,
+        minute: 0,
+        second: 0
+    });
 }
+
 
 function getCurrent7dPeriod() {
-    return getStartOfWeekString();
-}
+    const now = getStockholmParts();
 
+    const currentDate = new Date(
+        Date.UTC(
+            now.year,
+            now.month - 1,
+            now.day
+        )
+    );
+
+    const day = currentDate.getUTCDay();
+
+    const daysSinceMonday =
+        day === 0
+            ? 6
+            : day - 1;
+
+    currentDate.setUTCDate(
+        currentDate.getUTCDate() - daysSinceMonday
+    );
+
+    return stockholmToUnix({
+        year: currentDate.getUTCFullYear(),
+        month: currentDate.getUTCMonth() + 1,
+        day: currentDate.getUTCDate(),
+        hour: 0,
+        minute: 0,
+        second: 0
+    });
+}
 
 // ============================================================
 // LEADERBOARD QUERIES
@@ -289,7 +322,12 @@ function getCurrent7dPeriod() {
 // ============================================================
 
 function getChatTop24h() {
-    const since = getCurrent24hPeriod();
+    const since = stockholmToUnix({
+        ...getStockholmParts(),
+        hour: 0,
+        minute: 0,
+        second: 0
+    });
 
     return db.prepare(`
         SELECT
@@ -306,7 +344,12 @@ function getChatTop24h() {
 
 
 function getVoiceTop24h() {
-    const since = getCurrent24hPeriod();
+    const since = stockholmToUnix({
+        ...getStockholmParts(),
+        hour: 0,
+        minute: 0,
+        second: 0
+    });
 
     return db.prepare(`
         SELECT
@@ -323,7 +366,35 @@ function getVoiceTop24h() {
 
 
 function getChatTop7d() {
-    const since = getCurrent7dPeriod();
+    const now = getStockholmParts();
+
+    const currentDate = new Date(
+        Date.UTC(
+            now.year,
+            now.month - 1,
+            now.day
+        )
+    );
+
+    const day = currentDate.getUTCDay();
+
+    const daysSinceMonday =
+        day === 0
+            ? 6
+            : day - 1;
+
+    currentDate.setUTCDate(
+        currentDate.getUTCDate() - daysSinceMonday
+    );
+
+    const since = stockholmToUnix({
+        year: currentDate.getUTCFullYear(),
+        month: currentDate.getUTCMonth() + 1,
+        day: currentDate.getUTCDate(),
+        hour: 0,
+        minute: 0,
+        second: 0
+    });
 
     return db.prepare(`
         SELECT
@@ -340,7 +411,35 @@ function getChatTop7d() {
 
 
 function getVoiceTop7d() {
-    const since = getCurrent7dPeriod();
+    const now = getStockholmParts();
+
+    const currentDate = new Date(
+        Date.UTC(
+            now.year,
+            now.month - 1,
+            now.day
+        )
+    );
+
+    const day = currentDate.getUTCDay();
+
+    const daysSinceMonday =
+        day === 0
+            ? 6
+            : day - 1;
+
+    currentDate.setUTCDate(
+        currentDate.getUTCDate() - daysSinceMonday
+    );
+
+    const since = stockholmToUnix({
+        year: currentDate.getUTCFullYear(),
+        month: currentDate.getUTCMonth() + 1,
+        day: currentDate.getUTCDate(),
+        hour: 0,
+        minute: 0,
+        second: 0
+    });
 
     return db.prepare(`
         SELECT
