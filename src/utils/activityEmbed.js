@@ -64,7 +64,7 @@ function createActivityEmbed(chatUsers, voiceUsers, period, resetTimestamp = nul
         .setTitle(`${emojis.logo} ASTER Activity Rankings`)
         .setDescription(
             `${emojis.live} **LIVE • ${period.toUpperCase()}**\n` +
-            `*Weekly rankings • Top 10 earn custom roles • #1 earns Chat/VC Ruler role*` +
+            `*Daily rankings • For competitive play*` +
             (
                 (period === "7d" || period === "24h") && resetTimestamp
                     ? `\n\n⏳ **Resets:** <t:${resetTimestamp}:R>\n📅 **Reset:** <t:${resetTimestamp}:F>`
