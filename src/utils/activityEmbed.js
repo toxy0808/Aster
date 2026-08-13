@@ -4,6 +4,8 @@ function shorten(name) {
     if (name.length > 14) {
         return name.slice(0, 12) + "...";
     }
+
+    return name;
 }
 
 function formatTime(minutes) {
@@ -20,8 +22,12 @@ function formatTime(minutes) {
     return result.trim() || "0m";
 }
 
-function createActivityEmbed(chatUsers, voiceUsers, period, resetTimestamp = null) {
-
+function createActivityEmbed(
+    chatUsers,
+    voiceUsers,
+    period,
+    resetTimestamp = null
+) {
     const emojis = {
         logo: "<a:Weedleaf2:1459619037980921887>",
 
@@ -59,12 +65,20 @@ function createActivityEmbed(chatUsers, voiceUsers, period, resetTimestamp = nul
         ).join("\n")
         : "No data";
 
+    const footerText =
+        period === "24h"
+            ? "ASTER • Updates every 5 minutes • Daily reset at midnight"
+            : "ASTER • Updates every 5 minutes • Weekly reset every Monday";
+
     return new EmbedBuilder()
         .setColor("#FF4DA6")
         .setTitle(`${emojis.logo} ASTER Activity Rankings`)
         .setDescription(
             `${emojis.live} **LIVE • ${period.toUpperCase()}**\n` +
-            `*Daily rankings • For competitive play*` +
+            `*${period === "24h"
+                ? "Daily rankings • For competitive play"
+                : "Weekly rankings • For competitive play"
+            }*` +
             (
                 (period === "7d" || period === "24h") && resetTimestamp
                     ? `\n\n⏳ **Resets:** <t:${resetTimestamp}:R>\n📅 **Reset:** <t:${resetTimestamp}:F>`
@@ -89,7 +103,7 @@ function createActivityEmbed(chatUsers, voiceUsers, period, resetTimestamp = nul
             }
         )
         .setFooter({
-            text: "ASTER • Updates every 5 minutes\nWeekly Top 10 earn custom roles • #1 earns Chat/VC Ruler role"
+            text: footerText
         })
         .setTimestamp();
 }
