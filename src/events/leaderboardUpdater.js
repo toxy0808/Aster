@@ -6,14 +6,19 @@ const createActivityEmbed = require("../utils/activityEmbed");
 console.log("LEADERBOARD UPDATER LOADED");
 
 // ============================================================
-// TIMEZONE
+// CONFIG
 // ============================================================
 
 const TIME_ZONE = "Europe/Stockholm";
 
-// Get date/time parts in Stockholm.
-function getStockholmParts(date = new Date()) {
+const LEADERBOARD_UPDATE_INTERVAL = 5 * 60 * 1000;
+const PERIOD_CHECK_INTERVAL = 60 * 1000;
 
+// ============================================================
+// STOCKHOLM TIME
+// ============================================================
+
+function getStockholmParts(date = new Date()) {
     const parts = new Intl.DateTimeFormat("en-CA", {
         timeZone: TIME_ZONE,
         year: "numeric",
@@ -37,8 +42,96 @@ function getStockholmParts(date = new Date()) {
 }
 
 
-// Convert a Stockholm local date/time to Unix seconds.
-// Handles CET/CEST automatically.
+// ============================================================
+// LOCAL DATE STRING
+// ============================================================
+//
+// activity_logs.created_at is stored as:
+//
+// YYYY-MM-DD HH:MM:SS
+//
+// We compare the strings directly.
+//
+// This is intentional.
+// We DO NOT use:
+//
+// strftime('%s', created_at)
+//
+// because created_at represents Stockholm local time and SQLite
+// can otherwise interpret it using the wrong timezone assumptions.
+// ============================================================
+
+function pad(value) {
+    return String(value).padStart(2, "0");
+}
+
+function formatStockholmDate(parts) {
+    return [
+        parts.year,
+        pad(parts.month),
+        pad(parts.day)
+    ].join("-");
+}
+
+function formatStockholmDateTime(parts) {
+    return `${formatStockholmDate(parts)} ${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}`;
+}
+
+
+// ============================================================
+// PERIOD STARTS
+// ============================================================
+
+function getStartOfTodayString() {
+    const now = getStockholmParts();
+
+    return `${now.year}-${pad(now.month)}-${pad(now.day)} 00:00:00`;
+}
+
+
+function getStartOfWeekString() {
+    const now = getStockholmParts();
+
+    const currentDate = new Date(
+        Date.UTC(
+            now.year,
+            now.month - 1,
+            now.day
+        )
+    );
+
+    // Sunday = 0
+    // Monday = 1
+
+    const day = currentDate.getUTCDay();
+
+    const daysSinceMonday =
+        day === 0
+            ? 6
+            : day - 1;
+
+    currentDate.setUTCDate(
+        currentDate.getUTCDate() - daysSinceMonday
+    );
+
+    return `${currentDate.getUTCFullYear()}-${pad(
+        currentDate.getUTCMonth() + 1
+    )}-${pad(
+        currentDate.getUTCDate()
+    )} 00:00:00`;
+}
+
+
+// ============================================================
+// NEXT RESET TIMESTAMPS
+// ============================================================
+//
+// Discord timestamps use Unix seconds.
+// These functions calculate the next Stockholm midnight/Monday.
+//
+// We keep the existing timezone-safe conversion.
+// ============================================================
+
 function stockholmToUnix({
     year,
     month,
@@ -47,7 +140,6 @@ function stockholmToUnix({
     minute = 0,
     second = 0
 }) {
-
     let timestamp = Date.UTC(
         year,
         month - 1,
@@ -57,9 +149,7 @@ function stockholmToUnix({
         second
     );
 
-    // Correct for Stockholm's current UTC offset.
     for (let i = 0; i < 3; i++) {
-
         const stockholm = getStockholmParts(
             new Date(timestamp)
         );
@@ -97,27 +187,7 @@ function stockholmToUnix({
 }
 
 
-// ============================================================
-// RESET TIMESTAMPS
-// ============================================================
-
-function getStartOfToday() {
-
-    const now = getStockholmParts();
-
-    return stockholmToUnix({
-        year: now.year,
-        month: now.month,
-        day: now.day,
-        hour: 0,
-        minute: 0,
-        second: 0
-    });
-}
-
-
 function getNextMidnightTimestamp() {
-
     const now = getStockholmParts();
 
     const tomorrow = new Date(
@@ -139,43 +209,7 @@ function getNextMidnightTimestamp() {
 }
 
 
-function getStartOfWeek() {
-
-    const now = getStockholmParts();
-
-    const currentDate = new Date(
-        Date.UTC(
-            now.year,
-            now.month - 1,
-            now.day
-        )
-    );
-
-    // Sunday = 0
-    // Monday = 1
-    const day = currentDate.getUTCDay();
-
-    const daysSinceMonday =
-        day === 0 ? 6 : day - 1;
-
-    currentDate.setUTCDate(
-        currentDate.getUTCDate() -
-        daysSinceMonday
-    );
-
-    return stockholmToUnix({
-        year: currentDate.getUTCFullYear(),
-        month: currentDate.getUTCMonth() + 1,
-        day: currentDate.getUTCDate(),
-        hour: 0,
-        minute: 0,
-        second: 0
-    });
-}
-
-
 function getNextMondayTimestamp() {
-
     const now = getStockholmParts();
 
     const currentDate = new Date(
@@ -194,8 +228,7 @@ function getNextMondayTimestamp() {
             : 8 - day;
 
     currentDate.setUTCDate(
-        currentDate.getUTCDate() +
-        daysUntilMonday
+        currentDate.getUTCDate() + daysUntilMonday
     );
 
     return stockholmToUnix({
@@ -210,30 +243,53 @@ function getNextMondayTimestamp() {
 
 
 // ============================================================
+// CURRENT PERIOD IDENTIFIERS
+// ============================================================
+//
+// These identifiers change ONLY when the corresponding period
+// changes.
+//
+// 24h:
+// 2026-08-13
+//
+// 7d:
+// 2026-08-10   <-- Monday
+// ============================================================
+
+function getCurrent24hPeriod() {
+    return getStartOfTodayString();
+}
+
+function getCurrent7dPeriod() {
+    return getStartOfWeekString();
+}
+
+
+// ============================================================
 // LEADERBOARD QUERIES
 // ============================================================
-
+//
 // IMPORTANT:
 //
-// activity_logs.created_at is stored as:
-// YYYY-MM-DD HH:MM:SS
+// These queries only include activity belonging to the CURRENT
+// calendar period.
 //
-// strftime('%s', created_at) converts it
-// into Unix seconds.
+// At midnight:
 //
-// The reset boundaries above are generated
-// specifically for Europe/Stockholm.
+// old day = excluded
+// new day = included
 //
+// At Monday 00:00:
+//
+// old week = excluded
+// new week = included
+//
+// If there is no new activity yet, .all() returns [].
+// The embed therefore displays an empty/zero leaderboard.
 // ============================================================
 
-
-// -------------------------
-// 24H CHAT
-// -------------------------
-
 function getChatTop24h() {
-
-    const since = getStartOfToday();
+    const since = getCurrent24hPeriod();
 
     return db.prepare(`
         SELECT
@@ -241,21 +297,16 @@ function getChatTop24h() {
             SUM(amount) AS messages
         FROM activity_logs
         WHERE type = 'chat'
-        AND strftime('%s', created_at) >= ?
+        AND created_at >= ?
         GROUP BY user_id
         ORDER BY messages DESC
         LIMIT 5
     `).all(since);
 }
 
-
-// -------------------------
-// 24H VOICE
-// -------------------------
 
 function getVoiceTop24h() {
-
-    const since = getStartOfToday();
+    const since = getCurrent24hPeriod();
 
     return db.prepare(`
         SELECT
@@ -263,7 +314,7 @@ function getVoiceTop24h() {
             SUM(amount) AS voice_time
         FROM activity_logs
         WHERE type = 'voice'
-        AND strftime('%s', created_at) >= ?
+        AND created_at >= ?
         GROUP BY user_id
         ORDER BY voice_time DESC
         LIMIT 5
@@ -271,13 +322,8 @@ function getVoiceTop24h() {
 }
 
 
-// -------------------------
-// WEEKLY CHAT
-// -------------------------
-
 function getChatTop7d() {
-
-    const since = getStartOfWeek();
+    const since = getCurrent7dPeriod();
 
     return db.prepare(`
         SELECT
@@ -285,7 +331,7 @@ function getChatTop7d() {
             SUM(amount) AS messages
         FROM activity_logs
         WHERE type = 'chat'
-        AND strftime('%s', created_at) >= ?
+        AND created_at >= ?
         GROUP BY user_id
         ORDER BY messages DESC
         LIMIT 5
@@ -293,13 +339,8 @@ function getChatTop7d() {
 }
 
 
-// -------------------------
-// WEEKLY VOICE
-// -------------------------
-
 function getVoiceTop7d() {
-
-    const since = getStartOfWeek();
+    const since = getCurrent7dPeriod();
 
     return db.prepare(`
         SELECT
@@ -307,11 +348,11 @@ function getVoiceTop7d() {
             SUM(amount) AS voice_time
         FROM activity_logs
         WHERE type = 'voice'
-        AND strftime('%s', created_at) >= ?
+        AND created_at >= ?
         GROUP BY user_id
         ORDER BY voice_time DESC
         LIMIT 5
-    `).all(since);
+    `).all();
 }
 
 
@@ -320,11 +361,8 @@ function getVoiceTop7d() {
 // ============================================================
 
 async function addUserData(channel, users) {
-
     return Promise.all(
-
         users.map(async (user) => {
-
             const member =
                 await channel.guild.members
                     .fetch(user.user_id)
@@ -358,18 +396,17 @@ async function sendOrUpdate(
     type,
     embed
 ) {
-
     const old =
         leaderboardDB.prepare(
             "SELECT * FROM leaderboard_messages WHERE type = ?"
         ).get(type);
 
+    // --------------------------------------------------------
+    // UPDATE EXISTING MESSAGE
+    // --------------------------------------------------------
 
-    // Existing message
     if (old) {
-
         try {
-
             const message =
                 await channel.messages.fetch(
                     old.message_id
@@ -383,14 +420,8 @@ async function sendOrUpdate(
 
         } catch (error) {
 
-            // 10008 = Unknown Message
-            //
-            // The message was actually deleted.
-            // Remove its database entry so ASTER
-            // can create a replacement.
-
+            // Message no longer exists.
             if (error.code !== 10008) {
-
                 console.error(
                     `Failed to update ${type}:`,
                     error.message
@@ -405,10 +436,11 @@ async function sendOrUpdate(
         }
     }
 
+    // --------------------------------------------------------
+    // CREATE NEW MESSAGE
+    // --------------------------------------------------------
 
-    // Create replacement message
     try {
-
         const message =
             await channel.send({
                 embeds: [embed]
@@ -424,7 +456,6 @@ async function sendOrUpdate(
         );
 
     } catch (error) {
-
         console.error(
             `Failed to send ${type}:`,
             error.message
@@ -446,13 +477,10 @@ module.exports = async (client) => {
         return;
     }
 
-
     const config =
         getConfig(guild.id);
 
-
     if (!config.leaderboard_channel) {
-
         console.log(
             "No leaderboard channel configured."
         );
@@ -460,15 +488,12 @@ module.exports = async (client) => {
         return;
     }
 
-
     const channel =
         await client.channels
             .fetch(config.leaderboard_channel)
             .catch(() => null);
 
-
     if (!channel) {
-
         console.log(
             "Leaderboard channel could not be fetched."
         );
@@ -476,18 +501,36 @@ module.exports = async (client) => {
         return;
     }
 
+    // ========================================================
+    // PERIOD STATE
+    // ========================================================
+
+    let current24hPeriod =
+        getCurrent24hPeriod();
+
+    let current7dPeriod =
+        getCurrent7dPeriod();
 
     let updating = false;
 
     let lastWinnerWeek =
-        getStartOfWeek();
+        current7dPeriod;
+
+
+    console.log(
+        `24h leaderboard period: ${current24hPeriod}`
+    );
+
+    console.log(
+        `7d leaderboard period: ${current7dPeriod}`
+    );
 
 
     // ========================================================
     // UPDATE LEADERBOARDS
     // ========================================================
 
-    async function updateLeaderboard() {
+    async function updateLeaderboard(forceReset = false) {
 
         if (updating) {
             return;
@@ -497,9 +540,75 @@ module.exports = async (client) => {
 
         try {
 
-            // -------------------------
-            // GET CURRENT DATA
-            // -------------------------
+            const new24hPeriod =
+                getCurrent24hPeriod();
+
+            const new7dPeriod =
+                getCurrent7dPeriod();
+
+            const reset24h =
+                new24hPeriod !== current24hPeriod;
+
+            const reset7d =
+                new7dPeriod !== current7dPeriod;
+
+            // ------------------------------------------------
+            // DETECT 24H RESET
+            // ------------------------------------------------
+
+            if (reset24h || forceReset) {
+
+                console.log(
+                    "🔄 24h leaderboard period reset."
+                );
+
+                console.log(
+                    `Old period: ${current24hPeriod}`
+                );
+
+                console.log(
+                    `New period: ${new24hPeriod}`
+                );
+
+                current24hPeriod =
+                    new24hPeriod;
+            }
+
+            // ------------------------------------------------
+            // DETECT 7D RESET
+            // ------------------------------------------------
+
+            if (reset7d || forceReset) {
+
+                console.log(
+                    "🔄 7d leaderboard period reset."
+                );
+
+                console.log(
+                    `Old period: ${current7dPeriod}`
+                );
+
+                console.log(
+                    `New period: ${new7dPeriod}`
+                );
+
+                current7dPeriod =
+                    new7dPeriod;
+            }
+
+
+            // =================================================
+            // GET CURRENT PERIOD DATA
+            // =================================================
+
+            //
+            // IMPORTANT:
+            //
+            // We ALWAYS query again after detecting a reset.
+            //
+            // Therefore the first update after midnight/Monday
+            // cannot reuse yesterday's/week's data.
+            //
 
             const chat24hRaw =
                 getChatTop24h();
@@ -514,9 +623,9 @@ module.exports = async (client) => {
                 getVoiceTop7d();
 
 
-            // -------------------------
+            // =================================================
             // USER DATA
-            // -------------------------
+            // =================================================
 
             const chat24h =
                 await addUserData(
@@ -544,12 +653,11 @@ module.exports = async (client) => {
 
 
             // =================================================
-            // 24H
+            // 24H EMBED
             // =================================================
 
             const reset24hTimestamp =
                 getNextMidnightTimestamp();
-
 
             const activity24hEmbed =
                 createActivityEmbed(
@@ -561,12 +669,11 @@ module.exports = async (client) => {
 
 
             // =================================================
-            // 7D
+            // 7D EMBED
             // =================================================
 
             const reset7dTimestamp =
                 getNextMondayTimestamp();
-
 
             const activity7dEmbed =
                 createActivityEmbed(
@@ -587,12 +694,28 @@ module.exports = async (client) => {
                 activity24hEmbed
             );
 
-
             await sendOrUpdate(
                 channel,
                 "activity7d",
                 activity7dEmbed
             );
+
+
+            // =================================================
+            // RESET LOG
+            // =================================================
+
+            if (reset24h) {
+                console.log(
+                    "✅ 24h leaderboard reset and rebuilt from 0."
+                );
+            }
+
+            if (reset7d) {
+                console.log(
+                    "✅ 7d leaderboard reset and rebuilt from 0."
+                );
+            }
 
         } catch (error) {
 
@@ -602,7 +725,6 @@ module.exports = async (client) => {
             );
 
         } finally {
-
             updating = false;
         }
     }
@@ -618,20 +740,16 @@ module.exports = async (client) => {
             "Updating weekly winner roles..."
         );
 
-
         const currentWeek =
-            getStartOfWeek();
-
+            getCurrent7dPeriod();
 
         const config =
             getConfig(channel.guild.id);
-
 
         if (
             !config.chat_king_role ||
             !config.voice_king_role
         ) {
-
             console.log(
                 "Activity roles not configured."
             );
@@ -643,10 +761,8 @@ module.exports = async (client) => {
         const chatTop =
             getChatTop7d()[0];
 
-
         const voiceTop =
             getVoiceTop7d()[0];
-
 
         const guild =
             channel.guild;
@@ -660,7 +776,6 @@ module.exports = async (client) => {
             guild.roles.cache.get(
                 config.chat_king_role
             );
-
 
         if (oldChatRole) {
 
@@ -691,7 +806,6 @@ module.exports = async (client) => {
             guild.roles.cache.get(
                 config.voice_king_role
             );
-
 
         if (oldVoiceRole) {
 
@@ -725,7 +839,6 @@ module.exports = async (client) => {
                     .fetch(chatTop.user_id)
                     .catch(() => null);
 
-
             if (member) {
 
                 await member.roles
@@ -748,7 +861,6 @@ module.exports = async (client) => {
                     .fetch(voiceTop.user_id)
                     .catch(() => null);
 
-
             if (member) {
 
                 await member.roles
@@ -760,8 +872,8 @@ module.exports = async (client) => {
         }
 
 
-        lastWinnerWeek = currentWeek;
-
+        lastWinnerWeek =
+            currentWeek;
 
         console.log(
             "Weekly winner roles updated."
@@ -775,56 +887,97 @@ module.exports = async (client) => {
 
     await updateLeaderboard();
 
-    // Make sure the current weekly #1 has the role
-    // when ASTER starts/restarts.
     await updateWinnerRoles();
 
 
     // ========================================================
-    // LEADERBOARD UPDATE
+    // LIVE LEADERBOARD UPDATE
     // ========================================================
 
     setInterval(
         async () => {
-
             await updateLeaderboard();
-
         },
-        5 * 60 * 1000
+        LEADERBOARD_UPDATE_INTERVAL
     );
 
 
     // ========================================================
-    // WEEKLY RESET / WINNER CHECK
+    // PERIOD RESET CHECK
+    // ========================================================
+    //
+    // This is separate from the normal leaderboard update.
+    //
+    // If ASTER is running when midnight/Monday happens:
+    //
+    //      period changes
+    //          ↓
+    //      reset detected
+    //          ↓
+    //      fresh DB query
+    //          ↓
+    //      old stats excluded
+    //          ↓
+    //      leaderboard rebuilt
+    //
+    // If ASTER happens to be offline during the exact reset:
+    //
+    //      ASTER starts later
+    //          ↓
+    //      current period is detected
+    //          ↓
+    //      old period is automatically excluded
+    //
+    // So it does NOT depend on a timer firing at exactly 00:00.
     // ========================================================
 
     setInterval(
         async () => {
 
-            const currentWeek =
-                getStartOfWeek();
+            const new24hPeriod =
+                getCurrent24hPeriod();
 
+            const new7dPeriod =
+                getCurrent7dPeriod();
+
+            // ------------------------------------------------
+            // 24H RESET
+            // ------------------------------------------------
 
             if (
-                currentWeek !== lastWinnerWeek
+                new24hPeriod !== current24hPeriod
             ) {
 
                 console.log(
-                    "New weekly period detected."
+                    "⏰ 24h reset detected."
                 );
 
+                await updateLeaderboard();
+
+            }
+
+            // ------------------------------------------------
+            // 7D RESET
+            // ------------------------------------------------
+
+            if (
+                new7dPeriod !== current7dPeriod
+            ) {
+
+                console.log(
+                    "⏰ 7d reset detected."
+                );
 
                 await updateLeaderboard();
 
                 await updateWinnerRoles();
 
-
                 console.log(
-                    "Weekly leaderboard and winner roles refreshed."
+                    "✅ Weekly leaderboard and winner roles refreshed."
                 );
             }
 
         },
-        60 * 1000
+        PERIOD_CHECK_INTERVAL
     );
 };
