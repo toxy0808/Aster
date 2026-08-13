@@ -352,7 +352,7 @@ function getVoiceTop7d() {
         GROUP BY user_id
         ORDER BY voice_time DESC
         LIMIT 5
-    `).all();
+    `).all(since);
 }
 
 
