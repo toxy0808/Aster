@@ -759,13 +759,12 @@ module.exports = async (client) => {
                 getNextMidnightTimestamp();
 
             const activity24hEmbed =
-                createActivityEmbed(
-                    chat24h,
-                    voice24h,
-                    "24h",
-                    reset24hTimestamp
-                );
-
+    createActivityEmbed(
+        reset24h ? [] : chat24h,
+        reset24h ? [] : voice24h,
+        "24h",
+        reset24hTimestamp
+    );
 
             // =================================================
             // 7D EMBED
@@ -775,12 +774,12 @@ module.exports = async (client) => {
                 getNextMondayTimestamp();
 
             const activity7dEmbed =
-                createActivityEmbed(
-                    chat7d,
-                    voice7d,
-                    "7d",
-                    reset7dTimestamp
-                );
+    createActivityEmbed(
+        reset7d ? [] : chat7d,
+        reset7d ? [] : voice7d,
+        "7d",
+        reset7dTimestamp
+    );
 
 
             // =================================================
