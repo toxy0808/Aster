@@ -1,10 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const filePath = path.join(
-    __dirname,
-    "../autoresponders.json"
-);
+const filePath = path.join(__dirname, "../data/autoresponders.json");
 
 const autoresponders = new Map();
 
@@ -15,15 +12,8 @@ const autoresponders = new Map();
 function load() {
     try {
         if (!fs.existsSync(filePath)) {
-            fs.mkdirSync(
-                path.dirname(filePath),
-                { recursive: true }
-            );
-
-            fs.writeFileSync(
-                filePath,
-                "{}"
-            );
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
+            fs.writeFileSync(filePath, "{}");
         }
 
         const data = JSON.parse(
@@ -33,7 +23,6 @@ function load() {
         autoresponders.clear();
 
         for (const [guildId, responses] of Object.entries(data)) {
-
             autoresponders.set(
                 guildId,
                 new Map(Object.entries(responses))
@@ -45,11 +34,7 @@ function load() {
         );
 
     } catch (error) {
-
-        console.error(
-            "AUTO-RESPONDER LOAD ERROR:",
-            error
-        );
+        console.error("AUTO-RESPONDER LOAD ERROR:", error);
     }
 }
 
@@ -58,15 +43,11 @@ function load() {
 // ============================================================
 
 function save() {
-
     try {
-
         const data = {};
 
         for (const [guildId, responses] of autoresponders) {
-
-            data[guildId] =
-                Object.fromEntries(responses);
+            data[guildId] = Object.fromEntries(responses);
         }
 
         fs.writeFileSync(
@@ -75,11 +56,7 @@ function save() {
         );
 
     } catch (error) {
-
-        console.error(
-            "AUTO-RESPONDER SAVE ERROR:",
-            error
-        );
+        console.error("AUTO-RESPONDER SAVE ERROR:", error);
     }
 }
 
@@ -88,13 +65,8 @@ function save() {
 // ============================================================
 
 function getGuild(guildId) {
-
     if (!autoresponders.has(guildId)) {
-
-        autoresponders.set(
-            guildId,
-            new Map()
-        );
+        autoresponders.set(guildId, new Map());
     }
 
     return autoresponders.get(guildId);
@@ -104,22 +76,12 @@ function getGuild(guildId) {
 // ADD
 // ============================================================
 
-function add(
-    guildId,
-    trigger,
-    type,
-    content
-) {
-
-    const guild =
-        getGuild(guildId);
+function add(guildId, trigger, response) {
+    const guild = getGuild(guildId);
 
     guild.set(
         trigger.toLowerCase().trim(),
-        {
-            type,
-            content
-        }
+        response
     );
 
     save();
@@ -129,18 +91,12 @@ function add(
 // REMOVE
 // ============================================================
 
-function remove(
-    guildId,
-    trigger
-) {
+function remove(guildId, trigger) {
+    const guild = getGuild(guildId);
 
-    const guild =
-        getGuild(guildId);
-
-    const deleted =
-        guild.delete(
-            trigger.toLowerCase().trim()
-        );
+    const deleted = guild.delete(
+        trigger.toLowerCase().trim()
+    );
 
     if (deleted) {
         save();
@@ -154,9 +110,7 @@ function remove(
 // ============================================================
 
 function clear(guildId) {
-
-    const guild =
-        getGuild(guildId);
+    const guild = getGuild(guildId);
 
     guild.clear();
 
@@ -164,7 +118,7 @@ function clear(guildId) {
 }
 
 // ============================================================
-// STARTUP
+// LOAD ON START
 // ============================================================
 
 load();
