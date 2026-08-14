@@ -18,6 +18,7 @@ const db = require("./database/database");
 
 client.commands = new Collection();
 client.autoreacts = new Map();
+client.autoresponders = require("./utils/autoresponder");
 
 const rows = db.prepare(
     "SELECT user_id, emoji FROM autoreacts WHERE enabled = 1"
@@ -65,6 +66,7 @@ client.commands.set("ping", require("./commands/ping"));
 client.commands.set("repleaderboard", require("./commands/repleaderboard"));
 client.commands.set("rephistory", require("./commands/rephistory"));
 client.commands.set("pulse", require("./commands/pulse"));
+client.commands.set("autoresponder", require("./commands/autoresponder"));
 
 
 
