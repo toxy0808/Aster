@@ -1,7 +1,10 @@
 const fs = require("fs");
 const path = require("path");
 
-const filePath = path.join(__dirname, "../data/autoresponders.json");
+const filePath = path.join(
+    __dirname,
+    "../autoresponders.json"
+);
 
 const autoresponders = new Map();
 
@@ -12,8 +15,8 @@ const autoresponders = new Map();
 function load() {
     try {
         if (!fs.existsSync(filePath)) {
-            fs.mkdirSync(path.dirname(filePath), { recursive: true });
             fs.writeFileSync(filePath, "{}");
+            return;
         }
 
         const data = JSON.parse(
@@ -34,7 +37,10 @@ function load() {
         );
 
     } catch (error) {
-        console.error("AUTO-RESPONDER LOAD ERROR:", error);
+        console.error(
+            "AUTO-RESPONDER LOAD ERROR:",
+            error
+        );
     }
 }
 
@@ -56,19 +62,18 @@ function save() {
         );
 
     } catch (error) {
-        console.error("AUTO-RESPONDER SAVE ERROR:", error);
+        console.error(
+            "AUTO-RESPONDER SAVE ERROR:",
+            error
+        );
     }
 }
 
 // ============================================================
-// GET GUILD
+// GET
 // ============================================================
 
 function getGuild(guildId) {
-    if (!autoresponders.has(guildId)) {
-        autoresponders.set(guildId, new Map());
-    }
-
     return autoresponders.get(guildId);
 }
 
@@ -76,13 +81,29 @@ function getGuild(guildId) {
 // ADD
 // ============================================================
 
-function add(guildId, trigger, response) {
-    const guild = getGuild(guildId);
+function add(
+    guildId,
+    trigger,
+    type,
+    content
+) {
 
-    guild.set(
-        trigger.toLowerCase().trim(),
-        response
-    );
+    if (!autoresponders.has(guildId)) {
+        autoresponders.set(
+            guildId,
+            new Map()
+        );
+    }
+
+    autoresponders
+        .get(guildId)
+        .set(
+            trigger.toLowerCase().trim(),
+            {
+                type,
+                content
+            }
+        );
 
     save();
 }
@@ -91,12 +112,20 @@ function add(guildId, trigger, response) {
 // REMOVE
 // ============================================================
 
-function remove(guildId, trigger) {
-    const guild = getGuild(guildId);
+function remove(
+    guildId,
+    trigger
+) {
 
-    const deleted = guild.delete(
-        trigger.toLowerCase().trim()
-    );
+    const guild =
+        autoresponders.get(guildId);
+
+    if (!guild) return false;
+
+    const deleted =
+        guild.delete(
+            trigger.toLowerCase().trim()
+        );
 
     if (deleted) {
         save();
@@ -110,11 +139,21 @@ function remove(guildId, trigger) {
 // ============================================================
 
 function clear(guildId) {
-    const guild = getGuild(guildId);
+
+    const guild =
+        autoresponders.get(guildId);
+
+    if (!guild) return false;
 
     guild.clear();
 
+    autoresponders.delete(
+        guildId
+    );
+
     save();
+
+    return true;
 }
 
 // ============================================================
