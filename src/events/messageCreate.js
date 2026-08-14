@@ -70,11 +70,11 @@ module.exports = async (client, message) => {
     }
 
     // ========================================================
-    // AUTO RESPONDERS
+    // AUTO RESPONDER
     // ========================================================
 
     const autoresponderGuild =
-        client.autoresponders?.getGuild(
+        client.autoresponders?.autoresponders?.get(
             message.guild.id
         );
 
@@ -92,36 +92,78 @@ module.exports = async (client, message) => {
 
         if (response) {
 
-            if (response.type === "text") {
+            try {
 
-                await message.reply({
-                    content: response.content
-                })
-                .catch(() => {});
-            }
+                // ============================================
+                // TEXT
+                // ============================================
 
-            else if (response.type === "gif") {
+                if (
+                    response.type === "text"
+                ) {
 
-                await message.reply({
-                    content: response.content
-                })
-                .catch(() => {});
-            }
-
-            else if (response.type === "embed") {
-
-                const embed =
-                    new EmbedBuilder()
-                        .setColor(0xFF006E)
-                        .setDescription(
+                    await message.reply({
+                        content:
                             response.content
-                        )
-                        .setTimestamp();
+                    });
+                }
 
-                await message.reply({
-                    embeds: [embed]
-                })
-                .catch(() => {});
+                // ============================================
+                // GIF
+                // ============================================
+
+                else if (
+                    response.type === "gif"
+                ) {
+
+                    await message.reply({
+                        content:
+                            response.content
+                    });
+                }
+
+                // ============================================
+                // IMAGE
+                // ============================================
+
+                else if (
+                    response.type === "image"
+                ) {
+
+                    await message.reply({
+                        content:
+                            response.content
+                    });
+                }
+
+                // ============================================
+                // EMBED
+                // ============================================
+
+                else if (
+                    response.type === "embed"
+                ) {
+
+                    const embed =
+                        new EmbedBuilder()
+                            .setColor(
+                                0xFF006E
+                            )
+                            .setDescription(
+                                response.content
+                            );
+
+                    await message.reply({
+                        embeds: [embed]
+                    });
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "AUTO-RESPONDER ERROR:",
+                    error
+                );
             }
         }
     }
@@ -294,9 +336,7 @@ module.exports = async (client, message) => {
                 .filter(Boolean);
 
         const command =
-            client.commands.get(
-                "rep"
-            );
+            client.commands.get("rep");
 
         if (!command) return;
 
@@ -362,15 +402,13 @@ module.exports = async (client, message) => {
     if (!command) {
 
         command =
-            [
-                ...client.commands.values()
-            ]
-            .find(cmd =>
-                cmd.aliases &&
-                cmd.aliases.includes(
-                    commandName
-                )
-            );
+            [...client.commands.values()]
+                .find(cmd =>
+                    cmd.aliases &&
+                    cmd.aliases.includes(
+                        commandName
+                    )
+                );
     }
 
     if (!command) return;
