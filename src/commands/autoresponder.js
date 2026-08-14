@@ -22,7 +22,7 @@ module.exports = {
     async execute(message, args) {
 
         // ====================================================
-        // PERMISSION
+        // PERMISSIONS
         // ====================================================
 
         if (
@@ -54,32 +54,71 @@ module.exports = {
             if (!trigger || !type) {
 
                 return message.reply(
-                    "Usage: `,ar add <trigger> <text|gif|embed> <response>`"
+                    "Usage: `,ar add <trigger> <text|gif|image|embed> <response>`"
                 );
             }
 
             if (
-                !["text", "gif", "embed"]
-                    .includes(type)
+                ![
+                    "text",
+                    "gif",
+                    "image",
+                    "embed"
+                ].includes(type)
             ) {
 
                 return message.reply(
-                    "Response type must be `text`, `gif`, or `embed`."
+                    "Type must be `text`, `gif`, `image`, or `embed`."
                 );
             }
 
-            const content =
+            // ================================================
+            // ATTACHMENT
+            // ================================================
+
+            const attachment =
+                message.attachments.first();
+
+            let content =
                 args.join(" ").trim();
+
+            // ================================================
+            // IMAGE / GIF ATTACHMENT
+            // ================================================
+
+            if (
+                (type === "image" ||
+                 type === "gif") &&
+                attachment
+            ) {
+
+                content =
+                    attachment.url;
+            }
+
+            // ================================================
+            // REQUIRE CONTENT
+            // ================================================
 
             if (!content) {
 
                 return message.reply(
-                    "You need to provide a response."
+                    type === "image" ||
+                    type === "gif"
+
+                        ? "Attach an image/GIF or provide a URL."
+                        : "You need to provide a response."
                 );
             }
 
-            // GIF validation
-            if (type === "gif") {
+            // ================================================
+            // URL VALIDATION
+            // ================================================
+
+            if (
+                type === "image" ||
+                type === "gif"
+            ) {
 
                 if (
                     !content.startsWith("http://") &&
@@ -87,10 +126,14 @@ module.exports = {
                 ) {
 
                     return message.reply(
-                        "GIF responses must use a valid URL."
+                        "Please provide a valid image/GIF URL or attach the file."
                     );
                 }
             }
+
+            // ================================================
+            // SAVE
+            // ================================================
 
             add(
                 message.guild.id,
@@ -109,7 +152,7 @@ module.exports = {
                                 "# ✦ Autoresponder\n\n" +
                                 `**Trigger**\n\`${trigger}\`\n\n` +
                                 `**Type**\n\`${type}\`\n\n` +
-                                "Autoresponder saved successfully."
+                                "Configuration saved."
                             )
                     );
 
@@ -144,7 +187,7 @@ module.exports = {
             if (!deleted) {
 
                 return message.reply(
-                    `No autoresponder exists for \`${trigger}\`.`
+                    `No autoresponder found for \`${trigger}\`.`
                 );
             }
 
@@ -164,7 +207,7 @@ module.exports = {
                     message.guild.id
                 );
 
-            if (!guild.size) {
+            if (!guild || !guild.size) {
 
                 return message.reply(
                     "No autoresponders are configured."
@@ -223,7 +266,7 @@ module.exports = {
                     message.guild.id
                 );
 
-            if (!guild.size) {
+            if (!guild || !guild.size) {
 
                 return message.reply(
                     "There are no autoresponders to clear."
@@ -241,7 +284,6 @@ module.exports = {
 
         // ====================================================
         // GUIDE
-        // ,ar
         // ====================================================
 
         const container =
@@ -267,7 +309,9 @@ module.exports = {
                             "### Commands\n\n" +
                             "`,ar add <trigger> text <response>`\n" +
                             "`,ar add <trigger> gif <url>`\n" +
+                            "`,ar add <trigger> image <url>`\n" +
                             "`,ar add <trigger> embed <text>`\n\n" +
+                            "You can also **attach an image/GIF** instead of using a URL.\n\n" +
                             "`,ar remove <trigger>`\n" +
                             "`,ar list`\n" +
                             "`,ar clear`"
@@ -284,6 +328,7 @@ module.exports = {
                             "### Examples\n\n" +
                             "`,ar add hello text Hey everyone 👋`\n" +
                             "`,ar add cat gif https://example.com/cat.gif`\n" +
+                            "`,ar add logo image https://example.com/logo.png`\n" +
                             "`,ar add rules embed Please read the rules.`"
                         )
                 )
