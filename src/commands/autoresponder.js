@@ -14,20 +14,30 @@ const {
 } = require("../utils/autoresponder");
 
 module.exports = {
+
     name: "autoresponder",
+
     aliases: ["ar"],
 
     async execute(message, args) {
 
-        if (!message.member.permissions.has(
-            PermissionFlagsBits.Administrator
-        )) {
+        // ====================================================
+        // PERMISSION
+        // ====================================================
+
+        if (
+            !message.member.permissions.has(
+                PermissionFlagsBits.Administrator
+            )
+        ) {
+
             return message.reply(
-                "❌ You need **Administrator** permission to manage autoresponders."
+                "You need **Administrator** permission to manage autoresponders."
             );
         }
 
-        const action = args.shift()?.toLowerCase();
+        const action =
+            args.shift()?.toLowerCase();
 
         // ====================================================
         // ADD
@@ -35,45 +45,78 @@ module.exports = {
 
         if (action === "add") {
 
-            const trigger = args.shift();
+            const trigger =
+                args.shift();
 
-            if (!trigger) {
+            const type =
+                args.shift()?.toLowerCase();
+
+            if (!trigger || !type) {
+
                 return message.reply(
-                    "Usage: `,ar add <trigger> <text>`"
+                    "Usage: `,ar add <trigger> <text|gif|embed> <response>`"
                 );
             }
-
-            const response = args.join(" ").trim();
-
-            if (!response) {
-                return message.reply(
-                    "❌ You need to provide a response."
-                );
-            }
-
-            let type = "text";
 
             if (
-                response.startsWith("https://tenor.com/") ||
-                response.startsWith("https://media.tenor.com/") ||
-                response.startsWith("https://giphy.com/") ||
-                response.match(/\.(gif)(\?.*)?$/i)
+                !["text", "gif", "embed"]
+                    .includes(type)
             ) {
-                type = "gif";
+
+                return message.reply(
+                    "Response type must be `text`, `gif`, or `embed`."
+                );
+            }
+
+            const content =
+                args.join(" ").trim();
+
+            if (!content) {
+
+                return message.reply(
+                    "You need to provide a response."
+                );
+            }
+
+            // GIF validation
+            if (type === "gif") {
+
+                if (
+                    !content.startsWith("http://") &&
+                    !content.startsWith("https://")
+                ) {
+
+                    return message.reply(
+                        "GIF responses must use a valid URL."
+                    );
+                }
             }
 
             add(
                 message.guild.id,
                 trigger,
-                {
-                    type,
-                    content: response
-                }
+                type,
+                content
             );
 
-            return message.reply(
-                `✅ Autoresponder **${trigger}** added as **${type}**.`
-            );
+            const container =
+                new ContainerBuilder()
+                    .setAccentColor(0xFF006E)
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "# ✦ Autoresponder\n\n" +
+                                `**Trigger**\n\`${trigger}\`\n\n` +
+                                `**Type**\n\`${type}\`\n\n` +
+                                "Autoresponder saved successfully."
+                            )
+                    );
+
+            return message.reply({
+                components: [container],
+                flags: MessageFlags.IsComponentsV2
+            });
         }
 
         // ====================================================
@@ -82,27 +125,31 @@ module.exports = {
 
         if (action === "remove") {
 
-            const trigger = args.join(" ").trim();
+            const trigger =
+                args.join(" ").trim();
 
             if (!trigger) {
+
                 return message.reply(
                     "Usage: `,ar remove <trigger>`"
                 );
             }
 
-            const deleted = remove(
-                message.guild.id,
-                trigger
-            );
+            const deleted =
+                remove(
+                    message.guild.id,
+                    trigger
+                );
 
             if (!deleted) {
+
                 return message.reply(
-                    `❌ No autoresponder found for **${trigger}**.`
+                    `No autoresponder exists for \`${trigger}\`.`
                 );
             }
 
             return message.reply(
-                `✅ Removed autoresponder **${trigger}**.`
+                `Autoresponder \`${trigger}\` removed.`
             );
         }
 
@@ -112,28 +159,52 @@ module.exports = {
 
         if (action === "list") {
 
-            const guild = getGuild(message.guild.id);
+            const guild =
+                getGuild(
+                    message.guild.id
+                );
 
             if (!guild.size) {
+
                 return message.reply(
-                    "No autoresponders configured."
+                    "No autoresponders are configured."
                 );
             }
 
-            const entries = [...guild.entries()]
-                .map(([trigger, response]) =>
-                    `• \`${trigger}\` → **${response.type}**`
-                )
-                .join("\n");
-
-            const container = new ContainerBuilder()
-                .setAccentColor(0xFF006E)
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(
-                        "# ✦ Autoresponders\n\n" +
-                        entries
+            const entries =
+                [...guild.entries()]
+                    .map(
+                        ([trigger, response]) =>
+                            `**${trigger}** · \`${response.type}\``
                     )
-                );
+                    .join("\n");
+
+            const container =
+                new ContainerBuilder()
+                    .setAccentColor(0xFF006E)
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "# ✦ Autoresponders\n\n" +
+                                entries
+                            )
+                    )
+
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
+                    )
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                `**${guild.size}** active autoresponder${
+                                    guild.size === 1
+                                        ? ""
+                                        : "s"
+                                }`
+                            )
+                    );
 
             return message.reply({
                 components: [container],
@@ -147,31 +218,90 @@ module.exports = {
 
         if (action === "clear") {
 
-            const guild = getGuild(message.guild.id);
+            const guild =
+                getGuild(
+                    message.guild.id
+                );
 
             if (!guild.size) {
+
                 return message.reply(
                     "There are no autoresponders to clear."
                 );
             }
 
-            clear(message.guild.id);
+            clear(
+                message.guild.id
+            );
 
             return message.reply(
-                "✅ All autoresponders have been cleared."
+                "All autoresponders have been cleared."
             );
         }
 
         // ====================================================
-        // HELP
+        // GUIDE
+        // ,ar
         // ====================================================
 
-        return message.reply(
-            "**Autoresponder**\n\n" +
-            "`,ar add <trigger> <response>`\n" +
-            "`,ar remove <trigger>`\n" +
-            "`,ar list`\n" +
-            "`,ar clear`"
-        );
+        const container =
+            new ContainerBuilder()
+                .setAccentColor(0xFF006E)
+
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder()
+                        .setContent(
+                            "# ✦ ASTER Autoresponder\n" +
+                            "### Automatic server responses\n\n" +
+                            "Create instant responses triggered by specific messages."
+                        )
+                )
+
+                .addSeparatorComponents(
+                    new SeparatorBuilder()
+                )
+
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder()
+                        .setContent(
+                            "### Commands\n\n" +
+                            "`,ar add <trigger> text <response>`\n" +
+                            "`,ar add <trigger> gif <url>`\n" +
+                            "`,ar add <trigger> embed <text>`\n\n" +
+                            "`,ar remove <trigger>`\n" +
+                            "`,ar list`\n" +
+                            "`,ar clear`"
+                        )
+                )
+
+                .addSeparatorComponents(
+                    new SeparatorBuilder()
+                )
+
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder()
+                        .setContent(
+                            "### Examples\n\n" +
+                            "`,ar add hello text Hey everyone 👋`\n" +
+                            "`,ar add cat gif https://example.com/cat.gif`\n" +
+                            "`,ar add rules embed Please read the rules.`"
+                        )
+                )
+
+                .addSeparatorComponents(
+                    new SeparatorBuilder()
+                )
+
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder()
+                        .setContent(
+                            "Triggers are **case-insensitive** and must match the entire message."
+                        )
+                );
+
+        return message.reply({
+            components: [container],
+            flags: MessageFlags.IsComponentsV2
+        });
     }
 };
