@@ -1,111 +1,132 @@
-const { EmbedBuilder } = require("discord.js");
+const fs = require("fs");
+const path = require("path");
 
-function shorten(name) {
-    if (name.length > 14) {
-        return name.slice(0, 12) + "...";
+const filePath = path.join(__dirname, "../data/autoresponders.json");
+
+const autoresponders = new Map();
+
+// ============================================================
+// LOAD
+// ============================================================
+
+function load() {
+    try {
+        if (!fs.existsSync(filePath)) {
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
+            fs.writeFileSync(filePath, "{}");
+        }
+
+        const data = JSON.parse(
+            fs.readFileSync(filePath, "utf8")
+        );
+
+        autoresponders.clear();
+
+        for (const [guildId, responses] of Object.entries(data)) {
+            autoresponders.set(
+                guildId,
+                new Map(Object.entries(responses))
+            );
+        }
+
+        console.log(
+            `AUTO-RESPONDER: Loaded ${autoresponders.size} guild(s)`
+        );
+
+    } catch (error) {
+        console.error("AUTO-RESPONDER LOAD ERROR:", error);
+    }
+}
+
+// ============================================================
+// SAVE
+// ============================================================
+
+function save() {
+    try {
+        const data = {};
+
+        for (const [guildId, responses] of autoresponders) {
+            data[guildId] = Object.fromEntries(responses);
+        }
+
+        fs.writeFileSync(
+            filePath,
+            JSON.stringify(data, null, 2)
+        );
+
+    } catch (error) {
+        console.error("AUTO-RESPONDER SAVE ERROR:", error);
+    }
+}
+
+// ============================================================
+// GET GUILD
+// ============================================================
+
+function getGuild(guildId) {
+    if (!autoresponders.has(guildId)) {
+        autoresponders.set(guildId, new Map());
     }
 
-    return name;
+    return autoresponders.get(guildId);
 }
 
-function formatTime(minutes) {
-    const days = Math.floor(minutes / 1440);
-    const hours = Math.floor((minutes % 1440) / 60);
-    const mins = minutes % 60;
+// ============================================================
+// ADD
+// ============================================================
 
-    let result = "";
+function add(guildId, trigger, response) {
+    const guild = getGuild(guildId);
 
-    if (days > 0) result += `${days}d `;
-    if (hours > 0) result += `${hours}h `;
-    if (mins > 0) result += `${mins}m`;
+    guild.set(
+        trigger.toLowerCase().trim(),
+        response
+    );
 
-    return result.trim() || "0m";
+    save();
 }
 
-function createActivityEmbed(
-    chatUsers,
-    voiceUsers,
-    period,
-    resetTimestamp = null
-) {
-    const emojis = {
-        logo: "<a:Weedleaf2:1459619037980921887>",
+// ============================================================
+// REMOVE
+// ============================================================
 
-        activity: "<a:Fire8:1459590813410660564>",
-        ruler: "<a:WeedLeaf:1459620147424788703>",
-        crown: "<a:PinkCrown:1459619059707674809>",
-        live: "<a:Dance:1459730182553338109>",
+function remove(guildId, trigger) {
+    const guild = getGuild(guildId);
 
-        rank1: "<:1_n:1522913562551652483>",
-        rank2: "<:2_n:1522914098470453330>",
-        rank3: "<:3_n:1522914202740850819>",
-        rank4: "<:4_n:1522914291504910348>",
-        rank5: "<:5_n:1522914328766976111>"
-    };
+    const deleted = guild.delete(
+        trigger.toLowerCase().trim()
+    );
 
-    const ranks = [
-        emojis.rank1,
-        emojis.rank2,
-        emojis.rank3,
-        emojis.rank4,
-        emojis.rank5
-    ];
+    if (deleted) {
+        save();
+    }
 
-    const chatText = chatUsers.length
-        ? chatUsers.map((u, i) =>
-            `${ranks[i]} **<@${u.user_id}>**\n` +
-            `${emojis.activity} ${u.messages || 0} messages`
-        ).join("\n")
-        : "No data";
-
-    const voiceText = voiceUsers.length
-        ? voiceUsers.map((u, i) =>
-            `${ranks[i]} **<@${u.user_id}>**\n` +
-            `${emojis.ruler} ${formatTime(u.voice_time || 0)}`
-        ).join("\n")
-        : "No data";
-
-    const footerText =
-        period === "24h"
-            ? "ASTER • Updates every 5 minutes • Daily reset at midnight"
-            : "ASTER • Updates every 5 minutes • Weekly reset every Monday";
-
-    return new EmbedBuilder()
-        .setColor("#FF4DA6")
-        .setTitle(`${emojis.logo} ASTER Activity Rankings`)
-        .setDescription(
-            `${emojis.live} **LIVE • ${period.toUpperCase()}**\n` +
-            `*${period === "24h"
-                ? "Daily rankings • For competitive play"
-                : "Weekly rankings • For competitive play"
-            }*` +
-            (
-                (period === "7d" || period === "24h") && resetTimestamp
-                    ? `\n\n⏳ **Resets:** <t:${resetTimestamp}:R>\n📅 **Reset:** <t:${resetTimestamp}:F>`
-                    : ""
-            )
-        )
-        .addFields(
-            {
-                name: `${emojis.activity} CHAT KINGS`,
-                value: chatText,
-                inline: true
-            },
-            {
-                name: "\u200b",
-                value: "\u200b",
-                inline: true
-            },
-            {
-                name: `${emojis.ruler} VOICE KINGS`,
-                value: voiceText,
-                inline: true
-            }
-        )
-        .setFooter({
-            text: footerText
-        })
-        .setTimestamp();
+    return deleted;
 }
 
-module.exports = createActivityEmbed;
+// ============================================================
+// CLEAR
+// ============================================================
+
+function clear(guildId) {
+    const guild = getGuild(guildId);
+
+    guild.clear();
+
+    save();
+}
+
+// ============================================================
+// LOAD ON START
+// ============================================================
+
+load();
+
+module.exports = {
+    autoresponders,
+    getGuild,
+    add,
+    remove,
+    clear
+};
