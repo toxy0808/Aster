@@ -670,11 +670,11 @@ module.exports = async (client) => {
             // DETECT 24H RESET
             // ------------------------------------------------
 
-            if (reset24h) {
-    console.log(
-        "🔄 24h period changed — leaderboard rebuilt from current period."
-    );
-}
+                        if (reset24h) {
+
+                console.log(
+                    "🔄 24h leaderboard period reset."
+                );
 
                 console.log(
                     `Old period: ${current24hPeriod}`
@@ -692,13 +692,11 @@ module.exports = async (client) => {
             // DETECT 7D RESET
             // ------------------------------------------------
 
-            
-                if (reset7d) {
-    console.log(
-        "🔄 7d period changed — leaderboard rebuilt from current period."
-    );
-}
+            if (reset7d) {
 
+                console.log(
+                    "🔄 7d leaderboard period reset."
+                );
 
                 console.log(
                     `Old period: ${current7dPeriod}`
