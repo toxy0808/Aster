@@ -71,8 +71,6 @@ module.exports = async (client, message) => {
     }
 
     
-                    
-
 // ========================================================
 // AUTO RESPONDER
 // ========================================================
@@ -92,9 +90,6 @@ if (
 
     if (messageContent) {
 
-        // Longer triggers first.
-        // Prevents a short trigger from winning
-        // when a more specific trigger also exists.
         const responses =
             [...autoresponderGuild.entries()]
                 .sort(
@@ -128,101 +123,76 @@ if (
                 continue;
             }
 
-const key = `${message.guild.id}:${message.author.id}:${trigger}`;
+            // 5 second cooldown per user + trigger
+            const key =
+                `${message.guild.id}:${message.author.id}:${trigger}`;
 
-if (autoresponderCooldowns.has(key)) continue;
+            if (
+                autoresponderCooldowns.has(key)
+            ) {
+                continue;
+            }
 
-autoresponderCooldowns.set(key, true);
+            autoresponderCooldowns.set(
+                key,
+                true
+            );
 
-setTimeout(() => {
-    autoresponderCooldowns.delete(key);
-}, 5000);
+            setTimeout(() => {
+                autoresponderCooldowns.delete(
+                    key
+                );
+            }, 5000);
 
             try {
 
-
-
-
-
-
-
-if (response.type === "text") {
-
-    await message.reply({
-        content: response.content
-    });
-
-}
-
-else if (
-    response.type === "image" ||
-    response.type === "gif"
-) {
-
-    await message.reply({
-        files: [
-            {
-                attachment: response.content
-            }
-        ]
-    });
-
-}
-
-else if (response.type === "embed") {
-
-    const embed =
-        new EmbedBuilder()
-            .setColor(0xFF006E)
-            .setDescription(
-                response.content
-            );
-
-    await message.reply({
-        embeds: [embed]
-    });
-}
-
-
-                // ============================================
                 // TEXT
-                // ============================================
-if (response.type === "text") {
+                if (
+                    response.type === "text"
+                ) {
 
-    await message.reply({
-        content: response.content
-    });
+                    await message.reply({
+                        content:
+                            response.content
+                    });
+                }
 
-}
+                // IMAGE / GIF
+                else if (
+                    response.type === "image" ||
+                    response.type === "gif"
+                ) {
 
-else if (
-    response.type === "image" ||
-    response.type === "gif"
-) {
+                    await message.reply({
+                        files: [
+                            {
+                                attachment:
+                                    response.content
+                            }
+                        ]
+                    });
+                }
 
-    await message.reply({
-        files: [
-            {
-                attachment: response.content
-            }
-        ]
-    });
+                // EMBED
+                else if (
+                    response.type === "embed"
+                ) {
 
-}
+                    const embed =
+                        new EmbedBuilder()
+                            .setColor(
+                                0xFF006E
+                            )
+                            .setDescription(
+                                response.content
+                            );
 
-else if (response.type === "embed") {
-
-    const embed =
-        new EmbedBuilder()
-            .setColor(0xFF006E)
-            .setDescription(
-                response.content
-            );
-
-    await message.reply({
-        embeds: [embed]
-    });
-}
+                    await message.reply({
+                        embeds: [
+                            embed
+                        ]
+                    });
+                }
 
             } catch (error) {
 
@@ -232,12 +202,11 @@ else if (response.type === "embed") {
                 );
             }
 
-            // One autoresponder per message.
+            // Only one autoresponder per message
             break;
         }
     }
 }
-
 
     // ========================================================
     // ASTER INTRO
