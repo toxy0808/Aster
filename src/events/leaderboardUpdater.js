@@ -513,9 +513,7 @@ async function sendOrUpdate(channel, type, embed) {
                     embeds: [embed]
                 });
 
-                console.log(
-                    `✅ ${type} leaderboard updated.`
-                );
+               
 
                 return true;
 
@@ -561,9 +559,7 @@ async function sendOrUpdate(channel, type, embed) {
             `)
             .run(type, message.id);
 
-        console.log(
-            `✅ ${type} leaderboard message created.`
-        );
+       
 
         return true;
 
