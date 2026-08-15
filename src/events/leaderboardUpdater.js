@@ -491,22 +491,17 @@ async function addUserData(channel, users) {
 // SEND / UPDATE LEADERBOARD MESSAGE
 // ============================================================
 
-async function sendOrUpdate(
-    channel,
-    type,
-    embed
-) {
-    const old =
-        leaderboardDB
-            .prepare(
-                "SELECT * FROM leaderboard_messages WHERE type = ?"
-            )
-            .get(type);
-}
+async function sendOrUpdate(channel, type, embed) {
 
-    // --------------------------------------------------------
+    const old = leaderboardDB
+        .prepare(
+            "SELECT * FROM leaderboard_messages WHERE type = ?"
+        )
+        .get(type);
+
+    // ========================================================
     // UPDATE EXISTING MESSAGE
-    // --------------------------------------------------------
+    // ========================================================
 
     if (old) {
 
@@ -531,7 +526,7 @@ async function sendOrUpdate(
 
             } catch (error) {
 
-                // Message was deleted.
+                // Message was deleted
                 if (error.code === 10008) {
 
                     leaderboardDB
@@ -544,27 +539,27 @@ async function sendOrUpdate(
                 }
 
                 console.error(
-                    `Failed to update ${type} (attempt ${attempt}/3):`,
+                    `Failed to update ${type} ` +
+                    `(attempt ${attempt}/3):`,
                     error.message
                 );
 
-                // Retry after a short delay.
                 if (attempt < 3) {
 
-                    await new Promise(resolve =>
+                    await new Promise(resolve => {
                         setTimeout(
                             resolve,
                             2000 * attempt
-                        )
-                    );
+                        );
+                    });
                 }
             }
         }
     }
 
-    // --------------------------------------------------------
+    // ========================================================
     // CREATE NEW MESSAGE
-    // --------------------------------------------------------
+    // ========================================================
 
     try {
 
