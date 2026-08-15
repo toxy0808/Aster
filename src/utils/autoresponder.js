@@ -8,28 +8,73 @@ const filePath = path.join(
 
 const autoresponders = new Map();
 
+const MAX_TRIGGER_LENGTH = 100;
+const MAX_AUTORESPONDERS_PER_GUILD = 50;
+
 // ============================================================
 // LOAD
 // ============================================================
 
 function load() {
     try {
+
         if (!fs.existsSync(filePath)) {
-            fs.writeFileSync(filePath, "{}");
+
+            fs.writeFileSync(
+                filePath,
+                "{}"
+            );
+
             return;
         }
 
-        const data = JSON.parse(
-            fs.readFileSync(filePath, "utf8")
-        );
+        const raw =
+            fs.readFileSync(
+                filePath,
+                "utf8"
+            );
+
+        if (!raw.trim()) return;
+
+        const data =
+            JSON.parse(raw);
 
         autoresponders.clear();
 
-        for (const [guildId, responses] of Object.entries(data)) {
-            autoresponders.set(
-                guildId,
-                new Map(Object.entries(responses))
-            );
+        for (
+            const [guildId, responses]
+            of Object.entries(data)
+        ) {
+
+            const guildMap =
+                new Map();
+
+            for (
+                const [trigger, response]
+                of Object.entries(responses)
+            ) {
+
+                if (
+                    !response ||
+                    !response.type ||
+                    typeof response.content !== "string"
+                ) {
+                    continue;
+                }
+
+                guildMap.set(
+                    trigger,
+                    response
+                );
+            }
+
+            if (guildMap.size > 0) {
+
+                autoresponders.set(
+                    guildId,
+                    guildMap
+                );
+            }
         }
 
         console.log(
@@ -37,6 +82,7 @@ function load() {
         );
 
     } catch (error) {
+
         console.error(
             "AUTO-RESPONDER LOAD ERROR:",
             error
@@ -49,19 +95,33 @@ function load() {
 // ============================================================
 
 function save() {
+
     try {
+
         const data = {};
 
-        for (const [guildId, responses] of autoresponders) {
-            data[guildId] = Object.fromEntries(responses);
+        for (
+            const [guildId, responses]
+            of autoresponders
+        ) {
+
+            data[guildId] =
+                Object.fromEntries(
+                    responses
+                );
         }
 
         fs.writeFileSync(
             filePath,
-            JSON.stringify(data, null, 2)
+            JSON.stringify(
+                data,
+                null,
+                2
+            )
         );
 
     } catch (error) {
+
         console.error(
             "AUTO-RESPONDER SAVE ERROR:",
             error
@@ -74,7 +134,10 @@ function save() {
 // ============================================================
 
 function getGuild(guildId) {
-    return autoresponders.get(guildId);
+
+    return autoresponders.get(
+        guildId
+    );
 }
 
 // ============================================================
@@ -88,24 +151,68 @@ function add(
     content
 ) {
 
-    if (!autoresponders.has(guildId)) {
+    trigger =
+        trigger
+            .trim()
+            .toLowerCase();
+
+    if (!trigger) {
+        return {
+            success: false,
+            reason: "invalid_trigger"
+        };
+    }
+
+    if (
+        trigger.length >
+        MAX_TRIGGER_LENGTH
+    ) {
+        return {
+            success: false,
+            reason: "trigger_too_long"
+        };
+    }
+
+    let guild =
+        autoresponders.get(
+            guildId
+        );
+
+    if (!guild) {
+
+        guild = new Map();
+
         autoresponders.set(
             guildId,
-            new Map()
+            guild
         );
     }
 
-    autoresponders
-        .get(guildId)
-        .set(
-            trigger.toLowerCase().trim(),
-            {
-                type,
-                content
-            }
-        );
+    if (
+        !guild.has(trigger) &&
+        guild.size >=
+            MAX_AUTORESPONDERS_PER_GUILD
+    ) {
+
+        return {
+            success: false,
+            reason: "guild_limit"
+        };
+    }
+
+    guild.set(
+        trigger,
+        {
+            type,
+            content
+        }
+    );
 
     save();
+
+    return {
+        success: true
+    };
 }
 
 // ============================================================
@@ -118,16 +225,30 @@ function remove(
 ) {
 
     const guild =
-        autoresponders.get(guildId);
+        autoresponders.get(
+            guildId
+        );
 
-    if (!guild) return false;
+    if (!guild) {
+        return false;
+    }
 
     const deleted =
         guild.delete(
-            trigger.toLowerCase().trim()
+            trigger
+                .trim()
+                .toLowerCase()
         );
 
     if (deleted) {
+
+        if (guild.size === 0) {
+
+            autoresponders.delete(
+                guildId
+            );
+        }
+
         save();
     }
 
@@ -141,11 +262,13 @@ function remove(
 function clear(guildId) {
 
     const guild =
-        autoresponders.get(guildId);
+        autoresponders.get(
+            guildId
+        );
 
-    if (!guild) return false;
-
-    guild.clear();
+    if (!guild) {
+        return false;
+    }
 
     autoresponders.delete(
         guildId
@@ -157,7 +280,7 @@ function clear(guildId) {
 }
 
 // ============================================================
-// LOAD ON START
+// START
 // ============================================================
 
 load();
@@ -167,5 +290,7 @@ module.exports = {
     getGuild,
     add,
     remove,
-    clear
+    clear,
+    MAX_TRIGGER_LENGTH,
+    MAX_AUTORESPONDERS_PER_GUILD
 };
