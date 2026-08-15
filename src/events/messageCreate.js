@@ -14,6 +14,7 @@ const prefix = ",";
 
 const introCooldowns = new Set();
 const cooldowns = new Set();
+const autoresponderCooldowns = new Map();
 
 // ============================================================
 // AUTO REACT TABLE
@@ -126,6 +127,16 @@ if (
             ) {
                 continue;
             }
+
+const key = `${message.guild.id}:${message.author.id}:${trigger}`;
+
+if (autoresponderCooldowns.has(key)) continue;
+
+autoresponderCooldowns.set(key, true);
+
+setTimeout(() => {
+    autoresponderCooldowns.delete(key);
+}, 5000);
 
             try {
 
