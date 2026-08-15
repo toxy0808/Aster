@@ -10,7 +10,9 @@ const {
     getGuild,
     add,
     remove,
-    clear
+    clear,
+    MAX_TRIGGER_LENGTH,
+    MAX_AUTORESPONDERS_PER_GUILD
 } = require("../utils/autoresponder");
 
 module.exports = {
@@ -22,7 +24,7 @@ module.exports = {
     async execute(message, args) {
 
         // ====================================================
-        // PERMISSIONS
+        // PERMISSION
         // ====================================================
 
         if (
@@ -72,6 +74,16 @@ module.exports = {
                 );
             }
 
+            if (
+                trigger.length >
+                MAX_TRIGGER_LENGTH
+            ) {
+
+                return message.reply(
+                    `Trigger must be **${MAX_TRIGGER_LENGTH} characters or less**.`
+                );
+            }
+
             // ================================================
             // ATTACHMENT
             // ================================================
@@ -83,12 +95,14 @@ module.exports = {
                 args.join(" ").trim();
 
             // ================================================
-            // IMAGE / GIF ATTACHMENT
+            // IMAGE / GIF UPLOAD
             // ================================================
 
             if (
-                (type === "image" ||
-                 type === "gif") &&
+                (
+                    type === "image" ||
+                    type === "gif"
+                ) &&
                 attachment
             ) {
 
@@ -97,22 +111,28 @@ module.exports = {
             }
 
             // ================================================
-            // REQUIRE CONTENT
+            // CONTENT REQUIRED
             // ================================================
 
             if (!content) {
 
-                return message.reply(
+                if (
                     type === "image" ||
                     type === "gif"
+                ) {
 
-                        ? "Attach an image/GIF or provide a URL."
-                        : "You need to provide a response."
+                    return message.reply(
+                        "Attach an image/GIF to this message or provide a direct URL."
+                    );
+                }
+
+                return message.reply(
+                    "You need to provide a response."
                 );
             }
 
             // ================================================
-            // URL VALIDATION
+            // MEDIA URL
             // ================================================
 
             if (
@@ -121,12 +141,16 @@ module.exports = {
             ) {
 
                 if (
-                    !content.startsWith("http://") &&
-                    !content.startsWith("https://")
+                    !content.startsWith(
+                        "http://"
+                    ) &&
+                    !content.startsWith(
+                        "https://"
+                    )
                 ) {
 
                     return message.reply(
-                        "Please provide a valid image/GIF URL or attach the file."
+                        "The media response must be a valid URL or a Discord attachment."
                     );
                 }
             }
@@ -135,30 +159,53 @@ module.exports = {
             // SAVE
             // ================================================
 
-            add(
-                message.guild.id,
-                trigger,
-                type,
-                content
-            );
+            const result =
+                add(
+                    message.guild.id,
+                    trigger,
+                    type,
+                    content
+                );
+
+            if (!result.success) {
+
+                if (
+                    result.reason ===
+                    "guild_limit"
+                ) {
+
+                    return message.reply(
+                        `This server already has the maximum of **${MAX_AUTORESPONDERS_PER_GUILD}** autoresponders.`
+                    );
+                }
+
+                return message.reply(
+                    "Unable to save this autoresponder."
+                );
+            }
 
             const container =
                 new ContainerBuilder()
-                    .setAccentColor(0xFF006E)
+                    .setAccentColor(
+                        0xFF006E
+                    )
 
                     .addTextDisplayComponents(
                         new TextDisplayBuilder()
                             .setContent(
                                 "# ✦ Autoresponder\n\n" +
                                 `**Trigger**\n\`${trigger}\`\n\n` +
-                                `**Type**\n\`${type}\`\n\n` +
+                                `**Response**\n\`${type}\`\n\n` +
                                 "Configuration saved."
                             )
                     );
 
             return message.reply({
-                components: [container],
-                flags: MessageFlags.IsComponentsV2
+                components: [
+                    container
+                ],
+                flags:
+                    MessageFlags.IsComponentsV2
             });
         }
 
@@ -207,7 +254,10 @@ module.exports = {
                     message.guild.id
                 );
 
-            if (!guild || !guild.size) {
+            if (
+                !guild ||
+                !guild.size
+            ) {
 
                 return message.reply(
                     "No autoresponders are configured."
@@ -215,16 +265,20 @@ module.exports = {
             }
 
             const entries =
-                [...guild.entries()]
-                    .map(
-                        ([trigger, response]) =>
-                            `**${trigger}** · \`${response.type}\``
-                    )
-                    .join("\n");
+                [
+                    ...guild.entries()
+                ]
+                .map(
+                    ([trigger, response]) =>
+                        `**${trigger}** · \`${response.type}\``
+                )
+                .join("\n");
 
             const container =
                 new ContainerBuilder()
-                    .setAccentColor(0xFF006E)
+                    .setAccentColor(
+                        0xFF006E
+                    )
 
                     .addTextDisplayComponents(
                         new TextDisplayBuilder()
@@ -241,17 +295,16 @@ module.exports = {
                     .addTextDisplayComponents(
                         new TextDisplayBuilder()
                             .setContent(
-                                `**${guild.size}** active autoresponder${
-                                    guild.size === 1
-                                        ? ""
-                                        : "s"
-                                }`
+                                `**${guild.size}** active`
                             )
                     );
 
             return message.reply({
-                components: [container],
-                flags: MessageFlags.IsComponentsV2
+                components: [
+                    container
+                ],
+                flags:
+                    MessageFlags.IsComponentsV2
             });
         }
 
@@ -266,7 +319,10 @@ module.exports = {
                     message.guild.id
                 );
 
-            if (!guild || !guild.size) {
+            if (
+                !guild ||
+                !guild.size
+            ) {
 
                 return message.reply(
                     "There are no autoresponders to clear."
@@ -288,14 +344,16 @@ module.exports = {
 
         const container =
             new ContainerBuilder()
-                .setAccentColor(0xFF006E)
+                .setAccentColor(
+                    0xFF006E
+                )
 
                 .addTextDisplayComponents(
                     new TextDisplayBuilder()
                         .setContent(
                             "# ✦ ASTER Autoresponder\n" +
                             "### Automatic server responses\n\n" +
-                            "Create instant responses triggered by specific messages."
+                            "ASTER can react whenever a configured trigger appears anywhere in a message."
                         )
                 )
 
@@ -306,12 +364,23 @@ module.exports = {
                 .addTextDisplayComponents(
                     new TextDisplayBuilder()
                         .setContent(
-                            "### Commands\n\n" +
+                            "### Create\n\n" +
                             "`,ar add <trigger> text <response>`\n" +
-                            "`,ar add <trigger> gif <url>`\n" +
-                            "`,ar add <trigger> image <url>`\n" +
+                            "`,ar add <trigger> gif <URL>`\n" +
+                            "`,ar add <trigger> image <URL>`\n" +
                             "`,ar add <trigger> embed <text>`\n\n" +
-                            "You can also **attach an image/GIF** instead of using a URL.\n\n" +
+                            "For **images/GIFs**, you can attach the file directly instead of using a URL."
+                        )
+                )
+
+                .addSeparatorComponents(
+                    new SeparatorBuilder()
+                )
+
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder()
+                        .setContent(
+                            "### Manage\n\n" +
                             "`,ar remove <trigger>`\n" +
                             "`,ar list`\n" +
                             "`,ar clear`"
@@ -326,10 +395,10 @@ module.exports = {
                     new TextDisplayBuilder()
                         .setContent(
                             "### Examples\n\n" +
-                            "`,ar add hello text Hey everyone 👋`\n" +
+                            "`,ar add toxy text TOXY MENTIONED 👀`\n" +
                             "`,ar add cat gif https://example.com/cat.gif`\n" +
-                            "`,ar add logo image https://example.com/logo.png`\n" +
-                            "`,ar add rules embed Please read the rules.`"
+                            "`,ar add logo image https://example.com/logo.png`\n\n" +
+                            "Then `toxy`, `TOXY`, or `yo toxy bro` will trigger it."
                         )
                 )
 
@@ -340,13 +409,18 @@ module.exports = {
                 .addTextDisplayComponents(
                     new TextDisplayBuilder()
                         .setContent(
-                            "Triggers are **case-insensitive** and must match the entire message."
+                            "### Matching\n\n" +
+                            "Triggers are **case-insensitive** and can appear anywhere in a message, including replies.\n\n" +
+                            "Word boundaries are respected, so `toxy` won't trigger from `toxic`."
                         )
                 );
 
         return message.reply({
-            components: [container],
-            flags: MessageFlags.IsComponentsV2
+            components: [
+                container
+            ],
+            flags:
+                MessageFlags.IsComponentsV2
         });
     }
 };
