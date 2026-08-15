@@ -502,6 +502,7 @@ async function sendOrUpdate(
                 "SELECT * FROM leaderboard_messages WHERE type = ?"
             )
             .get(type);
+}
 
     // --------------------------------------------------------
     // UPDATE EXISTING MESSAGE
