@@ -140,62 +140,89 @@ setTimeout(() => {
 
             try {
 
-                // ============================================
-                // TEXT
-                // ============================================
 
-                if (
-                    response.type === "text"
-                ) {
 
-                    await message.reply({
-                        content:
-                            response.content
-                    });
-                }
 
-                // ============================================
-                // GIF
-                // ============================================
 
-                else if (
-    response.type === "gif" ||
-    response.type === "image"
+
+
+if (response.type === "text") {
+
+    await message.reply({
+        content: response.content
+    });
+
+}
+
+else if (
+    response.type === "image" ||
+    response.type === "gif"
 ) {
+
+    await message.reply({
+        files: [
+            {
+                attachment: response.content
+            }
+        ]
+    });
+
+}
+
+else if (response.type === "embed") {
 
     const embed =
         new EmbedBuilder()
             .setColor(0xFF006E)
-            .setImage(response.content);
+            .setDescription(
+                response.content
+            );
 
     await message.reply({
         embeds: [embed]
     });
 }
 
+
                 // ============================================
-                // EMBED
+                // TEXT
                 // ============================================
+if (response.type === "text") {
 
-                else if (
-                    response.type === "embed"
-                ) {
+    await message.reply({
+        content: response.content
+    });
 
-                    const embed =
-                        new EmbedBuilder()
-                            .setColor(
-                                0xFF006E
-                            )
-                            .setDescription(
-                                response.content
-                            );
+}
 
-                    await message.reply({
-                        embeds: [
-                            embed
-                        ]
-                    });
-                }
+else if (
+    response.type === "image" ||
+    response.type === "gif"
+) {
+
+    await message.reply({
+        files: [
+            {
+                attachment: response.content
+            }
+        ]
+    });
+
+}
+
+else if (response.type === "embed") {
+
+    const embed =
+        new EmbedBuilder()
+            .setColor(0xFF006E)
+            .setDescription(
+                response.content
+            );
+
+    await message.reply({
+        embeds: [embed]
+    });
+}
 
             } catch (error) {
 
