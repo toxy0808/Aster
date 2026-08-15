@@ -486,6 +486,7 @@ async function addUserData(channel, users) {
 }
 
 
+
 // ============================================================
 // SEND / UPDATE LEADERBOARD MESSAGE
 // ============================================================
@@ -496,42 +497,67 @@ async function sendOrUpdate(
     embed
 ) {
     const old =
-        leaderboardDB.prepare(
-            "SELECT * FROM leaderboard_messages WHERE type = ?"
-        ).get(type);
+        leaderboardDB
+            .prepare(
+                "SELECT * FROM leaderboard_messages WHERE type = ?"
+            )
+            .get(type);
 
     // --------------------------------------------------------
     // UPDATE EXISTING MESSAGE
     // --------------------------------------------------------
 
     if (old) {
-        try {
-            const message =
-                await channel.messages.fetch(
-                    old.message_id
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+
+            try {
+
+                const message =
+                    await channel.messages.fetch(
+                        old.message_id
+                    );
+
+                await message.edit({
+                    embeds: [embed]
+                });
+
+                console.log(
+                    `✅ ${type} leaderboard updated.`
                 );
 
-            await message.edit({
-                embeds: [embed]
-            });
+                return true;
 
-            return;
+            } catch (error) {
 
-        } catch (error) {
+                // Message was deleted.
+                if (error.code === 10008) {
 
-            // Message no longer exists.
-            if (error.code !== 10008) {
+                    leaderboardDB
+                        .prepare(
+                            "DELETE FROM leaderboard_messages WHERE type = ?"
+                        )
+                        .run(type);
+
+                    break;
+                }
+
                 console.error(
-                    `Failed to update ${type}:`,
+                    `Failed to update ${type} (attempt ${attempt}/3):`,
                     error.message
                 );
 
-                return;
-            }
+                // Retry after a short delay.
+                if (attempt < 3) {
 
-            leaderboardDB.prepare(
-                "DELETE FROM leaderboard_messages WHERE type = ?"
-            ).run(type);
+                    await new Promise(resolve =>
+                        setTimeout(
+                            resolve,
+                            2000 * attempt
+                        )
+                    );
+                }
+            }
         }
     }
 
@@ -540,30 +566,40 @@ async function sendOrUpdate(
     // --------------------------------------------------------
 
     try {
+
         const message =
             await channel.send({
                 embeds: [embed]
             });
 
-        leaderboardDB.prepare(`
-            INSERT INTO leaderboard_messages
-            (type, message_id)
-            VALUES (?, ?)
-        `).run(
-            type,
-            message.id
+        leaderboardDB
+            .prepare(`
+                INSERT INTO leaderboard_messages
+                (type, message_id)
+                VALUES (?, ?)
+            `)
+            .run(
+                type,
+                message.id
+            );
+
+        console.log(
+            `✅ ${type} leaderboard message created.`
         );
 
+        return true;
+
     } catch (error) {
+
         console.error(
             `Failed to send ${type}:`,
             error.message
         );
+
+        return false;
     }
 }
-
-
-// ============================================================
+ ============================================================
 // MODULE
 // ============================================================
 
