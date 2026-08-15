@@ -69,28 +69,63 @@ module.exports = async (client, message) => {
             .catch(() => {});
     }
 
-    // ========================================================
-    // AUTO RESPONDER
-    // ========================================================
+    
+                    
 
-    const autoresponderGuild =
-        client.autoresponders?.autoresponders?.get(
-            message.guild.id
-        );
+// ========================================================
+// AUTO RESPONDER
+// ========================================================
 
-    if (autoresponderGuild) {
+const autoresponderGuild =
+    client.autoresponders?.autoresponders?.get(
+        message.guild.id
+    );
 
-        const trigger =
-            message.content
-                .trim()
-                .toLowerCase();
+if (
+    autoresponderGuild &&
+    autoresponderGuild.size > 0
+) {
 
-        const response =
-            autoresponderGuild.get(
-                trigger
-            );
+    const messageContent =
+        message.content.trim();
 
-        if (response) {
+    if (messageContent) {
+
+        // Longer triggers first.
+        // Prevents a short trigger from winning
+        // when a more specific trigger also exists.
+        const responses =
+            [...autoresponderGuild.entries()]
+                .sort(
+                    (a, b) =>
+                        b[0].length -
+                        a[0].length
+                );
+
+        for (
+            const [trigger, response]
+            of responses
+        ) {
+
+            const escapedTrigger =
+                trigger.replace(
+                    /[.*+?^${}()|[\]\\]/g,
+                    "\\$&"
+                );
+
+            const triggerRegex =
+                new RegExp(
+                    `(^|\\s)${escapedTrigger}(?=\\s|$|[!?.,:;'"()\\[\\]{}<>])`,
+                    "i"
+                );
+
+            if (
+                !triggerRegex.test(
+                    messageContent
+                )
+            ) {
+                continue;
+            }
 
             try {
 
@@ -154,7 +189,9 @@ module.exports = async (client, message) => {
                             );
 
                     await message.reply({
-                        embeds: [embed]
+                        embeds: [
+                            embed
+                        ]
                     });
                 }
 
@@ -165,8 +202,13 @@ module.exports = async (client, message) => {
                     error
                 );
             }
+
+            // One autoresponder per message.
+            break;
         }
     }
+}
+
 
     // ========================================================
     // ASTER INTRO
