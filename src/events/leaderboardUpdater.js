@@ -457,7 +457,7 @@ function getVoiceTop7d() {
 
 // ============================================================
 // USER DATA
-// ============================================================
+// ===========================================================
 
 async function addUserData(channel, users) {
     return Promise.all(
@@ -499,20 +499,15 @@ async function sendOrUpdate(channel, type, embed) {
         )
         .get(type);
 
-    // ========================================================
-    // UPDATE EXISTING MESSAGE
-    // ========================================================
-
     if (old) {
 
         for (let attempt = 1; attempt <= 3; attempt++) {
 
             try {
 
-                const message =
-                    await channel.messages.fetch(
-                        old.message_id
-                    );
+                const message = await channel.messages.fetch(
+                    old.message_id
+                );
 
                 await message.edit({
                     embeds: [embed]
@@ -526,7 +521,6 @@ async function sendOrUpdate(channel, type, embed) {
 
             } catch (error) {
 
-                // Message was deleted
                 if (error.code === 10008) {
 
                     leaderboardDB
@@ -545,28 +539,19 @@ async function sendOrUpdate(channel, type, embed) {
                 );
 
                 if (attempt < 3) {
-
-                    await new Promise(resolve => {
-                        setTimeout(
-                            resolve,
-                            2000 * attempt
-                        );
-                    });
+                    await new Promise(resolve =>
+                        setTimeout(resolve, 2000 * attempt)
+                    );
                 }
             }
         }
     }
 
-    // ========================================================
-    // CREATE NEW MESSAGE
-    // ========================================================
-
     try {
 
-        const message =
-            await channel.send({
-                embeds: [embed]
-            });
+        const message = await channel.send({
+            embeds: [embed]
+        });
 
         leaderboardDB
             .prepare(`
@@ -574,10 +559,7 @@ async function sendOrUpdate(channel, type, embed) {
                 (type, message_id)
                 VALUES (?, ?)
             `)
-            .run(
-                type,
-                message.id
-            );
+            .run(type, message.id);
 
         console.log(
             `✅ ${type} leaderboard message created.`
