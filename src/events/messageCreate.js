@@ -159,28 +159,19 @@ setTimeout(() => {
                 // ============================================
 
                 else if (
-                    response.type === "gif"
-                ) {
+    response.type === "gif" ||
+    response.type === "image"
+) {
 
-                    await message.reply({
-                        content:
-                            response.content
-                    });
-                }
+    const embed =
+        new EmbedBuilder()
+            .setColor(0xFF006E)
+            .setImage(response.content);
 
-                // ============================================
-                // IMAGE
-                // ============================================
-
-                else if (
-                    response.type === "image"
-                ) {
-
-                    await message.reply({
-                        content:
-                            response.content
-                    });
-                }
+    await message.reply({
+        embeds: [embed]
+    });
+}
 
                 // ============================================
                 // EMBED
