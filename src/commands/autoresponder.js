@@ -136,12 +136,17 @@ module.exports = {
             // CONTENT REQUIRED
             // =================================================
 
-            if (!content) {
+            
+            if (
+    !content &&
+    type !== "image" &&
+    type !== "gif"
+) {
 
-                return message.reply(
-                    "You need to provide a response."
-                );
-            }
+    return message.reply(
+        "You need to provide a response."
+    );
+}
 
             // =================================================
             // SAVE
