@@ -60,6 +60,10 @@ module.exports = {
                 );
             }
 
+            // =================================================
+            // VALID TYPE
+            // =================================================
+
             if (
                 ![
                     "text",
@@ -74,6 +78,10 @@ module.exports = {
                 );
             }
 
+            // =================================================
+            // TRIGGER LENGTH
+            // =================================================
+
             if (
                 trigger.length >
                 MAX_TRIGGER_LENGTH
@@ -84,9 +92,9 @@ module.exports = {
                 );
             }
 
-            // ================================================
+            // =================================================
             // ATTACHMENT
-            // ================================================
+            // =================================================
 
             const attachment =
                 message.attachments.first();
@@ -94,70 +102,51 @@ module.exports = {
             let content =
                 args.join(" ").trim();
 
-            // ================================================
-            // IMAGE / GIF UPLOAD
-            // ================================================
-
-            if (
-                (
-                    type === "image" ||
-                    type === "gif"
-                ) &&
-                attachment
-            ) {
-
-                content =
-                    attachment.url;
-            }
-
-            // ================================================
-            // CONTENT REQUIRED
-            // ================================================
-
-            if (!content) {
-
-                if (
-                    type === "image" ||
-                    type === "gif"
-                ) {
-
-                    return message.reply(
-                        "Attach an image/GIF to this message or provide a direct URL."
-                    );
-                }
-
-                return message.reply(
-                    "You need to provide a response."
-                );
-            }
-
-            // ================================================
-            // MEDIA URL
-            // ================================================
+            // =================================================
+            // IMAGE / GIF
+            // =================================================
 
             if (
                 type === "image" ||
                 type === "gif"
             ) {
 
-                if (
-                    !content.startsWith(
-                        "http://"
-                    ) &&
-                    !content.startsWith(
-                        "https://"
-                    )
-                ) {
+                /*
+                 * Media MUST be uploaded directly.
+                 *
+                 * We intentionally do not accept pasted
+                 * URLs because Discord CDN URLs can become
+                 * unavailable and break the autoresponder.
+                 */
+
+                if (!attachment) {
 
                     return message.reply(
-                        "The media response must be a valid URL or a Discord attachment."
+                        "⚠️ **Upload the image/GIF directly to this message.**\n\n" +
+                        "Do not paste an image URL. Discord media URLs can expire or become unavailable, which may break the autoresponder.\n\n" +
+                        "Attach the **image or GIF file** and run the command again."
                     );
                 }
+
+                // Use the uploaded attachment
+                content =
+                    attachment.url;
             }
 
-            // ================================================
+            // =================================================
+            // CONTENT REQUIRED
+            // =================================================
+
+            if (!content) {
+
+                return message.reply(
+                    "You need to provide a response."
+                );
+            }
+
+            // =================================================
             // SAVE
-            // ================================================
+            // =================================================
 
             const result =
                 add(
@@ -183,6 +172,10 @@ module.exports = {
                     "Unable to save this autoresponder."
                 );
             }
+
+            // =================================================
+            // SUCCESS
+            // =================================================
 
             const container =
                 new ContainerBuilder()
@@ -366,10 +359,11 @@ module.exports = {
                         .setContent(
                             "### Create\n\n" +
                             "`,ar add <trigger> text <response>`\n" +
-                            "`,ar add <trigger> gif <URL>`\n" +
-                            "`,ar add <trigger> image <URL>`\n" +
-                            "`,ar add <trigger> embed <text>`\n\n" +
-                            "For **images/GIFs**, you can attach the file directly instead of using a URL."
+                            "`,ar add <trigger> embed <text>`\n" +
+                            "`,ar add <trigger> image` + **attach an image**\n" +
+                            "`,ar add <trigger> gif` + **attach a GIF**\n\n" +
+                            "For **images/GIFs**, upload the file directly to the command message.\n" +
+                            "Pasted media URLs are not supported because they can become unavailable."
                         )
                 )
 
@@ -396,8 +390,8 @@ module.exports = {
                         .setContent(
                             "### Examples\n\n" +
                             "`,ar add toxy text TOXY MENTIONED 👀`\n" +
-                            "`,ar add cat gif https://example.com/cat.gif`\n" +
-                            "`,ar add logo image https://example.com/logo.png`\n\n" +
+                            "`,ar add cat gif` + **attach `cat.gif`**\n" +
+                            "`,ar add logo image` + **attach `logo.png`**\n\n" +
                             "Then `toxy`, `TOXY`, or `yo toxy bro` will trigger it."
                         )
                 )
