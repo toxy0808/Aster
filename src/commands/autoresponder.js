@@ -129,8 +129,7 @@ module.exports = {
                 }
 
                 // Use the uploaded attachment
-                content =
-                    attachment.url;
+                content = "";
             }
 
             // =================================================
@@ -149,12 +148,13 @@ module.exports = {
             // =================================================
 
             const result =
-                add(
-                    message.guild.id,
-                    trigger,
-                    type,
-                    content
-                );
+    await add(
+        message.guild.id,
+        trigger,
+        type,
+        content,
+        attachment
+    );
 
             if (!result.success) {
 
