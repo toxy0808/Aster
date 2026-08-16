@@ -50,140 +50,219 @@ module.exports = async (interaction) => {
         interaction.customId
     );
 
-    // =========================
-    // LEADERBOARD CONFIG
-    // =========================
-
-    if (interaction.customId === "config_leaderboard") {
-
-        const menu = new ActionRowBuilder()
-            .addComponents(
-                new ChannelSelectMenuBuilder()
-                    .setCustomId("set_leaderboard_channel")
-                    .setPlaceholder(
-                        "Select leaderboard channel"
-                    )
-            );
-
-        return interaction.reply({
-            content:
-                "🏆 **Leaderboard Configuration**\n\n" +
-                "Select the channel where ASTER should display the live leaderboard.",
-            components: [menu],
-            ephemeral: true
-        });
-    }
-
-    // =========================
-    // SAVE LEADERBOARD CHANNEL
-    // =========================
-
-    if (interaction.customId === "set_leaderboard_channel") {
-
-        const channelId = interaction.values[0];
-
-ensureServerConfig(interaction.guild.id);
-
-        db.prepare(`
-            UPDATE server_config
-            SET leaderboard_channel = ?
-            WHERE guild_id = ?
-        `).run(
-            channelId,
-            interaction.guild.id
-        );
-
-        return interaction.update({
-            content:
-                `✅ Leaderboard channel set to <#${channelId}>`,
-            components: []
-        });
-    }
-
-    // =========================
-    // ACTIVITY ROLES
-    // =========================
-
-    if (interaction.customId === "config_roles") {
-
-        const chatMenu = new ActionRowBuilder()
-            .addComponents(
-                new RoleSelectMenuBuilder()
-                    .setCustomId("set_chat_role")
-                    .setPlaceholder("Select Chat King role")
-                    .setMinValues(1)
-                    .setMaxValues(1)
-            );
-
-        const voiceMenu = new ActionRowBuilder()
-            .addComponents(
-                new RoleSelectMenuBuilder()
-                    .setCustomId("set_voice_role")
-                    .setPlaceholder("Select Voice King role")
-                    .setMinValues(1)
-                    .setMaxValues(1)
-            );
-
-        return interaction.reply({
-            content:
-                "👑 **Activity Roles**\n\n" +
-                "Select the roles ASTER should use for activity winners.",
-            components: [
-                chatMenu,
-                voiceMenu
-            ],
-            ephemeral: true
-        });
-    }
-
-    // =========================
-    // SAVE CHAT ROLE
-    // =========================
-
-    if (interaction.customId === "set_chat_role") {
-
-ensureServerConfig(interaction.guild.id);
-
-        db.prepare(`
-            UPDATE server_config
-            SET chat_king_role = ?
-            WHERE guild_id = ?
-        `).run(
-            interaction.values[0],
-            interaction.guild.id
-        );
-
-        return interaction.update({
-            content: "✅ Chat King role saved!",
-            components: []
-        });
-    }
-
-    // =========================
-    // SAVE VOICE ROLE
-    // =========================
-
-    if (interaction.customId === "set_voice_role") {
-
-ensureServerConfig(interaction.guild.id);
-
-
-        db.prepare(`
-            UPDATE server_config
-            SET voice_king_role = ?
-            WHERE guild_id = ?
-        `).run(
-            interaction.values[0],
-            interaction.guild.id
-        );
-
-        return interaction.update({
-            content: "✅ Voice King role saved!",
-            components: []
-        });
-    }
-
     
+// =========================
+// LEADERBOARD CONFIG
+// =========================
+
+if (interaction.customId === "config_leaderboard") {
+
+    const menu = new ActionRowBuilder()
+        .addComponents(
+            new ChannelSelectMenuBuilder()
+                .setCustomId("set_leaderboard_channel")
+                .setPlaceholder("Select leaderboard channel")
+        );
+
+    return interaction.reply({
+        content:
+            "🏆 **Leaderboard Configuration**\n\n" +
+            "Select the channel where ASTER should display the live leaderboards.",
+        components: [menu],
+        ephemeral: true
+    });
+}
+
+
+// =========================
+// SAVE LEADERBOARD CHANNEL
+// =========================
+
+if (interaction.customId === "set_leaderboard_channel") {
+
+    ensureServerConfig(interaction.guild.id);
+
+    const channelId = interaction.values[0];
+
+    db.prepare(`
+        UPDATE server_config
+        SET leaderboard_channel = ?
+        WHERE guild_id = ?
+    `).run(
+        channelId,
+        interaction.guild.id
+    );
+
+    return interaction.update({
+        content:
+            `✅ Leaderboard channel set to <#${channelId}>`,
+        components: []
+    });
+}
+
+
+// =========================
+// ACTIVITY REWARD ROLES
+// =========================
+
+if (interaction.customId === "config_roles") {
+
+    const chatMenu = new ActionRowBuilder()
+        .addComponents(
+            new RoleSelectMenuBuilder()
+                .setCustomId("set_chat_role")
+                .setPlaceholder("Select Chat King role")
+                .setMinValues(1)
+                .setMaxValues(1)
+        );
+
+    const voiceMenu = new ActionRowBuilder()
+        .addComponents(
+            new RoleSelectMenuBuilder()
+                .setCustomId("set_voice_role")
+                .setPlaceholder("Select Voice King role")
+                .setMinValues(1)
+                .setMaxValues(1)
+        );
+
+    const removeChatRow = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId("remove_chat_role")
+                .setLabel("Remove Chat King")
+                .setStyle(ButtonStyle.Danger)
+        );
+
+    const removeVoiceRow = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId("remove_voice_role")
+                .setLabel("Remove Voice King")
+                .setStyle(ButtonStyle.Danger)
+        );
+
+    return interaction.reply({
+        content:
+            "👑 **Activity Reward Roles**\n\n" +
+            "Select the roles ASTER should assign to the #1 activity winners.\n\n" +
+            "**Chat King** — weekly #1 chat member\n" +
+            "**Voice King** — weekly #1 voice member\n\n" +
+            "You can also remove either role completely.",
+        components: [
+            chatMenu,
+            voiceMenu,
+            removeChatRow,
+            removeVoiceRow
+        ],
+        ephemeral: true
+    });
+}
+
+
+// =========================
+// SAVE CHAT KING ROLE
+// =========================
+
+if (interaction.customId === "set_chat_role") {
+
+    ensureServerConfig(interaction.guild.id);
+
+    const roleId = interaction.values[0];
+
+    db.prepare(`
+        UPDATE server_config
+        SET chat_king_role = ?
+        WHERE guild_id = ?
+    `).run(
+        roleId,
+        interaction.guild.id
+    );
+
+    return interaction.update({
+        content:
+            `✅ **Chat King** role saved: <@&${roleId}>`,
+        components: []
+    });
+}
+
+
+// =========================
+// SAVE VOICE KING ROLE
+// =========================
+
+if (interaction.customId === "set_voice_role") {
+
+    ensureServerConfig(interaction.guild.id);
+
+    const roleId = interaction.values[0];
+
+    db.prepare(`
+        UPDATE server_config
+        SET voice_king_role = ?
+        WHERE guild_id = ?
+    `).run(
+        roleId,
+        interaction.guild.id
+    );
+
+    return interaction.update({
+        content:
+            `✅ **Voice King** role saved: <@&${roleId}>`,
+        components: []
+    });
+}
+
+
+// =========================
+// REMOVE CHAT KING ROLE
+// =========================
+
+if (interaction.customId === "remove_chat_role") {
+
+    ensureServerConfig(interaction.guild.id);
+
+    db.prepare(`
+        UPDATE server_config
+        SET chat_king_role = NULL
+        WHERE guild_id = ?
+    `).run(
+        interaction.guild.id
+    );
+
+    return interaction.update({
+        content:
+            "🗑️ **Chat King** reward role removed.\n\n" +
+            "ASTER will no longer assign a Chat King role.",
+        components: []
+    });
+}
+
+
+// =========================
+// REMOVE VOICE KING ROLE
+// =========================
+
+if (interaction.customId === "remove_voice_role") {
+
+    ensureServerConfig(interaction.guild.id);
+
+    db.prepare(`
+        UPDATE server_config
+        SET voice_king_role = NULL
+        WHERE guild_id = ?
+    `).run(
+        interaction.guild.id
+    );
+
+    return interaction.update({
+        content:
+            "🗑️ **Voice King** reward role removed.\n\n" +
+            "ASTER will no longer assign a Voice King role.",
+        components: []
+    });
+}
+
+
 
 // =========================
 // REP CONFIG
