@@ -313,7 +313,15 @@ function getLiveVoiceMinutes() {
 
     const sessions = global.activeVoiceUsers;
 
-console.log("LIVE VC SESSIONS:", sessions?.size);
+console.log(
+    "LIVE VC:",
+    [...sessions.entries()].map(([id, s]) => ({
+        id,
+        muted: s.muted,
+        activeMinutes: s.activeMinutes,
+        hasTimer: !!s.lastUnmutedAt
+    }))
+);
 
     if (!sessions) {
         return live;
