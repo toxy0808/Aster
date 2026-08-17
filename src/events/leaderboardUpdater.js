@@ -349,7 +349,7 @@ function getVoiceTop24h() {
 
     const since = getCurrent24hPeriod();
 
-    const rows = db.prepare(`
+    const rows = activityDB.prepare(`
         SELECT
             user_id,
             SUM(amount) AS voice_time
@@ -405,7 +405,7 @@ function getVoiceTop7d() {
 
     const since = getCurrent7dPeriod();
 
-    const rows = db.prepare(`
+    const rows = activityDB.prepare(`
         SELECT
             user_id,
             SUM(amount) AS voice_time
