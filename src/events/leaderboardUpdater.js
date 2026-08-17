@@ -1,5 +1,6 @@
 const { getConfig } = require("../utils/serverConfig");
 const db = require("../database/database");
+const activityDB = require("../database/activityLogs");
 const leaderboardDB = require("../database/leaderboardMessages");
 const createActivityEmbed = require("../utils/activityEmbed");
 
@@ -293,7 +294,7 @@ function getCurrent7dPeriod() {
 function getChatTop24h() {
     const since = getCurrent24hPeriod();
 
-    return db.prepare(`
+    return activityDB.prepare(`
         SELECT
             user_id,
             SUM(amount) AS messages
@@ -306,11 +307,39 @@ function getChatTop24h() {
     `).all(since);
 }
 
+function getLiveVoiceMinutes() {
+    const live = new Map();
+    const now = Date.now();
+
+    const sessions = global.activeVoiceUsers;
+
+    if (!sessions) {
+        return live;
+    }
+
+    for (const [userId, session] of sessions.entries()) {
+
+        let minutes = session.activeMinutes || 0;
+
+        if (!session.muted && session.lastUnmutedAt) {
+            minutes += Math.floor(
+                (now - session.lastUnmutedAt) / 60000
+            );
+        }
+
+        if (minutes > 0) {
+            live.set(userId, minutes);
+        }
+    }
+
+    return live;
+}
 
 function getVoiceTop24h() {
+
     const since = getCurrent24hPeriod();
 
-    return db.prepare(`
+    const rows = db.prepare(`
         SELECT
             user_id,
             SUM(amount) AS voice_time
@@ -318,16 +347,38 @@ function getVoiceTop24h() {
         WHERE type = 'voice'
         AND created_at >= ?
         GROUP BY user_id
-        ORDER BY voice_time DESC
-        LIMIT 5
     `).all(since);
-}
 
+    const totals = new Map();
+
+    for (const row of rows) {
+        totals.set(
+            row.user_id,
+            Number(row.voice_time) || 0
+        );
+    }
+
+    for (const [userId, minutes] of getLiveVoiceMinutes()) {
+
+        totals.set(
+            userId,
+            (totals.get(userId) || 0) + minutes
+        );
+    }
+
+    return [...totals.entries()]
+        .map(([user_id, voice_time]) => ({
+            user_id,
+            voice_time
+        }))
+        .sort((a, b) => b.voice_time - a.voice_time)
+        .slice(0, 5);
+}
 
 function getChatTop7d() {
     const since = getCurrent7dPeriod();
 
-    return db.prepare(`
+    return activityDB.prepare(`
         SELECT
             user_id,
             SUM(amount) AS messages
@@ -340,11 +391,11 @@ function getChatTop7d() {
     `).all(since);
 }
 
-
 function getVoiceTop7d() {
+
     const since = getCurrent7dPeriod();
 
-    return db.prepare(`
+    const rows = db.prepare(`
         SELECT
             user_id,
             SUM(amount) AS voice_time
@@ -352,9 +403,32 @@ function getVoiceTop7d() {
         WHERE type = 'voice'
         AND created_at >= ?
         GROUP BY user_id
-        ORDER BY voice_time DESC
-        LIMIT 5
     `).all(since);
+
+    const totals = new Map();
+
+    for (const row of rows) {
+        totals.set(
+            row.user_id,
+            Number(row.voice_time) || 0
+        );
+    }
+
+    for (const [userId, minutes] of getLiveVoiceMinutes()) {
+
+        totals.set(
+            userId,
+            (totals.get(userId) || 0) + minutes
+        );
+    }
+
+    return [...totals.entries()]
+        .map(([user_id, voice_time]) => ({
+            user_id,
+            voice_time
+        }))
+        .sort((a, b) => b.voice_time - a.voice_time)
+        .slice(0, 5);
 }
 
 

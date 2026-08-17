@@ -1,7 +1,8 @@
 
 const db = require("../database/database");
 const activityDB = require("../database/activityLogs");
-const activeVoiceUsers = new Map();
+const activeVoiceUsers =
+    global.activeVoiceUsers || new Map();
 
 global.activeVoiceUsers = activeVoiceUsers;
 
@@ -19,27 +20,23 @@ module.exports = async (oldState, newState) => {
 
     // User joined a voice channel
 
-    if (!oldState.channelId && newState.channelId) {
+if (!oldState.channelId && newState.channelId) {
 
-        const micOpen =
-            !newState.selfMute;
+    activeVoiceUsers.set(
+        userId,
+        {
+            lastUnmutedAt: newState.selfMute
+                ? null
+                : Date.now(),
 
+            activeMinutes: 0,
+            camera: newState.selfVideo,
+            muted: newState.selfMute
+        }
+    );
 
-        if (!micOpen) return;
-
-
-        activeVoiceUsers.set(
-userId,
-{
-lastUnmutedAt: Date.now(),
-activeMinutes: 0,
-camera: newState.selfVideo,
-muted: false
+    return;
 }
-);
-
-        return;
-    }
 
 
 
