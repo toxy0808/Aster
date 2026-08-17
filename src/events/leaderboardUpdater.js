@@ -313,6 +313,8 @@ function getLiveVoiceMinutes() {
 
     const sessions = global.activeVoiceUsers;
 
+console.log("LIVE VC SESSIONS:", sessions?.size);
+
     if (!sessions) {
         return live;
     }
