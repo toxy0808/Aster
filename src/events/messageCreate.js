@@ -407,6 +407,74 @@ if (
     }
 
     // ========================================================
+    // MESSAGE TRACKING
+    // ========================================================
+
+    // Track ALL messages, including normal messages that
+    // do not start with the prefix.
+
+    const userId =
+        message.author.id;
+
+    activityDB.prepare(`
+        INSERT INTO activity_logs
+        (user_id, type, amount)
+        VALUES (?, ?, ?)
+    `)
+    .run(
+        userId,
+        "chat",
+        1
+    );
+
+    const user =
+        db.prepare(
+            "SELECT * FROM users WHERE user_id = ?"
+        )
+        .get(userId);
+
+    if (!user) {
+
+        db.prepare(`
+            INSERT INTO users
+            (user_id, messages, voice_time, xp, level)
+            VALUES (?, 1, 0, 10, 1)
+        `)
+        .run(userId);
+
+    } else {
+
+        const xpGain =
+            Math.floor(
+                Math.random() * 11
+            ) + 5;
+
+        const newXp =
+            user.xp + xpGain;
+
+        const newLevel =
+            Math.floor(
+                Math.sqrt(
+                    newXp / 100
+                )
+            ) + 1;
+
+        db.prepare(`
+            UPDATE users
+            SET
+                messages = messages + 1,
+                xp = ?,
+                level = ?
+            WHERE user_id = ?
+        `)
+        .run(
+            newXp,
+            newLevel,
+            userId
+        );
+    }
+
+    // ========================================================
     // PREFIX COMMANDS
     // ========================================================
 
@@ -482,70 +550,5 @@ if (
         )
     ) {
         return;
-    }
-
-    // ========================================================
-    // MESSAGE TRACKING
-    // ========================================================
-
-    const userId =
-        message.author.id;
-
-    activityDB.prepare(`
-        INSERT INTO activity_logs
-        (user_id, type, amount)
-        VALUES (?, ?, ?)
-    `)
-    .run(
-        userId,
-        "chat",
-        1
-    );
-
-    const user =
-        db.prepare(
-            "SELECT * FROM users WHERE user_id = ?"
-        )
-        .get(userId);
-
-    if (!user) {
-
-        db.prepare(`
-            INSERT INTO users
-            (user_id, messages, voice_time, xp, level)
-            VALUES (?, 1, 0, 10, 1)
-        `)
-        .run(userId);
-
-    } else {
-
-        const xpGain =
-            Math.floor(
-                Math.random() * 11
-            ) + 5;
-
-        const newXp =
-            user.xp + xpGain;
-
-        const newLevel =
-            Math.floor(
-                Math.sqrt(
-                    newXp / 100
-                )
-            ) + 1;
-
-        db.prepare(`
-            UPDATE users
-            SET
-                messages = messages + 1,
-                xp = ?,
-                level = ?
-            WHERE user_id = ?
-        `)
-        .run(
-            newXp,
-            newLevel,
-            userId
-        );
     }
 };
