@@ -15,11 +15,12 @@ module.exports = (client) => {
                 if (member.user.bot) continue;
 
                 activeVoiceUsers.set(member.id, {
-                    joinedAt: Date.now(),
-                    camera: member.voice.selfVideo,
-                    minutes: 0,
-                    muted: member.voice.selfMute
-                });
+    joinedAt: Date.now(),
+    lastUnmutedAt: member.voice.selfMute ? null : Date.now(),
+    activeMinutes: 0,
+    camera: member.voice.selfVideo,
+    muted: member.voice.selfMute
+});
 
                 recovered++;
             }
