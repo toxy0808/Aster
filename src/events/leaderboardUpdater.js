@@ -257,46 +257,15 @@ function getNextMondayTimestamp() {
 // ============================================================
 
 function getCurrent24hPeriod() {
-    return stockholmToUnix({
-        ...getStockholmParts(),
-        hour: 0,
-        minute: 0,
-        second: 0
-    });
+    return getStartOfTodayString();
 }
+
 
 
 function getCurrent7dPeriod() {
-    const now = getStockholmParts();
-
-    const currentDate = new Date(
-        Date.UTC(
-            now.year,
-            now.month - 1,
-            now.day
-        )
-    );
-
-    const day = currentDate.getUTCDay();
-
-    const daysSinceMonday =
-        day === 0
-            ? 6
-            : day - 1;
-
-    currentDate.setUTCDate(
-        currentDate.getUTCDate() - daysSinceMonday
-    );
-
-    return stockholmToUnix({
-        year: currentDate.getUTCFullYear(),
-        month: currentDate.getUTCMonth() + 1,
-        day: currentDate.getUTCDate(),
-        hour: 0,
-        minute: 0,
-        second: 0
-    });
+    return getStartOfWeekString();
 }
+
 
 // ============================================================
 // LEADERBOARD QUERIES
@@ -322,12 +291,7 @@ function getCurrent7dPeriod() {
 // ============================================================
 
 function getChatTop24h() {
-    const since = stockholmToUnix({
-        ...getStockholmParts(),
-        hour: 0,
-        minute: 0,
-        second: 0
-    });
+    const since = getCurrent24hPeriod();
 
     return db.prepare(`
         SELECT
@@ -344,12 +308,7 @@ function getChatTop24h() {
 
 
 function getVoiceTop24h() {
-    const since = stockholmToUnix({
-        ...getStockholmParts(),
-        hour: 0,
-        minute: 0,
-        second: 0
-    });
+    const since = getCurrent24hPeriod();
 
     return db.prepare(`
         SELECT
@@ -366,35 +325,7 @@ function getVoiceTop24h() {
 
 
 function getChatTop7d() {
-    const now = getStockholmParts();
-
-    const currentDate = new Date(
-        Date.UTC(
-            now.year,
-            now.month - 1,
-            now.day
-        )
-    );
-
-    const day = currentDate.getUTCDay();
-
-    const daysSinceMonday =
-        day === 0
-            ? 6
-            : day - 1;
-
-    currentDate.setUTCDate(
-        currentDate.getUTCDate() - daysSinceMonday
-    );
-
-    const since = stockholmToUnix({
-        year: currentDate.getUTCFullYear(),
-        month: currentDate.getUTCMonth() + 1,
-        day: currentDate.getUTCDate(),
-        hour: 0,
-        minute: 0,
-        second: 0
-    });
+    const since = getCurrent7dPeriod();
 
     return db.prepare(`
         SELECT
@@ -411,35 +342,7 @@ function getChatTop7d() {
 
 
 function getVoiceTop7d() {
-    const now = getStockholmParts();
-
-    const currentDate = new Date(
-        Date.UTC(
-            now.year,
-            now.month - 1,
-            now.day
-        )
-    );
-
-    const day = currentDate.getUTCDay();
-
-    const daysSinceMonday =
-        day === 0
-            ? 6
-            : day - 1;
-
-    currentDate.setUTCDate(
-        currentDate.getUTCDate() - daysSinceMonday
-    );
-
-    const since = stockholmToUnix({
-        year: currentDate.getUTCFullYear(),
-        month: currentDate.getUTCMonth() + 1,
-        day: currentDate.getUTCDate(),
-        hour: 0,
-        minute: 0,
-        second: 0
-    });
+    const since = getCurrent7dPeriod();
 
     return db.prepare(`
         SELECT
@@ -508,6 +411,7 @@ async function sendOrUpdate(channel, type, embed) {
                 const message = await channel.messages.fetch(
                     old.message_id
                 );
+console.log(`✏️ Updating ${type}`);
 
                 await message.edit({
                     embeds: [embed]
@@ -581,7 +485,7 @@ async function sendOrUpdate(channel, type, embed) {
 module.exports = async (client) => {
 
     const guild =
-        client.guilds.cache.first();
+    client.guilds.cache.get("1434292419788017766");
 
     if (!guild) {
         return;
@@ -609,6 +513,13 @@ module.exports = async (client) => {
         );
 
         return;
+
+
+        console.log(
+    "LB TARGET:",
+    guild.id,
+    channel?.id
+);
     }
 
     // ========================================================
@@ -647,7 +558,9 @@ module.exports = async (client) => {
         }
 
         updating = true;
-
+console.log(
+    `📊 Leaderboard update started — ${new Date().toISOString()}`
+);
         try {
 
             const new24hPeriod =
@@ -771,8 +684,8 @@ module.exports = async (client) => {
 
             const activity24hEmbed =
     createActivityEmbed(
-        reset24h ? [] : chat24h,
-        reset24h ? [] : voice24h,
+        chat24h,
+        voice24h,
         "24h",
         reset24hTimestamp
     );
@@ -786,8 +699,8 @@ module.exports = async (client) => {
 
             const activity7dEmbed =
     createActivityEmbed(
-        reset7d ? [] : chat7d,
-        reset7d ? [] : voice7d,
+        chat7d,
+        voice7d,
         "7d",
         reset7dTimestamp
     );

@@ -2,3 +2,5 @@
 node_modules/
 aster.db
 .npm/
+aster.db
+aster.db-*
