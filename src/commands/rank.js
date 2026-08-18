@@ -9,6 +9,7 @@ const {
 
 const db = require("../database/database");
 const { getXPData } = require("../utils/xp");
+const { symbols, timestamps } = require("../utils/asterUI");
 
 module.exports = {
     name: "rank",
@@ -20,22 +21,23 @@ module.exports = {
 
     async execute(message, args) {
 
-        // =========================
+        // ========================================================
         // USER DATA
-        // =========================
+        // ========================================================
 
         const user = db.prepare(
             "SELECT * FROM users WHERE user_id = ?"
         ).get(message.author.id);
 
         if (!user) {
-            return message.reply("No rank data found.");
+            return message.reply(
+                `${symbols.error} No rank data found.`
+            );
         }
 
-
-        // =========================
+        // ========================================================
         // MESSAGE COUNT
-        // =========================
+        // ========================================================
 
         const messages = db.prepare(`
             SELECT COALESCE(SUM(amount), 0) AS total
@@ -44,10 +46,9 @@ module.exports = {
             AND type = 'chat'
         `).get(message.author.id).total;
 
-
-        // =========================
+        // ========================================================
         // ACTIVITY RANK
-        // =========================
+        // ========================================================
 
         const rank = db.prepare(`
             SELECT COUNT(*) + 1 AS rank
@@ -60,26 +61,30 @@ module.exports = {
             WHERE messages > ?
         `).get(messages).rank;
 
-
-        // =========================
+        // ========================================================
         // XP
-        // =========================
+        // ========================================================
 
         const xpData = getXPData(user);
 
         const currentXP = xpData.currentXP;
         const nextXP = xpData.neededXP;
 
-
-        // =========================
+        // ========================================================
         // ASTER PROFILE
-        // =========================
+        // ========================================================
 
-        const container = new ContainerBuilder();
+        const container = new ContainerBuilder()
+            .setAccentColor(0xFF4FA3);
+
+        // ========================================================
+        // HEADER
+        // ========================================================
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                "**ASTER / PROFILE**"
+                `# ${symbols.user} ASTER / PROFILE\n` +
+                `-# Your activity and progression overview`
             )
         );
 
@@ -87,22 +92,26 @@ module.exports = {
             new SeparatorBuilder()
         );
 
-        // =========================
+        // ========================================================
         // USER
-        // =========================
+        // ========================================================
 
         container.addSectionComponents(
             new SectionBuilder()
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(
-                        `**${message.author.username}**\n` +
-                        `Level ${user.level} · Rank #${rank}`
+                        `### ${symbols.user} ${message.author.username}\n` +
+                        `${symbols.level} Level **${user.level}**  •  ` +
+                        `${symbols.rank} Rank **#${rank}**`
                     )
                 )
                 .setThumbnailAccessory(
                     new ThumbnailBuilder({
                         media: {
-                            url: message.author.displayAvatarURL()
+                            url: message.author.displayAvatarURL({
+                                extension: "png",
+                                size: 128
+                            })
                         }
                     })
                 )
@@ -112,15 +121,48 @@ module.exports = {
             new SeparatorBuilder()
         );
 
-        // =========================
-        // STATS
-        // =========================
+        // ========================================================
+        // ACTIVITY
+        // ========================================================
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `**MESSAGES**  ${messages.toLocaleString()}\n` +
-                `**LEVEL**     ${user.level}\n` +
-                `**XP**        ${currentXP.toLocaleString()} / ${nextXP.toLocaleString()}`
+                `### ${symbols.activity} Activity\n` +
+                `**${symbols.chat} Messages**\n` +
+                `${messages.toLocaleString()}`
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        // ========================================================
+        // PROGRESSION
+        // ========================================================
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### ${symbols.level} Progression\n` +
+                `**${symbols.level} Level**\n` +
+                `${user.level}\n\n` +
+                `**${symbols.xp} XP**\n` +
+                `${currentXP.toLocaleString()} / ${nextXP.toLocaleString()}`
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        // ========================================================
+        // FOOTER
+        // ========================================================
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `-# ${symbols.time} Updated ${timestamps.now()}\n` +
+                `-# ${symbols.brand} ASTER • Activity Profile`
             )
         );
 

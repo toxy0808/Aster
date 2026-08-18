@@ -7,25 +7,28 @@ const {
 
 const db = require("../database/database");
 const { syncRepRewards } = require("../utils/repRewards");
+const { symbols, timestamps } = require("../utils/asterUI");
 
 const COOLDOWN = 10 * 60 * 1000;
 
-// =========================
-// ASTER UI
-// =========================
+// ========================================================
+// ASTER CUSTOM EMOJIS
+// ========================================================
 
 const EMOJI = {
     aster: "<a:pinkogniK:1537116042466164868>",
     rep: "<a:Arrow_setupxD:1537115995171459103>",
     up: "<a:auraup:15371160755106508892>",
     down: "<a:4w_PinkArrowDown:1537716113899491358>",
-    leaderboard: "<<a:va_red_crown:1537116142211047496>>",
+    leaderboard: "<a:va_red_crown:1537116142211047496>",
     rank: "<a:01x_diamond:1537116171185164388>",
     history: "<a:brownclock:1537116208435040388>",
     stats: "<a:795108partykillerpenguin:1537116231067377734>"
 };
 
-
+// ========================================================
+// REP CONFIG
+// ========================================================
 
 function getRepConfig(guildId) {
 
@@ -70,6 +73,10 @@ function getRepConfig(guildId) {
     return config;
 }
 
+// ========================================================
+// DAILY LIMIT
+// ========================================================
+
 function getDailyLimit(member, config) {
 
     const isStaff =
@@ -94,6 +101,10 @@ function getDailyLimit(member, config) {
 
     return config.rep_member_limit ?? 3;
 }
+
+// ========================================================
+// DAILY RESET
+// ========================================================
 
 function resetDaily(user) {
 
@@ -120,6 +131,10 @@ function resetDaily(user) {
     return false;
 }
 
+// ========================================================
+// COMMAND
+// ========================================================
+
 module.exports = {
     name: "rep",
     aliases: ["reputation"],
@@ -128,9 +143,9 @@ module.exports = {
 
         const target = message.mentions.users.first();
 
-        // =========================
+        // ========================================================
         // VIEW REP
-        // =========================
+        // ========================================================
 
         if (!target) {
 
@@ -148,27 +163,52 @@ module.exports = {
                 WHERE reputation > ?
             `).get(reputation).rank;
 
-            const container = new ContainerBuilder();
+            const container = new ContainerBuilder()
+                .setAccentColor(0xFF4FA3)
 
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `${EMOJI.aster}  **𝘼𝙎𝙏𝙀𝙍**  /  **𝙍𝙀𝙋**`
+                // HEADER
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        `# ${EMOJI.aster} ASTER / REP\n` +
+                        `-# ${message.author.username}'s reputation profile`
+                    )
                 )
-            );
 
-            container.addSeparatorComponents(
-                new SeparatorBuilder()
-            );
-
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `╭  **${message.author.username}**\n` +
-                    `│\n` +
-                    `│  ${EMOJI.rep}  **${reputation.toLocaleString()}**  REP\n` +
-                    `│  ${EMOJI.rank}  **#${rank}**  ·  SERVER STANDING\n` +
-                    `╰`
+                .addSeparatorComponents(
+                    new SeparatorBuilder()
                 )
-            );
+
+                // REP
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        `### ${EMOJI.rep} Reputation\n` +
+                        `**${reputation.toLocaleString()} REP**`
+                    )
+                )
+
+                .addSeparatorComponents(
+                    new SeparatorBuilder()
+                )
+
+                // RANK
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        `### ${EMOJI.rank} Server Standing\n` +
+                        `**#${rank}**`
+                    )
+                )
+
+                .addSeparatorComponents(
+                    new SeparatorBuilder()
+                )
+
+                // FOOTER
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        `-# ${symbols.time} Updated ${timestamps.now()}\n` +
+                        `-# ${symbols.brand} ASTER • Reputation System`
+                    )
+                );
 
             return message.reply({
                 components: [container],
@@ -179,25 +219,25 @@ module.exports = {
             });
         }
 
-        // =========================
+        // ========================================================
         // VALIDATION
-        // =========================
+        // ========================================================
 
         if (target.id === message.author.id) {
             return message.reply(
-                "You can't give reputation to yourself."
+                `${symbols.error} You can't give reputation to yourself.`
             );
         }
 
         if (target.bot) {
             return message.reply(
-                "You can't give reputation to bots."
+                `${symbols.error} You can't give reputation to bots.`
             );
         }
 
-        // =========================
+        // ========================================================
         // REP TYPE
-        // =========================
+        // ========================================================
 
         const typeArg = args[0]?.toLowerCase();
 
@@ -211,15 +251,15 @@ module.exports = {
             amount = -1;
         }
 
-        // =========================
+        // ========================================================
         // CONFIG
-        // =========================
+        // ========================================================
 
         const config = getRepConfig(message.guild.id);
 
-        // =========================
+        // ========================================================
         // GIVER
-        // =========================
+        // ========================================================
 
         let giver = db.prepare(`
             SELECT *
@@ -249,9 +289,9 @@ module.exports = {
             `).get(message.author.id);
         }
 
-        // =========================
+        // ========================================================
         // DAILY RESET
-        // =========================
+        // ========================================================
 
         resetDaily(giver);
 
@@ -261,9 +301,9 @@ module.exports = {
             WHERE user_id = ?
         `).get(message.author.id);
 
-        // =========================
+        // ========================================================
         // DAILY LIMIT
-        // =========================
+        // ========================================================
 
         const limit = getDailyLimit(
             message.member,
@@ -272,13 +312,14 @@ module.exports = {
 
         if (giver.daily_given >= limit) {
             return message.reply(
-                `Daily reputation limit reached · **${limit}**`
+                `${symbols.warning} Daily reputation limit reached.\n` +
+                `-# Limit: **${limit}** REP actions per day`
             );
         }
 
-        // =========================
+        // ========================================================
         // COOLDOWN
-        // =========================
+        // ========================================================
 
         const recent = db.prepare(`
             SELECT created_at
@@ -299,14 +340,15 @@ module.exports = {
 
             if (Date.now() - lastTime < COOLDOWN) {
                 return message.reply(
-                    "Reputation cooldown active · Try again later."
+                    `${symbols.pending} Reputation cooldown active.\n` +
+                    `-# Please wait before giving REP to this member again.`
                 );
             }
         }
 
-        // =========================
+        // ========================================================
         // TARGET PROFILE
-        // =========================
+        // ========================================================
 
         db.prepare(`
             INSERT OR IGNORE INTO reputation (
@@ -321,9 +363,9 @@ module.exports = {
             Date.now()
         );
 
-        // =========================
+        // ========================================================
         // UPDATE REP
-        // =========================
+        // ========================================================
 
         db.prepare(`
             UPDATE reputation
@@ -334,9 +376,9 @@ module.exports = {
             target.id
         );
 
-        // =========================
+        // ========================================================
         // UPDATE GIVER
-        // =========================
+        // ========================================================
 
         db.prepare(`
             UPDATE reputation
@@ -346,9 +388,9 @@ module.exports = {
             message.author.id
         );
 
-        // =========================
+        // ========================================================
         // LOG
-        // =========================
+        // ========================================================
 
         db.prepare(`
             INSERT INTO reputation_logs (
@@ -365,9 +407,9 @@ module.exports = {
                 : "negative"
         );
 
-        // =========================
+        // ========================================================
         // UPDATED REP
-        // =========================
+        // ========================================================
 
         const updated = db.prepare(`
             SELECT reputation
@@ -375,18 +417,18 @@ module.exports = {
             WHERE user_id = ?
         `).get(target.id);
 
-        // =========================
+        // ========================================================
         // REWARDS
-        // =========================
+        // ========================================================
 
         await syncRepRewards(
             message.guild,
             target.id
         );
 
-        // =========================
+        // ========================================================
         // RESULT
-        // =========================
+        // ========================================================
 
         const actionEmoji =
             amount > 0
@@ -398,26 +440,57 @@ module.exports = {
                 ? "+"
                 : "−";
 
-        const container = new ContainerBuilder();
+        const actionLabel =
+            amount > 0
+                ? "Positive Reputation"
+                : "Negative Reputation";
 
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `${EMOJI.aster}  **𝘼𝙎𝙏𝙀𝙍**  /  **𝙍𝙀𝙋**`
+        const container = new ContainerBuilder()
+            .setAccentColor(0xFF4FA3)
+
+            // HEADER
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `# ${EMOJI.aster} ASTER / REP\n` +
+                    `-# Reputation action completed`
+                )
             )
-        );
 
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `╭  ${actionEmoji}  <@${target.id}>\n` +
-                `│\n` +
-                `│  **${action}${Math.abs(amount)}**  REP\n` +
-                `╰  **${updated.reputation.toLocaleString()}**  TOTAL`
+            .addSeparatorComponents(
+                new SeparatorBuilder()
             )
-        );
+
+            // ACTION
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `### ${actionEmoji} ${actionLabel}\n` +
+                    `<@${target.id}> received **${action}${Math.abs(amount)} REP**`
+                )
+            )
+
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            // TOTAL
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `### ${EMOJI.rep} New Total\n` +
+                    `**${updated.reputation.toLocaleString()} REP**`
+                )
+            )
+
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            // FOOTER
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `-# ${symbols.time} ${timestamps.now()}\n` +
+                    `-# ${symbols.brand} ASTER • Reputation System`
+                )
+            );
 
         return message.reply({
             components: [container],

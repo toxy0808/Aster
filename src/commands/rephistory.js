@@ -6,12 +6,17 @@ const {
 } = require("discord.js");
 
 const db = require("../database/database");
+const { symbols, timestamps } = require("../utils/asterUI");
 
 module.exports = {
     name: "rephistory",
     aliases: ["reph", "rep-history"],
 
     async execute(message) {
+
+        // ========================================================
+        // FETCH HISTORY
+        // ========================================================
 
         const logs = db.prepare(`
             SELECT
@@ -29,16 +34,17 @@ module.exports = {
             message.author.id
         );
 
-        const container = new ContainerBuilder();
+        const container = new ContainerBuilder()
+            .setAccentColor(0xFF4FA3);
 
-        // =========================
+        // ========================================================
         // HEADER
-        // =========================
+        // ========================================================
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `# 𝘼𝙎𝙏𝙀𝙍\n` +
-                `### 𝙍𝙀𝙋  /  𝙃𝙄𝙎𝙏𝙊𝙍𝙔`
+                `# ${symbols.history} ASTER / REP HISTORY\n` +
+                `-# Your recent reputation activity`
             )
         );
 
@@ -46,16 +52,16 @@ module.exports = {
             new SeparatorBuilder()
         );
 
-        // =========================
+        // ========================================================
         // NO ACTIVITY
-        // =========================
+        // ========================================================
 
         if (!logs.length) {
 
             container.addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    `### ✦ 𝘼𝘾𝙏𝙄𝙑𝙄𝙏𝙔\n` +
-                    `No reputation activity yet.`
+                    `### ${symbols.info} No Activity\n` +
+                    "No reputation activity yet."
                 )
             );
 
@@ -65,8 +71,17 @@ module.exports = {
 
             container.addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    `> 𝙍𝙀𝙋 𝙎𝙔𝙎𝙏𝙀𝙈\n` +
-                    `Your reputation history will appear here.`
+                    `-# ${symbols.brand} Your reputation history will appear here.`
+                )
+            );
+
+            container.addSeparatorComponents(
+                new SeparatorBuilder()
+            );
+
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `-# ${symbols.time} Checked ${timestamps.now()}`
                 )
             );
 
@@ -79,9 +94,9 @@ module.exports = {
             });
         }
 
-        // =========================
+        // ========================================================
         // HISTORY
-        // =========================
+        // ========================================================
 
         const lines = [];
 
@@ -110,21 +125,26 @@ module.exports = {
                     new Date(log.created_at).getTime() / 1000
                 );
 
+            const symbol =
+                received
+                    ? symbols.positive
+                    : symbols.negative;
+
             lines.push(
-                `${direction}  **${amount} REP**  <@${otherUser}>  ·  <t:${timestamp}:R>`
+                `${direction} ${symbol} **${amount} REP**  <@${otherUser}>  ·  <t:${timestamp}:R>`
             );
         }
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `### 𝙍𝙀𝘾𝙀𝙉𝙏 𝘼𝘾𝙏𝙄𝙑𝙄𝙏𝙔\n\n` +
+                `### ${symbols.history} Recent Activity\n\n` +
                 lines.join("\n")
             )
         );
 
-        // =========================
+        // ========================================================
         // STATISTICS
-        // =========================
+        // ========================================================
 
         const totals = db.prepare(`
             SELECT
@@ -157,15 +177,15 @@ module.exports = {
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `### 𝙍𝙀𝙋 𝙎𝙏𝘼𝙏𝙎\n\n` +
-                `↑  **𝙂𝙄𝙑𝙀𝙉**  ·  **${totals.given || 0}**\n` +
-                `↓  **𝙍𝙀𝘾𝙀𝙄𝙑𝙀𝘿**  ·  **${totals.received || 0}**`
+                `### ${symbols.stats} REP Statistics\n\n` +
+                `${symbols.positive} **Given**  ·  **${totals.given || 0}**\n` +
+                `${symbols.positive} **Received**  ·  **${totals.received || 0}**`
             )
         );
 
-        // =========================
+        // ========================================================
         // FOOTER
-        // =========================
+        // ========================================================
 
         container.addSeparatorComponents(
             new SeparatorBuilder()
@@ -173,7 +193,8 @@ module.exports = {
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `> 𝘼𝙎𝙏𝙀𝙍  ·  𝙍𝙀𝙋𝙐𝙏𝘼𝙏𝙄𝙊𝙉 𝙎𝙔𝙎𝙏𝙀𝙈`
+                `-# ${symbols.time} Updated ${timestamps.now()}\n` +
+                `-# ${symbols.brand} ASTER • Reputation System`
             )
         );
 

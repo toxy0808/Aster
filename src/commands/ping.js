@@ -1,4 +1,12 @@
-const { EmbedBuilder } = require("discord.js");
+const {
+    MessageFlags,
+    ContainerBuilder
+} = require("discord.js");
+
+const {
+    symbols,
+    timestamps
+} = require("../utils/asterUI");
 
 const EMOJI = {
     aster: "<a:pinkogniK:1537116042466164868>",
@@ -10,39 +18,64 @@ module.exports = {
     aliases: ["p"],
 
     async execute(message) {
-
         const ping = message.client.ws.ping;
 
-        const embed = new EmbedBuilder()
-            .setColor(0xFF4FA3)
-            .setAuthor({
-                name: "ASTER  /  SYSTEM",
-                iconURL: message.client.user.displayAvatarURL({
-                    extension: "png",
-                    size: 128
-                })
-            })
-            .setTitle(`${EMOJI.ping}  PONG`)
-            .setDescription(
-                `**${ping}ms**`
+        const status =
+            ping < 100
+                ? "🟢 Excellent"
+                : ping < 200
+                    ? "🟡 Stable"
+                    : "🔴 High";
+
+        const container = new ContainerBuilder()
+            .setAccentColor(0xFF4FA3)
+
+            .addTextDisplayComponents(
+                component =>
+                    component.setContent(
+                        `## ${EMOJI.aster} ASTER  /  SYSTEM`
+                    )
             )
-            .addFields({
-                name: `${EMOJI.aster}  STATUS`,
-                value:
-                    ping < 100
-                        ? "🟢 Excellent"
-                        : ping < 200
-                            ? "🟡 Stable"
-                            : "🔴 High",
-                inline: true
-            })
-            .setTimestamp()
-            .setFooter({
-                text: "ASTER • System Status"
-            });
+
+            .addSeparatorComponents()
+
+            .addTextDisplayComponents(
+                component =>
+                    component.setContent(
+                        `### ${EMOJI.ping} PONG\n` +
+                        `**${ping}ms**`
+                    )
+            )
+
+            .addSeparatorComponents()
+
+            .addTextDisplayComponents(
+                component =>
+                    component.setContent(
+                        `### ${symbols.status.online} STATUS\n` +
+                        `${status}`
+                    )
+            )
+
+            .addSeparatorComponents()
+
+            .addTextDisplayComponents(
+                component =>
+                    component.setContent(
+                        `${symbols.time} Updated ${timestamps.now()}`
+                    )
+            )
+
+            .addTextDisplayComponents(
+                component =>
+                    component.setContent(
+                        `-# ${symbols.brand} ASTER • System Status`
+                    )
+            );
 
         return message.reply({
-            embeds: [embed]
+            flags: MessageFlags.IsComponentsV2,
+            components: [container]
         });
     }
 };

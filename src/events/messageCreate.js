@@ -3,8 +3,7 @@ const {
     TextDisplayBuilder,
     SeparatorBuilder,
     MessageFlags,
-    PermissionFlagsBits,
-    EmbedBuilder
+    PermissionFlagsBits
 } = require("discord.js");
 
 const db = require("../database/database");
@@ -123,7 +122,7 @@ if (
                 continue;
             }
 
-            // 5 second cooldown per user + trigger
+            // 5 second cooldown
             const key =
                 `${message.guild.id}:${message.author.id}:${trigger}`;
 
@@ -139,9 +138,7 @@ if (
             );
 
             setTimeout(() => {
-                autoresponderCooldowns.delete(
-                    key
-                );
+                autoresponderCooldowns.delete(key);
             }, 5000);
 
             try {
@@ -152,8 +149,7 @@ if (
                 ) {
 
                     await message.reply({
-                        content:
-                            response.content
+                        content: response.content
                     });
                 }
 
@@ -166,31 +162,45 @@ if (
                     await message.reply({
                         files: [
                             {
-                                attachment:
-                                    response.content
+                                attachment: response.content
                             }
                         ]
                     });
                 }
 
-                // EMBED
+                // COMPONENTS V2
                 else if (
                     response.type === "embed"
                 ) {
 
-                    const embed =
-                        new EmbedBuilder()
-                            .setColor(
-                                0xFF006E
+                    const container =
+                        new ContainerBuilder()
+                            .setAccentColor(0xFF006E)
+
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder()
+                                    .setContent(
+                                        `# ✦ ASTER\n\n${response.content}`
+                                    )
                             )
-                            .setDescription(
-                                response.content
+
+                            .addSeparatorComponents(
+                                new SeparatorBuilder()
+                            )
+
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder()
+                                    .setContent(
+                                        "-# ASTER • Autoresponder"
+                                    )
                             );
 
                     await message.reply({
-                        embeds: [
-                            embed
-                        ]
+                        components: [
+                            container
+                        ],
+                        flags:
+                            MessageFlags.IsComponentsV2
                     });
                 }
 

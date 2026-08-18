@@ -1,5 +1,8 @@
 const {
-    EmbedBuilder
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder,
+    MessageFlags
 } = require("discord.js");
 
 const db = require("../database/database");
@@ -12,11 +15,20 @@ const EMOJI = {
     stats: "<a:795108partykillerpenguin:1537116231067377734>"
 };
 
+const {
+    symbols,
+    timestamps
+} = require("../utils/asterUI");
+
 module.exports = {
     name: "repleaderboard",
     aliases: ["replb", "reputationlb"],
 
     async execute(message) {
+
+        // ========================================================
+        // FETCH TOP REP
+        // ========================================================
 
         const users = db.prepare(`
             SELECT user_id, reputation
@@ -26,40 +38,70 @@ module.exports = {
             LIMIT 10
         `).all();
 
-        const embed = new EmbedBuilder()
-            .setColor(0xFF4FA3)
-            .setAuthor({
-                name: "ASTER  /  REP",
-                iconURL: message.client.user.displayAvatarURL({
-                    extension: "png",
-                    size: 128
-                })
-            })
-            .setTitle(`${EMOJI.leaderboard}  REP LEADERBOARD`)
-            .setDescription(
-                `${EMOJI.rep}  **Top reputation holders in the server**`
+        const container = new ContainerBuilder()
+            .setAccentColor(0xFF4FA3);
+
+        // ========================================================
+        // HEADER
+        // ========================================================
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `# ${EMOJI.leaderboard} ASTER / REP LEADERBOARD\n` +
+                `-# Top reputation holders in the server`
             )
-            .setTimestamp();
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        // ========================================================
+        // EMPTY STATE
+        // ========================================================
 
         if (!users.length) {
 
-            embed.addFields({
-                name: `${EMOJI.rep}  LEADERBOARD`,
-                value: "No reputation data yet.",
-                inline: false
-            });
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `### ${EMOJI.rep} No Reputation Data\n` +
+                    "There isn't any positive reputation data yet."
+                )
+            );
 
-            embed.setFooter({
-                text: "ASTER • Reputation System"
-            });
+            container.addSeparatorComponents(
+                new SeparatorBuilder()
+            );
+
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `-# ${symbols.info} Start giving REP to populate the leaderboard.`
+                )
+            );
+
+            container.addSeparatorComponents(
+                new SeparatorBuilder()
+            );
+
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `-# ${symbols.time} Updated ${timestamps.now()}\n` +
+                    `-# ${symbols.brand} ASTER • Reputation System`
+                )
+            );
 
             return message.reply({
-                embeds: [embed],
+                components: [container],
+                flags: MessageFlags.IsComponentsV2,
                 allowedMentions: {
                     parse: []
                 }
             });
         }
+
+        // ========================================================
+        // TOP 10
+        // ========================================================
 
         const lines = [];
 
@@ -85,11 +127,16 @@ module.exports = {
             );
         }
 
-        embed.addFields({
-            name: `${EMOJI.leaderboard}  TOP 10`,
-            value: lines.join("\n"),
-            inline: false
-        });
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### ${EMOJI.leaderboard} Top 10\n\n` +
+                lines.join("\n")
+            )
+        );
+
+        // ========================================================
+        // PERSONAL STANDING
+        // ========================================================
 
         const myRep = db.prepare(`
             SELECT reputation
@@ -106,20 +153,36 @@ module.exports = {
             WHERE reputation > ?
         `).get(myReputation);
 
-        embed.addFields({
-            name: `${EMOJI.rank}  YOUR STANDING`,
-            value:
-                `**#${rankResult.rank}**  ·  **${myReputation.toLocaleString()} REP**\n` +
-                `${EMOJI.stats}  Server Ranking`,
-            inline: false
-        });
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
 
-        embed.setFooter({
-            text: "ASTER • Reputation System"
-        });
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### ${EMOJI.rank} Your Standing\n` +
+                `**#${rankResult.rank}**  ·  **${myReputation.toLocaleString()} REP**\n` +
+                `${EMOJI.stats} Server Ranking`
+            )
+        );
+
+        // ========================================================
+        // FOOTER
+        // ========================================================
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `-# ${symbols.time} Updated ${timestamps.now()}\n` +
+                `-# ${symbols.brand} ASTER • Reputation System`
+            )
+        );
 
         return message.reply({
-            embeds: [embed],
+            components: [container],
+            flags: MessageFlags.IsComponentsV2,
             allowedMentions: {
                 parse: []
             }

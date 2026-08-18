@@ -1,5 +1,12 @@
+const {
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder,
+    MessageFlags
+} = require("discord.js");
+
 const db = require("../database/database");
-const { EmbedBuilder } = require("discord.js");
+const { symbols, timestamps } = require("../utils/asterUI");
 
 module.exports = {
 
@@ -10,18 +17,17 @@ module.exports = {
         "top"
     ],
 
-
     async execute(message, args) {
 
         console.log("LB ARGS:", args);
 
-
-        const type = args[0] || "chat";
+        const type = args[0]?.toLowerCase() || "chat";
 
         let users;
 
-
+        // ========================================================
         // CHAT
+        // ========================================================
 
         if (type === "chat") {
 
@@ -34,8 +40,9 @@ module.exports = {
 
         }
 
-
+        // ========================================================
         // VOICE
+        // ========================================================
 
         else if (type === "voice") {
 
@@ -49,8 +56,9 @@ module.exports = {
 
         }
 
-
+        // ========================================================
         // OVERALL
+        // ========================================================
 
         else if (type === "overall") {
 
@@ -64,105 +72,150 @@ module.exports = {
 
         }
 
+        // ========================================================
+        // INVALID TYPE
+        // ========================================================
 
         else {
 
             return message.reply(
-                "Invalid type. Use: chat, voice, overall"
+                `${symbols.error} Invalid leaderboard type.\n` +
+                `-# Available: \`chat\`, \`voice\`, \`overall\``
             );
 
         }
 
-
+        // ========================================================
+        // EMPTY
+        // ========================================================
 
         if (!users.length) {
 
             return message.reply(
-                "No users found."
+                `${symbols.info} No users found for this leaderboard.`
             );
 
         }
 
+        // ========================================================
+        // CONFIG
+        // ========================================================
 
+        const mode = {
+            chat: {
+                title: "Chat",
+                icon: symbols.chat,
+                description: "Top members ranked by messages",
+                value: user => `${user.messages.toLocaleString()} messages`
+            },
 
-        let description = "";
+            voice: {
+                title: "Voice",
+                icon: symbols.voice,
+                description: "Top members ranked by voice activity",
+                value: user =>
+                    `${(user.voice_time || 0).toLocaleString()} minutes`
+            },
 
+            overall: {
+                title: "Overall",
+                icon: symbols.activity,
+                description: "Top members ranked by total activity",
+                value: user =>
+                    `${user.messages.toLocaleString()} msgs + ` +
+                    `${(user.voice_time || 0).toLocaleString()} voice min`
+            }
+        }[type];
+
+        // ========================================================
+        // CONTAINER
+        // ========================================================
+
+        const container = new ContainerBuilder()
+            .setAccentColor(0xFF4FA3);
+
+        // ========================================================
+        // HEADER
+        // ========================================================
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `# ${symbols.leaderboard} ASTER / ${mode.title.toUpperCase()}\n` +
+                `-# ${mode.description}`
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        // ========================================================
+        // LEADERBOARD
+        // ========================================================
+
+        const lines = [];
 
         for (let i = 0; i < users.length; i++) {
 
             const user = users[i];
 
-
             const member =
                 await message.guild.members
-                .fetch(user.user_id)
-                .catch(() => null);
-
-
+                    .fetch(user.user_id)
+                    .catch(() => null);
 
             const username =
                 member
-                ? member.user.username
-                : "Unknown User";
+                    ? member.user.username
+                    : "Unknown User";
 
+            let rank;
 
-
-            let value;
-
-
-            if (type === "chat") {
-
-                value = `${user.messages} messages`;
-
+            if (i === 0) {
+                rank = "🥇";
+            } else if (i === 1) {
+                rank = "🥈";
+            } else if (i === 2) {
+                rank = "🥉";
+            } else {
+                rank =
+                    `**${String(i + 1).padStart(2, "0")}**`;
             }
 
-
-            else if (type === "voice") {
-
-                value = `${user.voice_time || 0} minutes`;
-
-            }
-
-
-            else {
-
-                value =
-                `${user.messages} msgs + ${user.voice_time || 0} voice min`;
-
-            }
-
-
-
-            description +=
-            `**#${i + 1} ${username}**\n${value}\n\n`;
-
+            lines.push(
+                `${rank}  **${username}**\n` +
+                `> ${mode.value(user)}`
+            );
         }
 
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### ${mode.icon} Top 10\n\n` +
+                lines.join("\n\n")
+            )
+        );
 
+        // ========================================================
+        // FOOTER
+        // ========================================================
 
-        const embed = new EmbedBuilder()
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
 
-        .setTitle(
-            `🏆 ASTER ${type.toUpperCase()} LEADERBOARD`
-        )
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `-# ${symbols.time} Updated ${timestamps.now()}\n` +
+                `-# ${symbols.brand} ASTER • Activity Leaderboard`
+            )
+        );
 
-        .setDescription(description)
-
-        .setColor("#FF006E")
-
-        .setFooter({
-            text: "ASTER Activity System"
-        })
-
-        .setTimestamp();
-
-
-
-        message.reply({
-            embeds: [embed]
+        return message.reply({
+            components: [container],
+            flags: MessageFlags.IsComponentsV2,
+            allowedMentions: {
+                parse: []
+            }
         });
-
-
     }
-
 };

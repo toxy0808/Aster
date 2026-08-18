@@ -5,6 +5,11 @@ const {
     MessageFlags
 } = require("discord.js");
 
+const {
+    symbols,
+    timestamps
+} = require("../utils/asterUI");
+
 module.exports = {
 
     name: "help",
@@ -13,15 +18,15 @@ module.exports = {
     async execute(message) {
 
         const container = new ContainerBuilder()
-            .setAccentColor(0xFF4DA6)
+            .setAccentColor(0xFF4FA3)
 
-            // =========================
+            // ========================================================
             // HEADER
-            // =========================
+            // ========================================================
 
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    "# 🌸 ASTER • Help\n" +
+                    `# ${symbols.brand} ASTER • Help\n` +
                     "Everything you can do with ASTER, in one place."
                 )
             )
@@ -30,13 +35,13 @@ module.exports = {
                 new SeparatorBuilder()
             )
 
-            // =========================
+            // ========================================================
             // ACTIVITY
-            // =========================
+            // ========================================================
 
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    "### 🔥 Activity\n" +
+                    `### ${symbols.activity} Activity\n` +
                     "`,activity` — View your current activity stats.\n" +
                     "`,rank` — View your activity profile and rank.\n" +
                     "`,activitylb` — View the live 24H & 7D activity leaderboards."
@@ -47,18 +52,18 @@ module.exports = {
                 new SeparatorBuilder()
             )
 
-            // =========================
+            // ========================================================
             // REPUTATION
-            // =========================
+            // ========================================================
 
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    "### ✨ Reputation\n" +
+                    `### ${symbols.reputation} Reputation\n` +
                     "`,rep` — Check your current reputation.\n" +
                     "`,rep @user` — Give **+1 reputation** to a member.\n" +
                     "`+rep @user` — Give **+1 reputation** without the comma.\n" +
                     "`-rep @user` — Give **-1 reputation** without the comma.\n\n" +
-                    "💡 Reputation can go below **0**. Positive and negative actions use one total reputation score."
+                    `${symbols.info} Reputation can go below **0**. Positive and negative actions use one total reputation score.`
                 )
             )
 
@@ -66,13 +71,13 @@ module.exports = {
                 new SeparatorBuilder()
             )
 
-            // =========================
+            // ========================================================
             // OTHER
-            // =========================
+            // ========================================================
 
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    "### 🤖 Other\n" +
+                    `### ${symbols.automation} Other\n` +
                     "`,autoreact` — Configure your automatic reaction.\n" +
                     "`,config` — Open the ASTER server configuration panel. *(Admins)*"
                 )
@@ -82,16 +87,30 @@ module.exports = {
                 new SeparatorBuilder()
             )
 
-            // =========================
-            // FOOTER
-            // =========================
+            // ========================================================
+            // QUICK START
+            // ========================================================
 
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    "### 💡 Quick Start\n" +
+                    `### ${symbols.brand} Quick Start\n` +
                     "Use `,activity` to check your stats, `,rep @user` to give reputation, " +
-                    "or `,activitylb` to see who's currently leading.\n\n" +
-                    "🌸 **ASTER** • Built for communities"
+                    "or `,activitylb` to see who's currently leading."
+                )
+            )
+
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            // ========================================================
+            // FOOTER
+            // ========================================================
+
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `-# ${symbols.time} Updated ${timestamps.now()}\n` +
+                    `-# ${symbols.brand} ASTER • Built for communities`
                 )
             );
 
