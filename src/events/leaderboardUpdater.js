@@ -1,3 +1,4 @@
+const { MessageFlags } = require("discord.js");
 const { getConfig } = require("../utils/serverConfig");
 const db = require("../database/database");
 const activityDB = require("../database/activityLogs");
@@ -498,8 +499,9 @@ async function sendOrUpdate(channel, type, embed) {
 console.log(`✏️ Updating ${type}`);
 
                 await message.edit({
-                    embeds: [embed]
-                });
+    components: [embed],
+    flags: MessageFlags.IsComponentsV2
+});
 
                
 
@@ -536,8 +538,9 @@ console.log(`✏️ Updating ${type}`);
     try {
 
         const message = await channel.send({
-            embeds: [embed]
-        });
+    components: [embed],
+    flags: MessageFlags.IsComponentsV2
+});
 
         leaderboardDB
             .prepare(`
