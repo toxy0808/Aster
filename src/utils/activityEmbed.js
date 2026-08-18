@@ -1,8 +1,7 @@
 const {
     ContainerBuilder,
     TextDisplayBuilder,
-    SeparatorBuilder,
-    MessageFlags
+    SeparatorBuilder
 } = require("discord.js");
 
 const {
@@ -93,7 +92,7 @@ function createActivityEmbed(
         ? safeChatUsers
             .slice(0, 5)
             .map((user, index) =>
-                `${ranks[index]} **<@${user.user_id}>**\n` +
+                `${ranks[index]} **${user.username || "Unknown"}**\n` +
                 `${emojis.activity} **${(Number(user.messages) || 0).toLocaleString()}** messages`
             )
             .join("\n\n")
@@ -107,7 +106,7 @@ function createActivityEmbed(
         ? safeVoiceUsers
             .slice(0, 5)
             .map((user, index) =>
-                `${ranks[index]} **<@${user.user_id}>**\n` +
+                `${ranks[index]} **${user.username || "Unknown"}**\n` +
                 `${emojis.ruler} **${formatTime(user.voice_time)}**`
             )
             .join("\n\n")
@@ -131,8 +130,9 @@ function createActivityEmbed(
     // CONTAINER
     // ========================================================
 
-    const container = new ContainerBuilder()
-        .setAccentColor(0xFF4DA6);
+    const container =
+        new ContainerBuilder()
+            .setAccentColor(0xFF4DA6);
 
     // ========================================================
     // HEADER
