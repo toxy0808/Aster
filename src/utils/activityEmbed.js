@@ -41,6 +41,18 @@ function formatTime(minutes) {
 }
 
 // ========================================================
+// CLICKABLE USER TAG — NO PING
+// ========================================================
+
+function userTag(user) {
+
+    const username =
+        user.username || "Unknown";
+
+    return `[${username}](https://discord.com/users/${user.user_id})`;
+}
+
+// ========================================================
 // ACTIVITY UI
 // ========================================================
 
@@ -92,7 +104,7 @@ function createActivityEmbed(
         ? safeChatUsers
             .slice(0, 5)
             .map((user, index) =>
-                `${ranks[index]} **${user.username || "Unknown"}**\n` +
+                `${ranks[index]} **${userTag(user)}**\n` +
                 `${emojis.activity} **${(Number(user.messages) || 0).toLocaleString()}** messages`
             )
             .join("\n\n")
@@ -106,7 +118,7 @@ function createActivityEmbed(
         ? safeVoiceUsers
             .slice(0, 5)
             .map((user, index) =>
-                `${ranks[index]} **${user.username || "Unknown"}**\n` +
+                `${ranks[index]} **${userTag(user)}**\n` +
                 `${emojis.ruler} **${formatTime(user.voice_time)}**`
             )
             .join("\n\n")
