@@ -18,6 +18,7 @@ module.exports = {
     aliases: ["p"],
 
     async execute(message) {
+
         const ping = message.client.ws.ping;
 
         const status =
@@ -27,51 +28,72 @@ module.exports = {
                     ? "🟡 Stable"
                     : "🔴 High";
 
-        const container = new ContainerBuilder()
-            .setAccentColor(0xFF4FA3)
+        const container =
+            new ContainerBuilder()
+                .setAccentColor(0xFF4FA3)
 
-            .addTextDisplayComponents(
-                component =>
-                    component.setContent(
-                        `## ${EMOJI.aster} ASTER  /  SYSTEM`
-                    )
-            )
+                // =================================================
+                // HEADER
+                // =================================================
 
-            .addSeparatorComponents()
+                .addTextDisplayComponents(
+                    component =>
+                        component.setContent(
+                            `## ${EMOJI.aster} ASTER / SYSTEM`
+                        )
+                )
 
-            .addTextDisplayComponents(
-                component =>
-                    component.setContent(
-                        `### ${EMOJI.ping} PONG\n` +
-                        `**${ping}ms**`
-                    )
-            )
+                .addSeparatorComponents()
 
-            .addSeparatorComponents()
+                // =================================================
+                // PING
+                // =================================================
 
-            .addTextDisplayComponents(
-                component =>
-                    component.setContent(
-                        `### ${symbols.status.online} STATUS\n` +
-                        `${status}`
-                    )
-            )
+                .addTextDisplayComponents(
+                    component =>
+                        component.setContent(
+                            `### ${EMOJI.ping} PONG\n` +
+                            `**${ping}ms**`
+                        )
+                )
 
-            .addSeparatorComponents()
+                .addSeparatorComponents()
 
-            .addTextDisplayComponents(
-                component =>
-                    component.setContent(
-                        `${symbols.time} Updated ${timestamps.now()}`
-                    )
-            )
+                // =================================================
+                // STATUS
+                // =================================================
 
-            .addTextDisplayComponents(
-                component =>
-                    component.setContent(
-                        `-# ${symbols.brand} ASTER • System Status`
-                    )
-            );
+                .addTextDisplayComponents(
+                    component =>
+                        component.setContent(
+                            `### 🟢 STATUS\n` +
+                            `${status}`
+                        )
+                )
+
+                .addSeparatorComponents()
+
+                // =================================================
+                // UPDATED
+                // =================================================
+
+                .addTextDisplayComponents(
+                    component =>
+                        component.setContent(
+                            `${symbols.time} Updated ${timestamps.now()}`
+                        )
+                )
+
+                // =================================================
+                // FOOTER
+                // =================================================
+
+                .addTextDisplayComponents(
+                    component =>
+                        component.setContent(
+                            `-# ${symbols.brand} ASTER • System Status`
+                        )
+                );
 
         return message.reply({
             flags: MessageFlags.IsComponentsV2,
