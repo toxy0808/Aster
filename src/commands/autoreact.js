@@ -43,7 +43,8 @@ module.exports = {
         // ========================================================
 
         const action = args[0]?.toLowerCase();
-        const user = message.mentions.users.first();
+        const user = message.mentions.users.first()
+    || await message.client.users.fetch(args[1]).catch(() => null);
 
         // ========================================================
         // USAGE
