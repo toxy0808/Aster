@@ -1,13 +1,11 @@
 const {
-    ContainerBuilder,
-    TextDisplayBuilder,
-    SeparatorBuilder
+    ContainerBuilder
 } = require("discord.js");
 
-const {
-    symbols,
-    timestamps
-} = require("./asterUI");
+const symbols = require("./asterUI/symbols");
+const timestamps = require("./asterUI/timestamps");
+const styles = require("./asterUI/styles");
+const componentsV2 = require("./asterUI/componentsV2");
 
 // ========================================================
 // TIME FORMATTER
@@ -23,17 +21,9 @@ function formatTime(minutes) {
 
     const parts = [];
 
-    if (days > 0) {
-        parts.push(`${days}d`);
-    }
-
-    if (hours > 0) {
-        parts.push(`${hours}h`);
-    }
-
-    if (mins > 0) {
-        parts.push(`${mins}m`);
-    }
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (mins > 0) parts.push(`${mins}m`);
 
     return parts.length
         ? parts.join(" ")
@@ -53,6 +43,18 @@ function userTag(user) {
 }
 
 // ========================================================
+// RANK SYMBOLS
+// ========================================================
+
+const ranks = [
+    "<:1_n:1522913562551652483>",
+    "<:2_n:1522914098470453330>",
+    "<:3_n:1522914202740850819>",
+    "<:4_n:1522914291504910348>",
+    "<:5_n:1522914328766976111>"
+];
+
+// ========================================================
 // ACTIVITY UI
 // ========================================================
 
@@ -62,27 +64,6 @@ function createActivityEmbed(
     period,
     resetTimestamp = null
 ) {
-
-    const emojis = {
-        logo: "<a:Weedleaf2:1459619037980921887>",
-        activity: "<a:Fire8:1459590813410660564>",
-        ruler: "<a:WeedLeaf:1459620147424788703>",
-        live: "<a:Dance:1459730182553338109>",
-
-        rank1: "<:1_n:1522913562551652483>",
-        rank2: "<:2_n:1522914098470453330>",
-        rank3: "<:3_n:1522914202740850819>",
-        rank4: "<:4_n:1522914291504910348>",
-        rank5: "<:5_n:1522914328766976111>"
-    };
-
-    const ranks = [
-        emojis.rank1,
-        emojis.rank2,
-        emojis.rank3,
-        emojis.rank4,
-        emojis.rank5
-    ];
 
     const safeChatUsers =
         Array.isArray(chatUsers)
@@ -96,38 +77,6 @@ function createActivityEmbed(
 
     const is24h = period === "24h";
 
-    // ========================================================
-    // CHAT LEADERBOARD
-    // ========================================================
-
-    const chatText = safeChatUsers.length
-        ? safeChatUsers
-            .slice(0, 5)
-            .map((user, index) =>
-                `${ranks[index]} **${userTag(user)}**\n` +
-                `${emojis.activity} **${(Number(user.messages) || 0).toLocaleString()}** messages`
-            )
-            .join("\n\n")
-        : `${symbols.info} No chat activity recorded.`;
-
-    // ========================================================
-    // VOICE LEADERBOARD
-    // ========================================================
-
-    const voiceText = safeVoiceUsers.length
-        ? safeVoiceUsers
-            .slice(0, 5)
-            .map((user, index) =>
-                `${ranks[index]} **${userTag(user)}**\n` +
-                `${emojis.ruler} **${formatTime(user.voice_time)}**`
-            )
-            .join("\n\n")
-        : `${symbols.info} No voice activity recorded.`;
-
-    // ========================================================
-    // PERIOD
-    // ========================================================
-
     const periodLabel =
         is24h
             ? "24 HOURS"
@@ -135,96 +84,144 @@ function createActivityEmbed(
 
     const periodDescription =
         is24h
-            ? "Daily rankings • Competitive activity"
-            : "Weekly rankings • Competitive activity";
+            ? "Daily activity rankings"
+            : "Weekly activity rankings";
 
-    // ========================================================
+    // ====================================================
+    // CHAT LEADERBOARD
+    // ====================================================
+
+    const chatText = safeChatUsers.length
+        ? safeChatUsers
+            .slice(0, 5)
+            .map((user, index) =>
+                `${ranks[index]} **${userTag(user)}**\n` +
+                `-# ${symbols.chat} ${(Number(user.messages) || 0).toLocaleString()} messages`
+            )
+            .join("\n\n")
+        : `${symbols.info} *No chat activity recorded yet.*`;
+
+    // ====================================================
+    // VOICE LEADERBOARD
+    // ====================================================
+
+    const voiceText = safeVoiceUsers.length
+        ? safeVoiceUsers
+            .slice(0, 5)
+            .map((user, index) =>
+                `${ranks[index]} **${userTag(user)}**\n` +
+                `-# ${symbols.voice} ${formatTime(user.voice_time)}`
+            )
+            .join("\n\n")
+        : `${symbols.info} *No voice activity recorded yet.*`;
+
+    // ====================================================
     // CONTAINER
-    // ========================================================
+    // ====================================================
 
     const container =
         new ContainerBuilder()
             .setAccentColor(0xFF4DA6);
 
-    // ========================================================
+    // ====================================================
     // HEADER
-    // ========================================================
+    // ====================================================
 
     container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-            `# ${emojis.logo} ASTER / ACTIVITY\n` +
-            `### ${emojis.live} LIVE • ${periodLabel}\n` +
-            `-# ${periodDescription}`
+        componentsV2.header(
+            `${styles.brand.name} / ACTIVITY`,
+            styles.brand.symbol
+        )
+    );
+
+    container.addTextDisplayComponents(
+        componentsV2.text(
+            `### ${symbols.online} ${periodLabel}\n` +
+            `-# ${periodDescription} ${styles.text.bullet} Live leaderboard`
         )
     );
 
     container.addSeparatorComponents(
-        new SeparatorBuilder()
+        componentsV2.separator()
     );
 
-    // ========================================================
-    // RESET INFORMATION
-    // ========================================================
+    // ====================================================
+    // RESET
+    // ====================================================
 
     if (resetTimestamp) {
 
         container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `### ${symbols.time} Period Reset\n` +
-                `**Resets:** <t:${resetTimestamp}:R>\n` +
-                `**Reset time:** <t:${resetTimestamp}:F>`
+            componentsV2.text(
+                `-# ${symbols.time} NEXT RESET\n` +
+                `**<t:${resetTimestamp}:R>** ${styles.text.bullet} ` +
+                `<t:${resetTimestamp}:F>`
             )
         );
 
         container.addSeparatorComponents(
-            new SeparatorBuilder()
+            componentsV2.separator()
         );
     }
 
-    // ========================================================
+    // ====================================================
     // CHAT KINGS
-    // ========================================================
+    // ====================================================
 
     container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-            `### ${emojis.activity} Chat Kings\n\n` +
+        componentsV2.header(
+            "CHAT KINGS",
+            symbols.chat
+        )
+    );
+
+    container.addTextDisplayComponents(
+        componentsV2.text(
+            `-# Most active members by messages\n\n` +
             chatText
         )
     );
 
     container.addSeparatorComponents(
-        new SeparatorBuilder()
+        componentsV2.separator()
     );
 
-    // ========================================================
+    // ====================================================
     // VOICE KINGS
-    // ========================================================
+    // ====================================================
 
     container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-            `### ${emojis.ruler} Voice Kings\n\n` +
+        componentsV2.header(
+            "VOICE KINGS",
+            symbols.voice
+        )
+    );
+
+    container.addTextDisplayComponents(
+        componentsV2.text(
+            `-# Most active members by voice time\n\n` +
             voiceText
         )
     );
 
     container.addSeparatorComponents(
-        new SeparatorBuilder()
+        componentsV2.separator()
     );
 
-    // ========================================================
+    // ====================================================
     // FOOTER
-    // ========================================================
+    // ====================================================
 
     const updateText =
         is24h
-            ? "Daily reset at midnight"
-            : "Weekly reset every Monday";
+            ? "Resets daily at midnight"
+            : "Resets every Monday";
 
     container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-            `-# ${symbols.live} Live leaderboard • ${updateText}\n` +
+        componentsV2.text(
+            `-# ${symbols.online} LIVE ${styles.text.bullet} ${updateText}\n` +
             `-# ${symbols.time} Updated ${timestamps.now()}\n` +
-            `-# ${symbols.brand} ASTER • Activity System`
+            `-# ${styles.brand.symbol} ${styles.brand.name} Activity System`
         )
     );
 
