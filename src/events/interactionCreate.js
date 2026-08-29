@@ -14,6 +14,8 @@ const {
 } = require("discord.js");
 
 const db = require("../database/database");
+const asterLogger = require("../utils/asterLogger");
+const symbols = require("../utils/asterUI/symbols");
 
 function ensureServerConfig(guildId) {
     db.prepare(`
@@ -23,6 +25,66 @@ function ensureServerConfig(guildId) {
 }
 
 module.exports = async (interaction) => {
+
+// ========================================================
+// ASTER LOGGING
+// ========================================================
+
+if (interaction.customId === "config_logs") {
+
+    const menu = new ActionRowBuilder()
+        .addComponents(
+            new ChannelSelectMenuBuilder()
+                .setCustomId("set_log_channel")
+                .setPlaceholder("Select ASTER log channel")
+                .setMinValues(1)
+                .setMaxValues(1)
+        );
+
+    return interaction.reply({
+        content:
+            `${symbols.settings} **ASTER Logging**\n\n` +
+            `Select the channel where ASTER should send audit logs.`,
+        components: [menu],
+        ephemeral: true
+    });
+}
+
+if (interaction.customId === "set_log_channel") {
+
+    ensureServerConfig(interaction.guild.id);
+
+    const channelId = interaction.values[0];
+
+    db.prepare(`
+        UPDATE server_config
+        SET log_channel = ?
+        WHERE guild_id = ?
+    `).run(
+        channelId,
+        interaction.guild.id
+    );
+
+    await interaction.update({
+        content:
+            `${symbols.success} **ASTER logging enabled.**\n\n` +
+            `Logs will now be sent to <#${channelId}>.`,
+        components: []
+    });
+
+    await asterLogger.config(
+        interaction.guild.id,
+        "Log Channel Updated",
+        `ASTER logs are now being sent to <#${channelId}>.`,
+        interaction.user,
+        {
+            "Channel": `<#${channelId}>`,
+            "Channel ID": channelId
+        }
+    );
+
+    return;
+}
 
     // =========================
     // SUPPORTED INTERACTIONS
