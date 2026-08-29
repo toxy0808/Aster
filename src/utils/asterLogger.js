@@ -2,6 +2,9 @@ const {
     EmbedBuilder
 } = require("discord.js");
 
+const db = require("../database/database");
+const { getConfig } = require("./serverConfig");
+
 // ========================================================
 // ASTER UI
 // ========================================================
@@ -12,26 +15,22 @@ const timestamps = require("./asterUI/timestamps");
 
 // ========================================================
 // ASTER LOGGER
-// Centralized ASTER audit / system logging
+// Centralized audit / system logging
 // ========================================================
 
 class AsterLogger {
 
     constructor() {
         this.client = null;
-        this.guildId = null;
-        this.channelId = null;
     }
 
     // ====================================================
     // INITIALIZE
     // ====================================================
 
-    init(client, guildId, channelId) {
+    init(client) {
 
         this.client = client;
-        this.guildId = guildId;
-        this.channelId = channelId;
 
         console.log(
             `${symbols.brand} ASTER Logger initialized`
@@ -39,18 +38,43 @@ class AsterLogger {
     }
 
     // ====================================================
-    // GET CHANNEL
+    // GET LOG CHANNEL
     // ====================================================
 
-    async getChannel() {
+    async getLogChannel(guildId) {
 
-        if (!this.client || !this.channelId) {
+        if (!this.client || !guildId) {
             return null;
         }
 
-        return this.client.channels
-            .fetch(this.channelId)
-            .catch(() => null);
+        try {
+
+            const config =
+                getConfig(guildId);
+
+            const channelId =
+                config?.log_channel;
+
+            if (!channelId) {
+                return null;
+            }
+
+            const channel =
+                await this.client.channels
+                    .fetch(channelId)
+                    .catch(() => null);
+
+            return channel;
+
+        } catch (error) {
+
+            console.error(
+                `${symbols.error} Failed to get ASTER log channel:`,
+                error
+            );
+
+            return null;
+        }
     }
 
     // ====================================================
@@ -69,8 +93,26 @@ class AsterLogger {
         return entries
             .map(([key, value]) => {
 
-                let formatted =
-                    String(value);
+                let formatted;
+
+                if (
+                    value === null ||
+                    value === undefined
+                ) {
+                    formatted = "None";
+                } else if (
+                    typeof value === "object"
+                ) {
+                    formatted =
+                        JSON.stringify(
+                            value,
+                            null,
+                            2
+                        );
+                } else {
+                    formatted =
+                        String(value);
+                }
 
                 if (formatted.length > 1024) {
                     formatted =
@@ -87,6 +129,7 @@ class AsterLogger {
     // ====================================================
 
     async log({
+        guildId,
         type = "system",
         action = "Unknown Action",
         description = "",
@@ -108,11 +151,19 @@ class AsterLogger {
             );
 
             // ------------------------------------------------
+            // Guild
+            // ------------------------------------------------
+
+            if (!guildId) {
+                return;
+            }
+
+            // ------------------------------------------------
             // Channel
             // ------------------------------------------------
 
             const channel =
-                await this.getChannel();
+                await this.getLogChannel(guildId);
 
             if (!channel) {
                 return;
@@ -124,7 +175,7 @@ class AsterLogger {
 
             const actor =
                 user
-                    ? `${user.tag || user.username || "Unknown"} (${user.id})`
+                    ? `<@${user.id}>`
                     : "ASTER System";
 
             // ------------------------------------------------
@@ -160,13 +211,14 @@ class AsterLogger {
                     });
 
             // ------------------------------------------------
-            // Details field
+            // Details
             // ------------------------------------------------
 
             if (detailText) {
 
                 embed.addFields({
-                    name: `${styles.headers.section} Details`,
+                    name:
+                        `${styles.headers.section} Details`,
                     value: detailText
                 });
             }
@@ -202,12 +254,14 @@ class AsterLogger {
     // ====================================================
 
     system(
+        guildId,
         action,
         description,
         details = {}
     ) {
 
         return this.log({
+            guildId,
             type: "system",
             action,
             description,
@@ -222,6 +276,7 @@ class AsterLogger {
     // ====================================================
 
     config(
+        guildId,
         action,
         description,
         user,
@@ -229,6 +284,7 @@ class AsterLogger {
     ) {
 
         return this.log({
+            guildId,
             type: "configuration",
             action,
             description,
@@ -244,6 +300,7 @@ class AsterLogger {
     // ====================================================
 
     automation(
+        guildId,
         action,
         description,
         user,
@@ -251,6 +308,7 @@ class AsterLogger {
     ) {
 
         return this.log({
+            guildId,
             type: "automation",
             action,
             description,
@@ -266,6 +324,7 @@ class AsterLogger {
     // ====================================================
 
     autoresponder(
+        guildId,
         action,
         description,
         user,
@@ -273,6 +332,7 @@ class AsterLogger {
     ) {
 
         return this.log({
+            guildId,
             type: "autoresponder",
             action,
             description,
@@ -288,6 +348,7 @@ class AsterLogger {
     // ====================================================
 
     autoreact(
+        guildId,
         action,
         description,
         user,
@@ -295,6 +356,7 @@ class AsterLogger {
     ) {
 
         return this.log({
+            guildId,
             type: "autoreact",
             action,
             description,
@@ -310,6 +372,7 @@ class AsterLogger {
     // ====================================================
 
     reputation(
+        guildId,
         action,
         description,
         user,
@@ -317,6 +380,7 @@ class AsterLogger {
     ) {
 
         return this.log({
+            guildId,
             type: "reputation",
             action,
             description,
@@ -332,12 +396,14 @@ class AsterLogger {
     // ====================================================
 
     leaderboard(
+        guildId,
         action,
         description,
         details = {}
     ) {
 
         return this.log({
+            guildId,
             type: "leaderboard",
             action,
             description,
@@ -352,12 +418,14 @@ class AsterLogger {
     // ====================================================
 
     error(
+        guildId,
         action,
         description,
         details = {}
     ) {
 
         return this.log({
+            guildId,
             type: "error",
             action,
             description,
@@ -366,11 +434,10 @@ class AsterLogger {
             symbol: symbols.error
         });
     }
-
 }
 
 // ========================================================
-// EXPORT SINGLE LOGGER INSTANCE
+// SINGLE LOGGER INSTANCE
 // ========================================================
 
 module.exports = new AsterLogger();
