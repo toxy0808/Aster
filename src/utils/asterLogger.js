@@ -5,7 +5,8 @@ const {
     MessageFlags
 } = require("discord.js");
 
-const db = require("../database/database");
+const db = require("../database/database")
+const asterLogger = require("../utils/asterLogger");
 const { getConfig } = require("./serverConfig");
 
 // ========================================================
