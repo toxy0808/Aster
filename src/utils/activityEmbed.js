@@ -2,10 +2,10 @@ const {
     ContainerBuilder
 } = require("discord.js");
 
-const symbols = require("./asterui/symbols");
-const timestamps = require("./asterui/timestamps");
-const styles = require("./asterui/styles");
-const sections = require("./asterui/sections");
+const symbols = require("./asterui/Symbols");
+const timestamps = require("./asterui/Timestamps");
+const styles = require("./asterui/Styles");
+const sections = require("./asterui/Sections");
 
 // ========================================================
 // TIME FORMATTER
@@ -83,7 +83,8 @@ function createActivityEmbed(
             ? voiceUsers
             : [];
 
-    const is24h = period === "24h";
+    const is24h =
+        period === "24h";
 
     // ====================================================
     // PERIOD
@@ -103,36 +104,42 @@ function createActivityEmbed(
     // CHAT LEADERBOARD
     // ====================================================
 
-    const chatText = safeChatUsers.length
-        ? safeChatUsers
-            .slice(0, 5)
-            .map((user, index) => {
+    const chatText =
+        safeChatUsers.length
+            ? safeChatUsers
+                .slice(0, 5)
+                .map((user, index) => {
 
-                const messages =
-                    (Number(user.messages) || 0)
-                        .toLocaleString();
+                    const messages =
+                        (
+                            Number(user.messages) || 0
+                        ).toLocaleString();
 
-                return (
-                    `${ranks[index]} **${userTag(user)}**\n` +
-                    `-# ${symbols.chat} **${messages}** messages`
-                );
-            })
-            .join("\n\n")
-        : `${symbols.info} *No chat activity recorded yet.*`;
+                    return (
+                        `${ranks[index]} **${userTag(user)}**\n` +
+                        `-# ${symbols.chat} **${messages}** messages`
+                    );
+                })
+                .join("\n\n")
+            : `${symbols.info} *No chat activity recorded yet.*`;
 
     // ====================================================
     // VOICE LEADERBOARD
     // ====================================================
 
-    const voiceText = safeVoiceUsers.length
-        ? safeVoiceUsers
-            .slice(0, 5)
-            .map((user, index) =>
-                `${ranks[index]} **${userTag(user)}**\n` +
-                `-# ${symbols.voice} **${formatTime(user.voice_time)}**`
-            )
-            .join("\n\n")
-        : `${symbols.info} *No voice activity recorded yet.*`;
+    const voiceText =
+        safeVoiceUsers.length
+            ? safeVoiceUsers
+                .slice(0, 5)
+                .map((user, index) => {
+
+                    return (
+                        `${ranks[index]} **${userTag(user)}**\n` +
+                        `-# ${symbols.voice} **${formatTime(user.voice_time)}**`
+                    );
+                })
+                .join("\n\n")
+            : `${symbols.info} *No voice activity recorded yet.*`;
 
     // ====================================================
     // CONTAINER
