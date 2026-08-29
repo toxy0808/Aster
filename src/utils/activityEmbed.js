@@ -2,10 +2,10 @@ const {
     ContainerBuilder
 } = require("discord.js");
 
-const symbols = require("./asterui/Symbols");
-const timestamps = require("./asterui/Timestamps");
-const styles = require("./asterui/Styles");
-const sections = require("./asterui/Sections");
+const symbols = require("./asterUI/symbols");
+const timestamps = require("./asterUI/timestamps");
+const styles = require("./asterUI/styles");
+const sections = require("./asterUI/sections");
 
 // ========================================================
 // TIME FORMATTER
