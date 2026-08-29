@@ -2,10 +2,10 @@ const {
     ContainerBuilder
 } = require("discord.js");
 
-const symbols = require("./asterUI/symbols");
-const timestamps = require("./asterUI/timestamps");
-const styles = require("./asterUI/styles");
-const componentsV2 = require("./asterUI/componentsV2");
+const symbols = require("./asterui/symbols");
+const timestamps = require("./asterui/timestamps");
+const styles = require("./asterui/styles");
+const sections = require("./asterui/sections");
 
 // ========================================================
 // TIME FORMATTER
@@ -21,9 +21,17 @@ function formatTime(minutes) {
 
     const parts = [];
 
-    if (days > 0) parts.push(`${days}d`);
-    if (hours > 0) parts.push(`${hours}h`);
-    if (mins > 0) parts.push(`${mins}m`);
+    if (days > 0) {
+        parts.push(`${days}d`);
+    }
+
+    if (hours > 0) {
+        parts.push(`${hours}h`);
+    }
+
+    if (mins > 0) {
+        parts.push(`${mins}m`);
+    }
 
     return parts.length
         ? parts.join(" ")
@@ -43,7 +51,7 @@ function userTag(user) {
 }
 
 // ========================================================
-// RANK SYMBOLS
+// RANK ICONS
 // ========================================================
 
 const ranks = [
@@ -77,6 +85,10 @@ function createActivityEmbed(
 
     const is24h = period === "24h";
 
+    // ====================================================
+    // PERIOD
+    // ====================================================
+
     const periodLabel =
         is24h
             ? "24 HOURS"
@@ -94,10 +106,17 @@ function createActivityEmbed(
     const chatText = safeChatUsers.length
         ? safeChatUsers
             .slice(0, 5)
-            .map((user, index) =>
-                `${ranks[index]} **${userTag(user)}**\n` +
-                `-# ${symbols.chat} ${(Number(user.messages) || 0).toLocaleString()} messages`
-            )
+            .map((user, index) => {
+
+                const messages =
+                    (Number(user.messages) || 0)
+                        .toLocaleString();
+
+                return (
+                    `${ranks[index]} **${userTag(user)}**\n` +
+                    `-# ${symbols.chat} **${messages}** messages`
+                );
+            })
             .join("\n\n")
         : `${symbols.info} *No chat activity recorded yet.*`;
 
@@ -110,7 +129,7 @@ function createActivityEmbed(
             .slice(0, 5)
             .map((user, index) =>
                 `${ranks[index]} **${userTag(user)}**\n` +
-                `-# ${symbols.voice} ${formatTime(user.voice_time)}`
+                `-# ${symbols.voice} **${formatTime(user.voice_time)}**`
             )
             .join("\n\n")
         : `${symbols.info} *No voice activity recorded yet.*`;
@@ -128,21 +147,21 @@ function createActivityEmbed(
     // ====================================================
 
     container.addTextDisplayComponents(
-        componentsV2.header(
+        sections.header(
             `${styles.brand.name} / ACTIVITY`,
             styles.brand.symbol
         )
     );
 
     container.addTextDisplayComponents(
-        componentsV2.text(
+        sections.text(
             `### ${symbols.online} ${periodLabel}\n` +
             `-# ${periodDescription} ${styles.text.bullet} Live leaderboard`
         )
     );
 
     container.addSeparatorComponents(
-        componentsV2.separator()
+        sections.separator()
     );
 
     // ====================================================
@@ -152,7 +171,7 @@ function createActivityEmbed(
     if (resetTimestamp) {
 
         container.addTextDisplayComponents(
-            componentsV2.text(
+            sections.text(
                 `-# ${symbols.time} NEXT RESET\n` +
                 `**<t:${resetTimestamp}:R>** ${styles.text.bullet} ` +
                 `<t:${resetTimestamp}:F>`
@@ -160,7 +179,7 @@ function createActivityEmbed(
         );
 
         container.addSeparatorComponents(
-            componentsV2.separator()
+            sections.separator()
         );
     }
 
@@ -169,21 +188,21 @@ function createActivityEmbed(
     // ====================================================
 
     container.addTextDisplayComponents(
-        componentsV2.header(
+        sections.header(
             "CHAT KINGS",
             symbols.chat
         )
     );
 
     container.addTextDisplayComponents(
-        componentsV2.text(
+        sections.text(
             `-# Most active members by messages\n\n` +
             chatText
         )
     );
 
     container.addSeparatorComponents(
-        componentsV2.separator()
+        sections.separator()
     );
 
     // ====================================================
@@ -191,21 +210,21 @@ function createActivityEmbed(
     // ====================================================
 
     container.addTextDisplayComponents(
-        componentsV2.header(
+        sections.header(
             "VOICE KINGS",
             symbols.voice
         )
     );
 
     container.addTextDisplayComponents(
-        componentsV2.text(
+        sections.text(
             `-# Most active members by voice time\n\n` +
             voiceText
         )
     );
 
     container.addSeparatorComponents(
-        componentsV2.separator()
+        sections.separator()
     );
 
     // ====================================================
@@ -218,7 +237,7 @@ function createActivityEmbed(
             : "Resets every Monday";
 
     container.addTextDisplayComponents(
-        componentsV2.text(
+        sections.text(
             `-# ${symbols.online} LIVE ${styles.text.bullet} ${updateText}\n` +
             `-# ${symbols.time} Updated ${timestamps.now()}\n` +
             `-# ${styles.brand.symbol} ${styles.brand.name} Activity System`
