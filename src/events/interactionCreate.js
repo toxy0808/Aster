@@ -223,6 +223,73 @@ if (interaction.customId === "remove_log_channel") {
     });
 }
 
+// ========================================================
+// ASTER AUTOMATION CONFIGURATION
+// ========================================================
+
+if (interaction.customId === "config_automation") {
+
+    const container = new ContainerBuilder()
+        .setAccentColor(0xFF4DA6)
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `# ${symbols.brand} ASTER / AUTOMATION\n` +
+                `-# Manage ASTER's automated systems.`
+            )
+        )
+
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### ${symbols.automation} Automation Systems\n\n` +
+                `${symbols.autoresponder} **Autoresponder**\n` +
+                `Automatically responds to configured triggers.\n\n` +
+                `${symbols.autoreact} **Autoreact**\n` +
+                `Automatically reacts to configured users.`
+            )
+        )
+
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### ${symbols.settings} Management\n\n` +
+                `Use the buttons below to manage ASTER automation systems.\n\n` +
+                `-# ${symbols.time} Automation actions are recorded by ASTER Logging.`
+            )
+        );
+
+    const row = new ActionRowBuilder()
+        .addComponents(
+
+            new ButtonBuilder()
+                .setCustomId("automation_autoresponder")
+                .setLabel("Autoresponder")
+                .setStyle(ButtonStyle.Primary),
+
+            new ButtonBuilder()
+                .setCustomId("automation_autoreact")
+                .setLabel("Autoreact")
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+    return interaction.reply({
+        components: [
+            container,
+            row
+        ],
+        flags:
+            MessageFlags.IsComponentsV2 |
+            MessageFlags.Ephemeral
+    });
+}
+
 // =========================
 // SAVE LEADERBOARD CHANNEL
 // =========================
