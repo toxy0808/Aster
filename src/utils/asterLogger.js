@@ -2,11 +2,17 @@ const {
     EmbedBuilder
 } = require("discord.js");
 
-const db = require("../database");
+// ========================================================
+// ASTER UI
+// ========================================================
+
+const symbols = require("./asterUI/symbols");
+const styles = require("./asterUI/styles");
+const timestamps = require("./asterUI/timestamps");
 
 // ========================================================
 // ASTER LOGGER
-// Central audit / system logging
+// Centralized ASTER audit / system logging
 // ========================================================
 
 class AsterLogger {
@@ -28,8 +34,52 @@ class AsterLogger {
         this.channelId = channelId;
 
         console.log(
-            "✦ ASTER Logger initialized"
+            `${symbols.brand} ASTER Logger initialized`
         );
+    }
+
+    // ====================================================
+    // GET CHANNEL
+    // ====================================================
+
+    async getChannel() {
+
+        if (!this.client || !this.channelId) {
+            return null;
+        }
+
+        return this.client.channels
+            .fetch(this.channelId)
+            .catch(() => null);
+    }
+
+    // ====================================================
+    // BUILD DETAILS
+    // ====================================================
+
+    buildDetails(details = {}) {
+
+        const entries =
+            Object.entries(details);
+
+        if (!entries.length) {
+            return null;
+        }
+
+        return entries
+            .map(([key, value]) => {
+
+                let formatted =
+                    String(value);
+
+                if (formatted.length > 1024) {
+                    formatted =
+                        formatted.slice(0, 1021) + "...";
+                }
+
+                return `**${key}**\n${formatted}`;
+            })
+            .join("\n\n");
     }
 
     // ====================================================
@@ -42,7 +92,8 @@ class AsterLogger {
         description = "",
         user = null,
         details = {},
-        color = "#FF4DA6"
+        color = 0xFF4DA6,
+        symbol = symbols.brand
     }) {
 
         try {
@@ -57,75 +108,31 @@ class AsterLogger {
             );
 
             // ------------------------------------------------
-            // No Discord channel configured
-            // ------------------------------------------------
-
-            if (
-                !this.client ||
-                !this.channelId
-            ) {
-                return;
-            }
-
-            // ------------------------------------------------
-            // Get channel
+            // Channel
             // ------------------------------------------------
 
             const channel =
-                await this.client.channels
-                    .fetch(this.channelId)
-                    .catch(() => null);
+                await this.getChannel();
 
             if (!channel) {
-
-                console.warn(
-                    `✕ ASTER Logger: channel ${this.channelId} not found`
-                );
-
                 return;
             }
+
+            // ------------------------------------------------
+            // Actor
+            // ------------------------------------------------
+
+            const actor =
+                user
+                    ? `${user.tag || user.username || "Unknown"} (${user.id})`
+                    : "ASTER System";
 
             // ------------------------------------------------
             // Details
             // ------------------------------------------------
 
-            let detailText = "";
-
-            const entries =
-                Object.entries(details);
-
-            if (entries.length) {
-
-                detailText =
-                    entries
-                        .map(([key, value]) => {
-
-                            let formatted =
-                                String(value);
-
-                            if (
-                                formatted.length > 1024
-                            ) {
-                                formatted =
-                                    formatted.slice(
-                                        0,
-                                        1021
-                                    ) + "...";
-                            }
-
-                            return `**${key}**\n${formatted}`;
-                        })
-                        .join("\n\n");
-            }
-
-            // ------------------------------------------------
-            // User
-            // ------------------------------------------------
-
-            const userText =
-                user
-                    ? `${user.tag || user.username} (${user.id})`
-                    : "ASTER System";
+            const detailText =
+                this.buildDetails(details);
 
             // ------------------------------------------------
             // Embed
@@ -135,26 +142,43 @@ class AsterLogger {
                 new EmbedBuilder()
                     .setColor(color)
                     .setTitle(
-                        `✦ ASTER / ${type.toUpperCase()}`
+                        `${styles.brand.symbol} ASTER / ${type.toUpperCase()}`
                     )
                     .setDescription(
-                        `**${action}**\n${description || "No description provided."}`
+                        `### ${symbol} ${action}\n` +
+                        `${description || "-# No description provided."}`
                     )
                     .addFields({
-                        name: "Actor",
-                        value: userText,
+                        name: `${symbols.user} Actor`,
+                        value: actor,
+                        inline: true
+                    })
+                    .addFields({
+                        name: `${symbols.time} Time`,
+                        value: timestamps.now(),
                         inline: true
                     });
+
+            // ------------------------------------------------
+            // Details field
+            // ------------------------------------------------
 
             if (detailText) {
 
                 embed.addFields({
-                    name: "Details",
+                    name: `${styles.headers.section} Details`,
                     value: detailText
                 });
             }
 
-            embed.setTimestamp();
+            // ------------------------------------------------
+            // Footer
+            // ------------------------------------------------
+
+            embed.setFooter({
+                text:
+                    `${styles.brand.name} • Audit System`
+            });
 
             // ------------------------------------------------
             // Send
@@ -167,7 +191,7 @@ class AsterLogger {
         } catch (error) {
 
             console.error(
-                "✕ ASTER Logger failed:",
+                `${symbols.error} ASTER Logger failed:`,
                 error
             );
         }
@@ -177,14 +201,19 @@ class AsterLogger {
     // SYSTEM
     // ====================================================
 
-    system(action, description, details = {}) {
+    system(
+        action,
+        description,
+        details = {}
+    ) {
 
         return this.log({
             type: "system",
             action,
             description,
             details,
-            color: "#FF4DA6"
+            color: 0xFF4DA6,
+            symbol: symbols.brand
         });
     }
 
@@ -192,7 +221,12 @@ class AsterLogger {
     // CONFIGURATION
     // ====================================================
 
-    config(action, description, user, details = {}) {
+    config(
+        action,
+        description,
+        user,
+        details = {}
+    ) {
 
         return this.log({
             type: "configuration",
@@ -200,7 +234,8 @@ class AsterLogger {
             description,
             user,
             details,
-            color: "#9B59FF"
+            color: 0x9B59FF,
+            symbol: symbols.settings
         });
     }
 
@@ -208,7 +243,12 @@ class AsterLogger {
     // AUTOMATION
     // ====================================================
 
-    automation(action, description, user, details = {}) {
+    automation(
+        action,
+        description,
+        user,
+        details = {}
+    ) {
 
         return this.log({
             type: "automation",
@@ -216,23 +256,94 @@ class AsterLogger {
             description,
             user,
             details,
-            color: "#FF4DA6"
+            color: 0xFF4DA6,
+            symbol: symbols.automation
         });
     }
 
     // ====================================================
-    // MODERATION
+    // AUTORESPONDER
     // ====================================================
 
-    moderation(action, description, user, details = {}) {
+    autoresponder(
+        action,
+        description,
+        user,
+        details = {}
+    ) {
 
         return this.log({
-            type: "moderation",
+            type: "autoresponder",
             action,
             description,
             user,
             details,
-            color: "#FF4D6D"
+            color: 0xFF4DA6,
+            symbol: symbols.autoresponder
+        });
+    }
+
+    // ====================================================
+    // AUTOREACT
+    // ====================================================
+
+    autoreact(
+        action,
+        description,
+        user,
+        details = {}
+    ) {
+
+        return this.log({
+            type: "autoreact",
+            action,
+            description,
+            user,
+            details,
+            color: 0xFF4DA6,
+            symbol: symbols.autoreact
+        });
+    }
+
+    // ====================================================
+    // REPUTATION
+    // ====================================================
+
+    reputation(
+        action,
+        description,
+        user,
+        details = {}
+    ) {
+
+        return this.log({
+            type: "reputation",
+            action,
+            description,
+            user,
+            details,
+            color: 0xFF4DA6,
+            symbol: symbols.reputation
+        });
+    }
+
+    // ====================================================
+    // LEADERBOARD
+    // ====================================================
+
+    leaderboard(
+        action,
+        description,
+        details = {}
+    ) {
+
+        return this.log({
+            type: "leaderboard",
+            action,
+            description,
+            details,
+            color: 0xFF4DA6,
+            symbol: symbols.leaderboard
         });
     }
 
@@ -240,17 +351,26 @@ class AsterLogger {
     // ERROR
     // ====================================================
 
-    error(action, description, details = {}) {
+    error(
+        action,
+        description,
+        details = {}
+    ) {
 
         return this.log({
             type: "error",
             action,
             description,
             details,
-            color: "#FF3B30"
+            color: 0xFF3B30,
+            symbol: symbols.error
         });
     }
 
 }
+
+// ========================================================
+// EXPORT SINGLE LOGGER INSTANCE
+// ========================================================
 
 module.exports = new AsterLogger();
