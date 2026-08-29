@@ -26,93 +26,6 @@ function ensureServerConfig(guildId) {
 
 module.exports = async (interaction) => {
 
-// ========================================================
-// ASTER LOGGING
-// ========================================================
-
-if (interaction.customId === "config_logs") {
-
-    const menu = new ActionRowBuilder()
-        .addComponents(
-            new ChannelSelectMenuBuilder()
-                .setCustomId("set_log_channel")
-                .setPlaceholder("Select ASTER log channel")
-                .setMinValues(1)
-                .setMaxValues(1)
-        );
-
-    return interaction.reply({
-        content:
-            `${symbols.settings} **ASTER Logging**\n\n` +
-            `Select the channel where ASTER should send audit logs.`,
-        components: [menu],
-        ephemeral: true
-    });
-}
-
-if (interaction.customId === "set_log_channel") {
-
-    ensureServerConfig(interaction.guild.id);
-
-    const channelId = interaction.values[0];
-
-    db.prepare(`
-        UPDATE server_config
-        SET log_channel = ?
-        WHERE guild_id = ?
-    `).run(
-        channelId,
-        interaction.guild.id
-    );
-
-    await interaction.update({
-        content:
-            `${symbols.success} **ASTER logging enabled.**\n\n` +
-            `Logs will now be sent to <#${channelId}>.`,
-        components: []
-    });
-
-    await asterLogger.config(
-        interaction.guild.id,
-        "Log Channel Updated",
-        `ASTER logs are now being sent to <#${channelId}>.`,
-        interaction.user,
-        {
-            "Channel": `<#${channelId}>`,
-            "Channel ID": channelId
-        }
-    );
-
-    return;
-}
-
-    // =========================
-    // SUPPORTED INTERACTIONS
-    // =========================
-
-    if (
-        !interaction.isButton() &&
-        !interaction.isChannelSelectMenu() &&
-        !interaction.isRoleSelectMenu() &&
-        !interaction.isModalSubmit()
-    ) {
-        return;
-    }
-
-    console.log(
-        "TYPE:",
-        interaction.customId,
-        "VALUES:",
-        interaction.values
-    );
-
-    console.log(
-        "ANY INTERACTION:",
-        interaction.type,
-        interaction.customId
-    );
-
-    
 // =========================
 // LEADERBOARD CONFIG
 // =========================
@@ -135,6 +48,180 @@ if (interaction.customId === "config_leaderboard") {
     });
 }
 
+// ========================================================
+// ASTER LOGGING CONFIGURATION
+// ========================================================
+
+if (interaction.customId === "config_logging") {
+
+    const config = db.prepare(`
+        SELECT log_channel
+        FROM server_config
+        WHERE guild_id = ?
+    `).get(interaction.guild.id);
+
+    const channelMenu = new ActionRowBuilder()
+        .addComponents(
+            new ChannelSelectMenuBuilder()
+                .setCustomId("set_log_channel")
+                .setPlaceholder(
+                    config?.log_channel
+                        ? "Change ASTER log channel"
+                        : "Select ASTER log channel"
+                )
+                .setMinValues(1)
+                .setMaxValues(1)
+        );
+
+    const buttons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId("remove_log_channel")
+                .setLabel("Remove Logging")
+                .setStyle(ButtonStyle.Danger)
+        );
+
+    const status =
+        config?.log_channel
+            ? `<#${config.log_channel}>`
+            : "Not configured";
+
+    const container = new ContainerBuilder()
+        .setAccentColor(0xFF4DA6)
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `# ✦ ASTER / LOGGING\n` +
+                `-# Centralized audit and system logging.\n\n` +
+                `### ◇ Log Channel\n` +
+                `ASTER will send important system and configuration ` +
+                `events to the selected channel.\n\n` +
+                `**Current:** ${status}`
+            )
+        )
+
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### ⌘ Logged Systems\n\n` +
+                `◈ Configuration changes\n` +
+                `↪ Autoresponder actions\n` +
+                `✧ Autoreact actions\n` +
+                `✚ Reputation actions\n` +
+                `♛ Leaderboard events\n` +
+                `✕ Important errors\n` +
+                `✦ ASTER system events`
+            )
+        )
+
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `-# ◷ Logging only records important ASTER events.\n` +
+                `-# ✦ Normal messages and routine activity are not logged.`
+            )
+        );
+
+    return interaction.reply({
+        components: [
+            container,
+            channelMenu,
+            buttons
+        ],
+        flags:
+            MessageFlags.IsComponentsV2 |
+            MessageFlags.Ephemeral
+    });
+}
+
+
+// ========================================================
+// SAVE ASTER LOG CHANNEL
+// ========================================================
+
+if (interaction.customId === "set_log_channel") {
+
+    ensureServerConfig(interaction.guild.id);
+
+    const channelId = interaction.values[0];
+
+    db.prepare(`
+        UPDATE server_config
+        SET log_channel = ?
+        WHERE guild_id = ?
+    `).run(
+        channelId,
+        interaction.guild.id
+    );
+
+    // Log the configuration change
+    const asterLogger = require("../utils/asterLogger");
+
+    await asterLogger.config(
+        interaction.guild.id,
+        "Logging Channel Updated",
+        `ASTER logging has been configured for <#${channelId}>.`,
+        interaction.user,
+        {
+            "Channel": `<#${channelId}>`,
+            "Channel ID": channelId
+        }
+    );
+
+    return interaction.update({
+        content:
+            `✦ **ASTER Logging configured.**\n\n` +
+            `Log channel: <#${channelId}>`,
+        components: []
+    });
+}
+
+
+// ========================================================
+// REMOVE ASTER LOGGING
+// ========================================================
+
+if (interaction.customId === "remove_log_channel") {
+
+    ensureServerConfig(interaction.guild.id);
+
+    const previous = db.prepare(`
+        SELECT log_channel
+        FROM server_config
+        WHERE guild_id = ?
+    `).get(interaction.guild.id);
+
+    db.prepare(`
+        UPDATE server_config
+        SET log_channel = NULL
+        WHERE guild_id = ?
+    `).run(
+        interaction.guild.id
+    );
+
+    const asterLogger = require("../utils/asterLogger");
+
+    // This won't send to the channel after removing it,
+    // so log the action BEFORE removing it if desired.
+    if (previous?.log_channel) {
+
+        // Nothing required here — the configuration has
+        // successfully been removed.
+    }
+
+    return interaction.update({
+        content:
+            `✓ **ASTER Logging disabled.**\n\n` +
+            `ASTER will no longer send audit logs to a channel.`,
+        components: []
+    });
+}
 
 // =========================
 // SAVE LEADERBOARD CHANNEL
