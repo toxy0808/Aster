@@ -1,5 +1,8 @@
 const {
-    EmbedBuilder
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder,
+    MessageFlags
 } = require("discord.js");
 
 const db = require("../database/database");
@@ -16,6 +19,7 @@ const timestamps = require("./asterUI/timestamps");
 // ========================================================
 // ASTER LOGGER
 // Centralized audit / system logging
+// Components V2 + ASTER UI
 // ========================================================
 
 class AsterLogger {
@@ -64,6 +68,18 @@ class AsterLogger {
                     .fetch(channelId)
                     .catch(() => null);
 
+            if (!channel) {
+                return null;
+            }
+
+            // Make sure this is a text-capable channel
+            if (
+                !channel.isTextBased ||
+                !channel.isTextBased()
+            ) {
+                return null;
+            }
+
             return channel;
 
         } catch (error) {
@@ -99,27 +115,46 @@ class AsterLogger {
                     value === null ||
                     value === undefined
                 ) {
+
                     formatted = "None";
+
                 } else if (
                     typeof value === "object"
                 ) {
-                    formatted =
-                        JSON.stringify(
-                            value,
-                            null,
-                            2
-                        );
+
+                    try {
+
+                        formatted =
+                            JSON.stringify(
+                                value,
+                                null,
+                                2
+                            );
+
+                    } catch {
+
+                        formatted =
+                            String(value);
+                    }
+
                 } else {
+
                     formatted =
                         String(value);
                 }
 
-                if (formatted.length > 1024) {
+                // Discord TextDisplay safety
+                if (formatted.length > 1500) {
+
                     formatted =
-                        formatted.slice(0, 1021) + "...";
+                        formatted.slice(0, 1497) +
+                        "...";
                 }
 
-                return `**${key}**\n${formatted}`;
+                return (
+                    `**${key}**\n` +
+                    formatted
+                );
             })
             .join("\n\n");
     }
@@ -142,7 +177,7 @@ class AsterLogger {
         try {
 
             // ------------------------------------------------
-            // Console
+            // CONSOLE
             // ------------------------------------------------
 
             console.log(
@@ -151,7 +186,7 @@ class AsterLogger {
             );
 
             // ------------------------------------------------
-            // Guild
+            // GUILD
             // ------------------------------------------------
 
             if (!guildId) {
@@ -159,7 +194,7 @@ class AsterLogger {
             }
 
             // ------------------------------------------------
-            // Channel
+            // CHANNEL
             // ------------------------------------------------
 
             const channel =
@@ -170,74 +205,114 @@ class AsterLogger {
             }
 
             // ------------------------------------------------
-            // Actor
+            // ACTOR
             // ------------------------------------------------
 
             const actor =
-                user
+                user?.id
                     ? `<@${user.id}>`
                     : "ASTER System";
 
             // ------------------------------------------------
-            // Details
+            // DETAILS
             // ------------------------------------------------
 
             const detailText =
                 this.buildDetails(details);
 
             // ------------------------------------------------
-            // Embed
+            // TYPE LABEL
             // ------------------------------------------------
 
-            const embed =
-                new EmbedBuilder()
-                    .setColor(color)
-                    .setTitle(
-                        `${styles.brand.symbol} ASTER / ${type.toUpperCase()}`
-                    )
-                    .setDescription(
+            const typeLabel =
+                String(type)
+                    .toUpperCase();
+
+            // ------------------------------------------------
+            // CONTAINER
+            // ------------------------------------------------
+
+            const container =
+                new ContainerBuilder()
+                    .setAccentColor(color);
+
+            // ------------------------------------------------
+            // HEADER
+            // ------------------------------------------------
+
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder()
+                    .setContent(
+                        `# ${styles.brand.symbol} ASTER / ${typeLabel}\n` +
                         `### ${symbol} ${action}\n` +
-                        `${description || "-# No description provided."}`
+                        `-# ${description || "No description provided."}`
                     )
-                    .addFields({
-                        name: `${symbols.user} Actor`,
-                        value: actor,
-                        inline: true
-                    })
-                    .addFields({
-                        name: `${symbols.time} Time`,
-                        value: timestamps.now(),
-                        inline: true
-                    });
+            );
 
             // ------------------------------------------------
-            // Details
+            // SEPARATOR
+            // ------------------------------------------------
+
+            container.addSeparatorComponents(
+                new SeparatorBuilder()
+            );
+
+            // ------------------------------------------------
+            // ACTOR + TIME
+            // ------------------------------------------------
+
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder()
+                    .setContent(
+                        `**${symbols.user} Actor**\n` +
+                        `${actor}\n\n` +
+
+                        `**${symbols.time} Time**\n` +
+                        `${timestamps.now()}`
+                    )
+            );
+
+            // ------------------------------------------------
+            // DETAILS
             // ------------------------------------------------
 
             if (detailText) {
 
-                embed.addFields({
-                    name:
-                        `${styles.headers.section} Details`,
-                    value: detailText
-                });
+                container.addSeparatorComponents(
+                    new SeparatorBuilder()
+                );
+
+                container.addTextDisplayComponents(
+                    new TextDisplayBuilder()
+                        .setContent(
+                            `### ${styles.headers.section} Details\n` +
+                            detailText
+                        )
+                );
             }
 
             // ------------------------------------------------
-            // Footer
+            // FOOTER
             // ------------------------------------------------
 
-            embed.setFooter({
-                text:
-                    `${styles.brand.name} • Audit System`
-            });
+            container.addSeparatorComponents(
+                new SeparatorBuilder()
+            );
+
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder()
+                    .setContent(
+                        `-# ${styles.brand.symbol} ${styles.brand.name} • Audit System`
+                    )
+            );
 
             // ------------------------------------------------
-            // Send
+            // SEND
             // ------------------------------------------------
 
             await channel.send({
-                embeds: [embed]
+                components: [container],
+                flags: MessageFlags.IsComponentsV2
             });
 
         } catch (error) {
