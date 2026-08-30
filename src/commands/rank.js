@@ -30,7 +30,7 @@ module.exports = {
     async execute(message, args) {
 
         // ========================================================
-        // TARGET MEMBER
+        // TARGET
         // ========================================================
 
         const target =
@@ -46,13 +46,17 @@ module.exports = {
         ).get(target.id);
 
         if (!user) {
-            return message.reply(
-                `${symbols.error} No rank data found for **${target.username}**.`
-            );
+            return message.reply({
+                content:
+                    `${symbols.error} No rank data found for **${target.username}**.`,
+                allowedMentions: {
+                    parse: []
+                }
+            });
         }
 
         // ========================================================
-        // MEMBER INTELLIGENCE
+        // INTELLIGENCE
         // ========================================================
 
         const intelligence = getMemberIntelligence(
@@ -61,7 +65,7 @@ module.exports = {
         );
 
         // ========================================================
-        // CHAT ACTIVITY
+        // ACTIVITY
         // ========================================================
 
         const messages = db.prepare(`
@@ -71,10 +75,6 @@ module.exports = {
             AND type = 'chat'
         `).get(target.id).total;
 
-        // ========================================================
-        // VOICE ACTIVITY
-        // ========================================================
-
         const voice = db.prepare(`
             SELECT COALESCE(SUM(amount), 0) AS total
             FROM activity_logs
@@ -83,7 +83,7 @@ module.exports = {
         `).get(target.id).total;
 
         // ========================================================
-        // ACTIVITY RANK
+        // RANK
         // ========================================================
 
         const rank = db.prepare(`
@@ -108,10 +108,6 @@ module.exports = {
 
         const nextXP =
             Number(xpData.neededXP || 0);
-
-        // ========================================================
-        // XP PROGRESS
-        // ========================================================
 
         const xpProgress =
             nextXP > 0
@@ -172,31 +168,13 @@ module.exports = {
                     break;
 
                 case "dnd":
-                    presence = "Do Not Disturb";
+                    presence = "DND";
                     break;
 
                 default:
                     presence = "Offline";
             }
         }
-
-        // ========================================================
-        // ROLES
-        // ========================================================
-
-        const roles =
-            member
-                ? member.roles.cache
-                    .filter(role => role.id !== message.guild.id)
-                    .sort((a, b) => b.position - a.position)
-                    .map(role => `<@&${role.id}>`)
-                    .slice(0, 8)
-                : [];
-
-        const roleText =
-            roles.length
-                ? roles.join(" ")
-                : "No roles";
 
         // ========================================================
         // DATES
@@ -213,16 +191,6 @@ module.exports = {
                 : "Unknown";
 
         // ========================================================
-        // ACCOUNT AGE
-        // ========================================================
-
-        const accountAgeDays =
-            Math.floor(
-                (Date.now() - target.createdTimestamp) /
-                86400000
-            );
-
-        // ========================================================
         // CONTAINER
         // ========================================================
 
@@ -236,7 +204,7 @@ module.exports = {
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `# ${symbols.user} ASTER / MEMBER INTELLIGENCE\n` +
-                `-# Activity, progression and member analytics`
+                `-# Compact activity profile`
             )
         );
 
@@ -245,23 +213,19 @@ module.exports = {
         );
 
         // ========================================================
-        // MEMBER IDENTITY
+        // IDENTITY
         // ========================================================
 
         container.addSectionComponents(
             new SectionBuilder()
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(
-                        `### ${symbols.user} ${target.username}\n` +
-                        `\`${target.id}\`\n\n` +
-                        `${symbols.online} ${presence}\n\n` +
-                        `${symbols.level} Level **${user.level}**  •  ` +
-                        `${symbols.rank} Rank **#${rank}**\n` +
-                        `${symbols.reputation} Reputation **${
-                            reputation >= 0
-                                ? "+"
-                                : ""
-                        }${reputation}**`
+                        `### ${symbols.user} ${target}\n` +
+                        `\`${target.id}\`\n` +
+                        `${symbols.online} ${presence}  •  ` +
+                        `${symbols.level} Lv.${user.level}  •  ` +
+                        `${symbols.rank} #${rank}\n` +
+                        `${symbols.reputation} Rep ${reputation >= 0 ? "+" : ""}${reputation}`
                     )
                 )
                 .setThumbnailAccessory(
@@ -269,7 +233,7 @@ module.exports = {
                         media: {
                             url: target.displayAvatarURL({
                                 extension: "png",
-                                size: 256
+                                size: 128
                             })
                         }
                     })
@@ -281,45 +245,17 @@ module.exports = {
         );
 
         // ========================================================
-        // ACTIVITY INTELLIGENCE
+        // ACTIVITY
         // ========================================================
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `### ${symbols.activity} Activity Intelligence\n\n` +
-
-                `**${symbols.chat} Messages**\n` +
-                `${messages.toLocaleString()}\n\n` +
-
-                `**${symbols.voice} Voice Activity**\n` +
-                `${voice.toLocaleString()}\n\n` +
-
-                `**${symbols.activity} Activity Score**\n` +
-                `${intelligence.activityScore}/100 • ` +
-                `**${intelligence.engagement}**`
-            )
-        );
-
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        // ========================================================
-        // RECENT ACTIVITY
-        // ========================================================
-
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `### ${symbols.time} Recent Activity\n\n` +
-
-                `**Last 7 Days**\n` +
-                `${intelligence.recentActivity.toLocaleString()} activity units\n\n` +
-
-                `**${symbols.chat} Chat Share**\n` +
-                `${intelligence.chatPercentage}% of server chat\n\n` +
-
-                `**${symbols.voice} Voice Share**\n` +
-                `${intelligence.voicePercentage}% of server voice activity`
+                `### ${symbols.activity} Activity\n` +
+                `${symbols.chat} **${messages.toLocaleString()}** messages  •  ` +
+                `${symbols.voice} **${voice.toLocaleString()}** voice\n` +
+                `${symbols.activity} Score **${intelligence.activityScore}/100**  •  ` +
+                `**${intelligence.engagement}**\n` +
+                `${symbols.time} 7d: **${intelligence.recentActivity.toLocaleString()}** units`
             )
         );
 
@@ -333,15 +269,9 @@ module.exports = {
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `### ${symbols.level} Progression\n\n` +
-
-                `**${symbols.level} Level**\n` +
-                `${user.level}\n\n` +
-
-                `**${symbols.xp} XP**\n` +
-                `${currentXP.toLocaleString()} / ` +
-                `${nextXP.toLocaleString()}\n` +
-
+                `### ${symbols.level} Progression\n` +
+                `Level **${user.level}**  •  ` +
+                `XP **${currentXP.toLocaleString()} / ${nextXP.toLocaleString()}**\n` +
                 `${xpBar} **${xpProgress}%**`
             )
         );
@@ -356,19 +286,10 @@ module.exports = {
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `### ${symbols.user} Member Data\n\n` +
-
-                `**${symbols.online} Presence**\n` +
-                `${presence}\n\n` +
-
-                `**${symbols.time} Joined Server**\n` +
-                `${joinedAt}\n\n` +
-
-                `**${symbols.time} Discord Account**\n` +
-                `${createdAt}\n\n` +
-
-                `**${symbols.time} Account Age**\n` +
-                `${accountAgeDays.toLocaleString()} days`
+                `### ${symbols.user} Member Data\n` +
+                `${symbols.online} **${presence}**\n` +
+                `${symbols.time} Joined ${joinedAt}\n` +
+                `${symbols.time} Account ${createdAt}`
             )
         );
 
@@ -377,49 +298,14 @@ module.exports = {
         );
 
         // ========================================================
-        // ROLES
+        // SERVER SHARE
         // ========================================================
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `### ${symbols.staff} Member Roles\n\n` +
-                roleText
-            )
-        );
-
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        // ========================================================
-        // INTELLIGENCE SUMMARY
-        // ========================================================
-
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `### ${symbols.activity} Intelligence Summary\n\n` +
-
-                `${symbols.activity} Activity classification: ` +
-                `**${intelligence.engagement}**\n` +
-
-                `${symbols.activity} Activity score: ` +
-                `**${intelligence.activityScore}/100**\n` +
-
-                `${symbols.chat} **${messages.toLocaleString()}** ` +
-                `messages recorded\n` +
-
-                `${symbols.voice} **${voice.toLocaleString()}** ` +
-                `voice activity recorded\n` +
-
-                `${symbols.level} Currently **Level ${user.level}**\n` +
-
-                `${symbols.rank} Activity ranking **#${rank}**\n` +
-
-                `${symbols.reputation} Reputation score **${
-                    reputation >= 0
-                        ? "+"
-                        : ""
-                }${reputation}**`
+                `### ${symbols.activity} Server Share\n` +
+                `${symbols.chat} Chat **${intelligence.chatPercentage}%**  •  ` +
+                `${symbols.voice} Voice **${intelligence.voicePercentage}%**`
             )
         );
 
@@ -433,8 +319,8 @@ module.exports = {
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `-# ${symbols.time} Updated ${timestamps.now()}\n` +
-                `-# ${symbols.brand} ASTER • Member Intelligence`
+                `-# ${symbols.time} Updated ${timestamps.now()}  •  ` +
+                `${symbols.brand} ASTER`
             )
         );
 
@@ -446,7 +332,12 @@ module.exports = {
             components: [
                 container
             ],
-            flags: MessageFlags.IsComponentsV2
+            flags: MessageFlags.IsComponentsV2,
+
+            // Keep mentions clickable without pinging.
+            allowedMentions: {
+                parse: []
+            }
         });
     }
 };
