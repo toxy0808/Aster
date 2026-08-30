@@ -44,62 +44,67 @@ module.exports = {
 
         const action = args[0]?.toLowerCase();
 
-        // ========================================================
-        // LIST
-        // ========================================================
+// ========================================================
+// LIST
+// ========================================================
 
-        if (action === "list") {
+if (action === "list") {
 
-            const autoreacts = db.prepare(`
-                SELECT user_id, emoji
-                FROM autoreacts
-                WHERE enabled = 1
-                ORDER BY user_id ASC
-            `).all();
+    const autoreacts = db.prepare(`
+        SELECT user_id, emoji
+        FROM autoreacts
+        WHERE enabled = 1
+        ORDER BY user_id ASC
+    `).all();
 
-            if (!autoreacts.length) {
-                return message.reply({
-                    components: [
-                        new ContainerBuilder()
-                            .setAccentColor(0xFF4FA3)
-                            .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(
-                                    "# ✦ ASTER / AUTO REACT\n" +
-                                    "### 📋 Auto Reactions\n\n" +
-                                    "No auto reactions are currently configured.\n\n" +
-                                    "-# Use `,autoreact enable @user <:emoji>` to add one."
-                                )
-                            )
-                    ],
-                    flags: MessageFlags.IsComponentsV2
-                });
-            }
+    // Only keep users who are currently in this server
+    const existingMembers = autoreacts.filter(entry =>
+        message.guild.members.cache.has(entry.user_id)
+    );
 
-            const list = autoreacts
-                .map((entry, index) =>
-                    `**${index + 1}.** <@${entry.user_id}> → ${entry.emoji}`
-                )
-                .join("\n");
-
-            return message.reply({
-                components: [
-                    new ContainerBuilder()
-                        .setAccentColor(0xFF4FA3)
-                        .addTextDisplayComponents(
-                            new TextDisplayBuilder().setContent(
-                                "# ✦ ASTER / AUTO REACT\n" +
-                                "### 📋 Configured Reactions\n\n" +
-                                list +
-                                `\n\n-# ${autoreacts.length} auto reaction${autoreacts.length === 1 ? "" : "s"} configured.`
-                            )
+    if (!existingMembers.length) {
+        return message.reply({
+            components: [
+                new ContainerBuilder()
+                    .setAccentColor(0xFF4FA3)
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                            "# ✦ ASTER / AUTO REACT\n" +
+                            "### 📋 Auto Reactions\n\n" +
+                            "No auto reactions are currently configured for members of this server.\n\n" +
+                            "-# Use `,autoreact enable @user <:emoji>` to add one."
                         )
-                ],
-                flags: MessageFlags.IsComponentsV2,
-                allowedMentions: {
-                    parse: []
-                }
-            });
+                    )
+            ],
+            flags: MessageFlags.IsComponentsV2
+        });
+    }
+
+    const list = existingMembers
+        .map((entry, index) =>
+            `**${index + 1}.** <@${entry.user_id}> → ${entry.emoji}`
+        )
+        .join("\n");
+
+    return message.reply({
+        components: [
+            new ContainerBuilder()
+                .setAccentColor(0xFF4FA3)
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        "# ✦ ASTER / AUTO REACT\n" +
+                        "### 📋 Configured Reactions\n\n" +
+                        list +
+                        `\n\n-# ${existingMembers.length} auto reaction${existingMembers.length === 1 ? "" : "s"} configured.`
+                    )
+                )
+        ],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: {
+            parse: []
         }
+    });
+}
 
         // ========================================================
         // USER
