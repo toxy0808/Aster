@@ -9,10 +9,12 @@ const {
 
 const db = require("../database/database");
 const { getXPData } = require("../utils/xp");
+
 const {
     symbols,
     timestamps
 } = require("../utils/asterUI");
+
 const {
     getMemberIntelligence
 } = require("../utils/memberIntelligence");
@@ -49,14 +51,15 @@ module.exports = {
             );
         }
 
-// ========================================================
-    // MEMBER INTELLIGENCE
-    // ========================================================
+        // ========================================================
+        // MEMBER INTELLIGENCE
+        // ========================================================
 
-    const intelligence = getMemberIntelligence(
-        message.guild.id,
-        message.author.id
-    );
+        const intelligence = getMemberIntelligence(
+            message.guild.id,
+            target.id
+        );
+
         // ========================================================
         // CHAT ACTIVITY
         // ========================================================
@@ -151,6 +154,51 @@ module.exports = {
             message.guild?.members.cache.get(target.id);
 
         // ========================================================
+        // PRESENCE
+        // ========================================================
+
+        let presence = "Offline";
+
+        if (member?.presence) {
+
+            switch (member.presence.status) {
+
+                case "online":
+                    presence = "Online";
+                    break;
+
+                case "idle":
+                    presence = "Idle";
+                    break;
+
+                case "dnd":
+                    presence = "Do Not Disturb";
+                    break;
+
+                default:
+                    presence = "Offline";
+            }
+        }
+
+        // ========================================================
+        // ROLES
+        // ========================================================
+
+        const roles =
+            member
+                ? member.roles.cache
+                    .filter(role => role.id !== message.guild.id)
+                    .sort((a, b) => b.position - a.position)
+                    .map(role => `<@&${role.id}>`)
+                    .slice(0, 8)
+                : [];
+
+        const roleText =
+            roles.length
+                ? roles.join(" ")
+                : "No roles";
+
+        // ========================================================
         // DATES
         // ========================================================
 
@@ -163,6 +211,16 @@ module.exports = {
             target.createdAt
                 ? timestamps.longDate(target.createdAt)
                 : "Unknown";
+
+        // ========================================================
+        // ACCOUNT AGE
+        // ========================================================
+
+        const accountAgeDays =
+            Math.floor(
+                (Date.now() - target.createdTimestamp) /
+                86400000
+            );
 
         // ========================================================
         // CONTAINER
@@ -196,9 +254,14 @@ module.exports = {
                     new TextDisplayBuilder().setContent(
                         `### ${symbols.user} ${target.username}\n` +
                         `\`${target.id}\`\n\n` +
+                        `${symbols.online} ${presence}\n\n` +
                         `${symbols.level} Level **${user.level}**  •  ` +
                         `${symbols.rank} Rank **#${rank}**\n` +
-                        `${symbols.reputation} Reputation **${reputation >= 0 ? "+" : ""}${reputation}**`
+                        `${symbols.reputation} Reputation **${
+                            reputation >= 0
+                                ? "+"
+                                : ""
+                        }${reputation}**`
                     )
                 )
                 .setThumbnailAccessory(
@@ -224,10 +287,39 @@ module.exports = {
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `### ${symbols.activity} Activity Intelligence\n\n` +
+
                 `**${symbols.chat} Messages**\n` +
                 `${messages.toLocaleString()}\n\n` +
+
                 `**${symbols.voice} Voice Activity**\n` +
-                `${voice.toLocaleString()}`
+                `${voice.toLocaleString()}\n\n` +
+
+                `**${symbols.activity} Activity Score**\n` +
+                `${intelligence.activityScore}/100 • ` +
+                `**${intelligence.engagement}**`
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        // ========================================================
+        // RECENT ACTIVITY
+        // ========================================================
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### ${symbols.time} Recent Activity\n\n` +
+
+                `**Last 7 Days**\n` +
+                `${intelligence.recentActivity.toLocaleString()} activity units\n\n` +
+
+                `**${symbols.chat} Chat Share**\n` +
+                `${intelligence.chatPercentage}% of server chat\n\n` +
+
+                `**${symbols.voice} Voice Share**\n` +
+                `${intelligence.voicePercentage}% of server voice activity`
             )
         );
 
@@ -242,10 +334,14 @@ module.exports = {
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `### ${symbols.level} Progression\n\n` +
+
                 `**${symbols.level} Level**\n` +
                 `${user.level}\n\n` +
+
                 `**${symbols.xp} XP**\n` +
-                `${currentXP.toLocaleString()} / ${nextXP.toLocaleString()}\n` +
+                `${currentXP.toLocaleString()} / ` +
+                `${nextXP.toLocaleString()}\n` +
+
                 `${xpBar} **${xpProgress}%**`
             )
         );
@@ -261,10 +357,33 @@ module.exports = {
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `### ${symbols.user} Member Data\n\n` +
+
+                `**${symbols.online} Presence**\n` +
+                `${presence}\n\n` +
+
                 `**${symbols.time} Joined Server**\n` +
                 `${joinedAt}\n\n` +
+
                 `**${symbols.time} Discord Account**\n` +
-                `${createdAt}`
+                `${createdAt}\n\n` +
+
+                `**${symbols.time} Account Age**\n` +
+                `${accountAgeDays.toLocaleString()} days`
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        // ========================================================
+        // ROLES
+        // ========================================================
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### ${symbols.staff} Member Roles\n\n` +
+                roleText
             )
         );
 
@@ -279,11 +398,28 @@ module.exports = {
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `### ${symbols.activity} Intelligence Summary\n\n` +
-                `${symbols.chat} **${messages.toLocaleString()}** messages recorded\n` +
-                `${symbols.voice} **${voice.toLocaleString()}** voice activity recorded\n` +
+
+                `${symbols.activity} Activity classification: ` +
+                `**${intelligence.engagement}**\n` +
+
+                `${symbols.activity} Activity score: ` +
+                `**${intelligence.activityScore}/100**\n` +
+
+                `${symbols.chat} **${messages.toLocaleString()}** ` +
+                `messages recorded\n` +
+
+                `${symbols.voice} **${voice.toLocaleString()}** ` +
+                `voice activity recorded\n` +
+
                 `${symbols.level} Currently **Level ${user.level}**\n` +
+
                 `${symbols.rank} Activity ranking **#${rank}**\n` +
-                `${symbols.reputation} Reputation score **${reputation >= 0 ? "+" : ""}${reputation}**`
+
+                `${symbols.reputation} Reputation score **${
+                    reputation >= 0
+                        ? "+"
+                        : ""
+                }${reputation}**`
             )
         );
 
@@ -307,7 +443,9 @@ module.exports = {
         // ========================================================
 
         return message.reply({
-            components: [container],
+            components: [
+                container
+            ],
             flags: MessageFlags.IsComponentsV2
         });
     }
