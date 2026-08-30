@@ -30,7 +30,7 @@ module.exports = {
                             new TextDisplayBuilder().setContent(
                                 "# ✦ ASTER / AUTO REACT\n" +
                                 "### 🔒 Access Denied\n" +
-                                "-# Administrator permission is required to configure Auto React."
+                                "Administrator permission is required to configure Auto React."
                             )
                         )
                 ],
@@ -43,8 +43,71 @@ module.exports = {
         // ========================================================
 
         const action = args[0]?.toLowerCase();
-        const user = message.mentions.users.first()
-    || await message.client.users.fetch(args[1]).catch(() => null);
+
+        // ========================================================
+        // LIST
+        // ========================================================
+
+        if (action === "list") {
+
+            const autoreacts = db.prepare(`
+                SELECT user_id, emoji
+                FROM autoreacts
+                WHERE enabled = 1
+                ORDER BY user_id ASC
+            `).all();
+
+            if (!autoreacts.length) {
+                return message.reply({
+                    components: [
+                        new ContainerBuilder()
+                            .setAccentColor(0xFF4FA3)
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(
+                                    "# ✦ ASTER / AUTO REACT\n" +
+                                    "### 📋 Auto Reactions\n\n" +
+                                    "No auto reactions are currently configured.\n\n" +
+                                    "-# Use `,autoreact enable @user <:emoji>` to add one."
+                                )
+                            )
+                    ],
+                    flags: MessageFlags.IsComponentsV2
+                });
+            }
+
+            const list = autoreacts
+                .map((entry, index) =>
+                    `**${index + 1}.** <@${entry.user_id}> → ${entry.emoji}`
+                )
+                .join("\n");
+
+            return message.reply({
+                components: [
+                    new ContainerBuilder()
+                        .setAccentColor(0xFF4FA3)
+                        .addTextDisplayComponents(
+                            new TextDisplayBuilder().setContent(
+                                "# ✦ ASTER / AUTO REACT\n" +
+                                "### 📋 Configured Reactions\n\n" +
+                                list +
+                                `\n\n-# ${autoreacts.length} auto reaction${autoreacts.length === 1 ? "" : "s"} configured.`
+                            )
+                        )
+                ],
+                flags: MessageFlags.IsComponentsV2,
+                allowedMentions: {
+                    parse: []
+                }
+            });
+        }
+
+        // ========================================================
+        // USER
+        // ========================================================
+
+        const user =
+            message.mentions.users.first() ||
+            await message.client.users.fetch(args[1]).catch(() => null);
 
         // ========================================================
         // USAGE
@@ -60,10 +123,10 @@ module.exports = {
                             new TextDisplayBuilder().setContent(
                                 "# ✦ ASTER / AUTO REACT\n" +
                                 "### ⚙ Usage\n\n" +
-                                "` ,autoreact enable @user <:emoji>`\n" +
-                                "` ,autoreact disable @user`\n\n" +
+                                "`,autoreact enable @user <:emoji>`\n" +
+                                "`,autoreact disable @user`\n" +
+                                "`,autoreact list`\n\n" +
                                 "-# Auto React is an administrator-only feature."
-                                    .replace(/` ,/g, "`,")
                             )
                         )
                 ],
@@ -190,7 +253,8 @@ module.exports = {
                             "### ⚠ Invalid Action\n\n" +
                             "Use:\n" +
                             "`,autoreact enable @user <:emoji>`\n" +
-                            "`,autoreact disable @user`"
+                            "`,autoreact disable @user`\n" +
+                            "`,autoreact list`"
                         )
                     )
             ],
