@@ -13,6 +13,9 @@ const {
     symbols,
     timestamps
 } = require("../utils/asterUI");
+const {
+    getMemberIntelligence
+} = require("../utils/memberIntelligence");
 
 module.exports = {
     name: "rank",
