@@ -45,7 +45,7 @@ module.exports = {
         }
 
         // ========================================================
-        // MESSAGE COUNT
+        // TOTAL CHAT ACTIVITY
         // ========================================================
 
         const messages = db.prepare(`
@@ -56,12 +56,13 @@ module.exports = {
         `).get(targetUser.id).total;
 
         // ========================================================
-        // VOICE ACTIVITY
+        // TOTAL VOICE ACTIVITY
         // ========================================================
 
         let voiceTime = 0;
 
         try {
+
             const voiceData = db.prepare(`
                 SELECT COALESCE(SUM(amount), 0) AS total
                 FROM activity_logs
@@ -69,29 +70,120 @@ module.exports = {
                 AND type = 'voice'
             `).get(targetUser.id);
 
-            voiceTime = voiceData?.total || 0;
+            voiceTime = Number(voiceData?.total || 0);
 
         } catch {
-            voiceTime = user.voice_time || 0;
+
+            voiceTime = Number(user.voice_time || 0);
+
         }
 
         // ========================================================
-        // FORMAT VOICE TIME
+        // RECENT ACTIVITY
+        // ========================================================
+
+        const nowUnix = Math.floor(Date.now() / 1000);
+
+        const last24h = nowUnix - (24 * 60 * 60);
+        const last7d = nowUnix - (7 * 24 * 60 * 60);
+
+        // --------------------------------------------------------
+        // 24H CHAT
+        // --------------------------------------------------------
+
+        const chat24h = db.prepare(`
+            SELECT COALESCE(SUM(amount), 0) AS total
+            FROM activity_logs
+            WHERE user_id = ?
+            AND type = 'chat'
+            AND CAST(created_at AS INTEGER) >= ?
+        `).get(
+            targetUser.id,
+            last24h
+        ).total;
+
+        // --------------------------------------------------------
+        // 7D CHAT
+        // --------------------------------------------------------
+
+        const chat7d = db.prepare(`
+            SELECT COALESCE(SUM(amount), 0) AS total
+            FROM activity_logs
+            WHERE user_id = ?
+            AND type = 'chat'
+            AND CAST(created_at AS INTEGER) >= ?
+        `).get(
+            targetUser.id,
+            last7d
+        ).total;
+
+        // --------------------------------------------------------
+        // 24H VOICE
+        // --------------------------------------------------------
+
+        let voice24h = 0;
+
+        try {
+
+            voice24h = db.prepare(`
+                SELECT COALESCE(SUM(amount), 0) AS total
+                FROM activity_logs
+                WHERE user_id = ?
+                AND type = 'voice'
+                AND CAST(created_at AS INTEGER) >= ?
+            `).get(
+                targetUser.id,
+                last24h
+            ).total || 0;
+
+        } catch {}
+
+        // --------------------------------------------------------
+        // 7D VOICE
+        // --------------------------------------------------------
+
+        let voice7d = 0;
+
+        try {
+
+            voice7d = db.prepare(`
+                SELECT COALESCE(SUM(amount), 0) AS total
+                FROM activity_logs
+                WHERE user_id = ?
+                AND type = 'voice'
+                AND CAST(created_at AS INTEGER) >= ?
+            `).get(
+                targetUser.id,
+                last7d
+            ).total || 0;
+
+        } catch {}
+
+        // ========================================================
+        // VOICE FORMATTER
         // ========================================================
 
         function formatVoiceTime(seconds) {
 
-            if (!seconds || seconds <= 0) {
+            seconds = Number(seconds || 0);
+
+            if (seconds <= 0) {
                 return "0m";
             }
 
-            const totalMinutes = Math.floor(seconds / 60);
+            const totalMinutes =
+                Math.floor(seconds / 60);
 
-            const days = Math.floor(totalMinutes / 1440);
-            const hours = Math.floor(
-                (totalMinutes % 1440) / 60
-            );
-            const minutes = totalMinutes % 60;
+            const days =
+                Math.floor(totalMinutes / 1440);
+
+            const hours =
+                Math.floor(
+                    (totalMinutes % 1440) / 60
+                );
+
+            const minutes =
+                totalMinutes % 60;
 
             const parts = [];
 
@@ -103,7 +195,10 @@ module.exports = {
                 parts.push(`${hours}h`);
             }
 
-            if (minutes > 0 || parts.length === 0) {
+            if (
+                minutes > 0 ||
+                parts.length === 0
+            ) {
                 parts.push(`${minutes}m`);
             }
 
@@ -148,9 +243,7 @@ module.exports = {
                 WHERE voice_time > ?
             `).get(voiceTime).rank;
 
-        } catch {
-            voiceRank = 0;
-        }
+        } catch {}
 
         // ========================================================
         // XP / LEVEL
@@ -184,8 +277,101 @@ module.exports = {
             reputation =
                 Number(repData?.reputation || 0);
 
-        } catch {
-            reputation = 0;
+        } catch {}
+
+        // ========================================================
+        // ACTIVITY TREND
+        // ========================================================
+
+        /*
+         * Compare the average daily chat activity over the
+         * last 7 days against the last 24 hours.
+         */
+
+        const averageDailyChat =
+            Number(chat7d || 0) / 7;
+
+        let trend = `${symbols.pending} Stable`;
+
+        if (averageDailyChat > 0) {
+
+            const ratio =
+                Number(chat24h || 0) /
+                averageDailyChat;
+
+            if (ratio >= 1.35) {
+                trend = `${symbols.positive} Increasing`;
+            } else if (ratio <= 0.65) {
+                trend = `${symbols.negative} Decreasing`;
+            } else {
+                trend = `${symbols.pending} Stable`;
+            }
+        } else if (chat24h > 0) {
+
+            trend = `${symbols.positive} Increasing`;
+        }
+
+        // ========================================================
+        // CHAT / VOICE BALANCE
+        // ========================================================
+
+        const chatActivity =
+            Number(chat7d || 0);
+
+        const voiceActivityHours =
+            Number(voice7d || 0) / 3600;
+
+        let balance = "Balanced";
+
+        if (
+            chatActivity > 0 &&
+            voiceActivityHours > 0
+        ) {
+
+            const ratio =
+                chatActivity /
+                voiceActivityHours;
+
+            if (ratio >= 15) {
+                balance = "Chat focused";
+            } else if (ratio <= 2) {
+                balance = "Voice focused";
+            }
+        } else if (chatActivity > 0) {
+
+            balance = "Chat focused";
+
+        } else if (voiceActivityHours > 0) {
+
+            balance = "Voice focused";
+        }
+
+        // ========================================================
+        // ENGAGEMENT LEVEL
+        // ========================================================
+
+        let engagement = "Low";
+
+        const engagementScore =
+            Math.min(
+                100,
+                Math.floor(
+                    Math.min(Number(chat7d) / 5, 40) +
+                    Math.min(Number(voice7d) / 3600 * 5, 30) +
+                    Math.min(
+                        Math.max(reputation, 0) / 5,
+                        20
+                    ) +
+                    Math.min(level, 10)
+                )
+            );
+
+        if (engagementScore >= 80) {
+            engagement = "Elite";
+        } else if (engagementScore >= 60) {
+            engagement = "High";
+        } else if (engagementScore >= 30) {
+            engagement = "Moderate";
         }
 
         // ========================================================
@@ -197,9 +383,15 @@ module.exports = {
         if (member?.roles?.cache) {
 
             const roles = member.roles.cache
-                .filter(role => role.id !== message.guild.id)
-                .sort((a, b) => b.position - a.position)
-                .map(role => `<@&${role.id}>`);
+                .filter(
+                    role => role.id !== message.guild.id
+                )
+                .sort(
+                    (a, b) => b.position - a.position
+                )
+                .map(
+                    role => `<@&${role.id}>`
+                );
 
             if (roles.length) {
 
@@ -217,7 +409,8 @@ module.exports = {
         // MEMBER STATUS
         // ========================================================
 
-        let status = "Offline";
+        let status =
+            `${symbols.offline} Offline`;
 
         if (member?.presence?.status) {
 
@@ -225,10 +418,18 @@ module.exports = {
                 member.presence.status;
 
             const statusMap = {
-                online: `${symbols.online} Online`,
-                idle: `${symbols.warning} Idle`,
-                dnd: `${symbols.error} Do Not Disturb`,
-                offline: `${symbols.offline} Offline`
+
+                online:
+                    `${symbols.online} Online`,
+
+                idle:
+                    `${symbols.warning} Idle`,
+
+                dnd:
+                    `${symbols.error} Do Not Disturb`,
+
+                offline:
+                    `${symbols.offline} Offline`
             };
 
             status =
@@ -260,26 +461,30 @@ module.exports = {
             member?.joinedAt || null;
 
         // ========================================================
-        // INTELLIGENCE SCORE
+        // ACTIVITY INDEX
         // ========================================================
 
         const intelligenceScore =
             Math.min(
                 100,
                 Math.floor(
-                    Math.min(messages / 10, 40) +
-                    Math.min(voiceTime / 3600, 30) +
-                    Math.min(Math.max(reputation, 0) / 2, 20) +
+                    Math.min(Number(messages) / 10, 40) +
+                    Math.min(Number(voiceTime) / 3600, 30) +
+                    Math.min(
+                        Math.max(reputation, 0) / 2,
+                        20
+                    ) +
                     Math.min(level, 10)
                 )
             );
 
         // ========================================================
-        // ASTER PROFILE CONTAINER
+        // ASTER CONTAINER
         // ========================================================
 
-        const container = new ContainerBuilder()
-            .setAccentColor(0xFF4FA3);
+        const container =
+            new ContainerBuilder()
+                .setAccentColor(0xFF4FA3);
 
         // ========================================================
         // HEADER
@@ -288,7 +493,7 @@ module.exports = {
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `# ${symbols.user} ASTER / MEMBER INTELLIGENCE\n` +
-                `-# Activity, progression and server presence overview`
+                `-# Activity, engagement and progression analysis`
             )
         );
 
@@ -297,7 +502,7 @@ module.exports = {
         );
 
         // ========================================================
-        // MEMBER IDENTITY
+        // IDENTITY
         // ========================================================
 
         container.addSectionComponents(
@@ -312,10 +517,11 @@ module.exports = {
                 .setThumbnailAccessory(
                     new ThumbnailBuilder({
                         media: {
-                            url: targetUser.displayAvatarURL({
-                                extension: "png",
-                                size: 256
-                            })
+                            url:
+                                targetUser.displayAvatarURL({
+                                    extension: "png",
+                                    size: 256
+                                })
                         }
                     })
                 )
@@ -325,19 +531,67 @@ module.exports = {
             new SeparatorBuilder()
         );
 
-
         // ========================================================
-        // ACTIVITY INTELLIGENCE
+        // RECENT ACTIVITY
         // ========================================================
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `### ${symbols.activity} Activity Intelligence\n\n` +
+                `### ${symbols.activity} Recent Activity\n\n` +
+
+                `**${symbols.time} Last 24 Hours**\n` +
+                `${symbols.chat} ${Number(chat24h).toLocaleString()} messages  •  ` +
+                `${symbols.voice} ${formatVoiceTime(voice24h)} voice\n\n` +
+
+                `**${symbols.time} Last 7 Days**\n` +
+                `${symbols.chat} ${Number(chat7d).toLocaleString()} messages  •  ` +
+                `${symbols.voice} ${formatVoiceTime(voice7d)} voice\n\n` +
+
+                `**${symbols.refresh} Trend**\n` +
+                `${trend}`
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        // ========================================================
+        // ENGAGEMENT INTELLIGENCE
+        // ========================================================
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### ${symbols.brand} Engagement Intelligence\n\n` +
+
+                `**${symbols.activity} Engagement**\n` +
+                `${engagement}  •  Score **${engagementScore}/100**\n\n` +
+
+                `**${symbols.chat} / ${symbols.voice} Activity Balance**\n` +
+                `${balance}\n\n` +
+
+                `**${symbols.brand} Activity Index**\n` +
+                `${intelligenceScore}/100`
+            )
+        );
+
+        container.addSeparatorComponents(
+            new SeparatorBuilder()
+        );
+
+        // ========================================================
+        // TOTAL ACTIVITY
+        // ========================================================
+
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `### ${symbols.activity} Lifetime Activity\n\n` +
 
                 `**${symbols.chat} Messages**\n` +
-                `${messages.toLocaleString()}  •  Rank **#${rank}**\n\n` +
+                `${Number(messages).toLocaleString()}  •  ` +
+                `Rank **#${rank}**\n\n` +
 
-                `**${symbols.voice} Voice Activity**\n` +
+                `**${symbols.voice} Voice Time**\n` +
                 `${formatVoiceTime(voiceTime)}` +
                 (
                     voiceRank > 0
@@ -346,7 +600,8 @@ module.exports = {
                 ) + `\n\n` +
 
                 `**${symbols.reputation} Reputation**\n` +
-                `${reputation >= 0 ? "+" : ""}${reputation.toLocaleString()}`
+                `${reputation >= 0 ? "+" : ""}` +
+                `${reputation.toLocaleString()}`
             )
         );
 
@@ -389,22 +644,7 @@ module.exports = {
                 `**${symbols.online} Presence**\n` +
                 `${status}\n\n` +
 
-                `**${symbols.brand} Activity Index**\n` +
-                `${intelligenceScore}/100`
-            )
-        );
-
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        // ========================================================
-        // ROLES
-        // ========================================================
-
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `### ${symbols.staff} Roles\n` +
+                `**${symbols.staff} Roles**\n` +
                 `${roleText}`
             )
         );
@@ -414,7 +654,7 @@ module.exports = {
         );
 
         // ========================================================
-        // ACCOUNT INFORMATION
+        // MEMBER TIMELINE
         // ========================================================
 
         container.addTextDisplayComponents(
