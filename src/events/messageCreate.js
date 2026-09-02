@@ -12,7 +12,6 @@ const activityDB = require("../database/activityLogs");
 const prefix = ",";
 
 const introCooldowns = new Set();
-const cooldowns = new Set();
 const autoresponderCooldowns = new Map();
 
 // ============================================================
@@ -33,20 +32,27 @@ db.prepare(`
 
 module.exports = async (client, message) => {
 
+    // Ignore bots
     if (message.author.bot) return;
 
+    // Ignore DMs
     if (!message.guild) return;
 
-    // ========================================================
-    // MESSAGE TRACKING
-    // ========================================================
-    // Track EVERY human guild message before any feature
-    // can return from this handler.
-    //
-    // This is important for the 24H and 7D leaderboards.
-    // ========================================================
-
     const userId = message.author.id;
+
+    // ========================================================
+    // MESSAGE ACTIVITY TRACKING
+    // ========================================================
+    // EVERY human guild message is counted.
+    //
+    // This happens BEFORE:
+    // - autoresponders
+    // - intro cooldowns
+    // - +rep / -rep
+    // - prefix commands
+    //
+    // No cooldown is allowed to block activity tracking.
+    // ========================================================
 
     try {
 
@@ -128,9 +134,7 @@ module.exports = async (client, message) => {
     }
 
     const emoji =
-        client.autoreacts.get(
-            message.author.id
-        );
+        client.autoreacts.get(userId);
 
     if (emoji) {
 
@@ -191,9 +195,15 @@ module.exports = async (client, message) => {
                     continue;
                 }
 
-                // 5 second cooldown
+                // ====================================================
+                // AUTORESPONDER COOLDOWN
+                // ====================================================
+                // This ONLY prevents repeated autoresponder replies.
+                // It does NOT affect message activity tracking.
+                // ====================================================
+
                 const key =
-                    `${message.guild.id}:${message.author.id}:${trigger}`;
+                    `${message.guild.id}:${userId}:${trigger}`;
 
                 if (
                     autoresponderCooldowns.has(key)
@@ -207,7 +217,11 @@ module.exports = async (client, message) => {
                 );
 
                 setTimeout(() => {
-                    autoresponderCooldowns.delete(key);
+
+                    autoresponderCooldowns.delete(
+                        key
+                    );
+
                 }, 5000);
 
                 try {
@@ -290,10 +304,8 @@ module.exports = async (client, message) => {
     // ========================================================
     // ASTER INTRO
     // ========================================================
-    //
-    // IMPORTANT:
-    // The intro cooldown ONLY controls the intro response.
-    // It must NEVER stop message tracking.
+    // This cooldown ONLY controls the intro response.
+    // It NEVER blocks activity tracking.
     // ========================================================
 
     if (
@@ -309,24 +321,18 @@ module.exports = async (client, message) => {
             );
 
         const introOnCooldown =
-            introCooldowns.has(
-                message.author.id
-            );
+            introCooldowns.has(userId);
 
         if (
             !isAdministrator &&
             !introOnCooldown
         ) {
 
-            introCooldowns.add(
-                message.author.id
-            );
+            introCooldowns.add(userId);
 
             setTimeout(() => {
 
-                introCooldowns.delete(
-                    message.author.id
-                );
+                introCooldowns.delete(userId);
 
             }, 10 * 60 * 1000);
 
@@ -421,10 +427,22 @@ module.exports = async (client, message) => {
                             )
                     );
 
-            return message.reply({
-                components: [container],
-                flags: MessageFlags.IsComponentsV2
-            });
+            try {
+
+                await message.reply({
+                    components: [container],
+                    flags: MessageFlags.IsComponentsV2
+                });
+
+            } catch (error) {
+
+                console.error(
+                    "INTRO ERROR:",
+                    error
+                );
+            }
+
+            return;
         }
     }
 
@@ -439,7 +457,6 @@ module.exports = async (client, message) => {
         content
             .toLowerCase()
             .startsWith("+rep") ||
-
         content
             .toLowerCase()
             .startsWith("-rep")
@@ -480,9 +497,13 @@ module.exports = async (client, message) => {
                 error
             );
 
-            message.reply(
-                "Command error, check console."
-            );
+            try {
+
+                await message.reply(
+                    "Command error, check console."
+                );
+
+            } catch {}
         }
 
         return;
@@ -549,20 +570,12 @@ module.exports = async (client, message) => {
             error
         );
 
-        message.reply(
-            "Command error, check console."
-        );
-    }
+        try {
 
-    // ========================================================
-    // MESSAGE COOLDOWN
-    // ========================================================
+            await message.reply(
+                "Command error, check console."
+            );
 
-    if (
-        cooldowns.has(
-            message.author.id
-        )
-    ) {
-        return;
+        } catch {}
     }
-};
+};git
