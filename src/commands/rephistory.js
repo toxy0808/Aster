@@ -1,12 +1,19 @@
 const {
-    ContainerBuilder,
-    TextDisplayBuilder,
-    SeparatorBuilder,
     MessageFlags
 } = require("discord.js");
 
 const db = require("../database/database");
-const { symbols, timestamps } = require("../utils/asterUI");
+
+const {
+    symbols,
+    timestamps,
+    styles,
+    header,
+    section,
+    stat,
+    separator,
+    container
+} = require("../utils/asterUI");
 
 module.exports = {
     name: "rephistory",
@@ -14,9 +21,9 @@ module.exports = {
 
     async execute(message) {
 
-        // ========================================================
+        // ====================================================
         // FETCH HISTORY
-        // ========================================================
+        // ====================================================
 
         const logs = db.prepare(`
             SELECT
@@ -34,59 +41,54 @@ module.exports = {
             message.author.id
         );
 
-        const container = new ContainerBuilder()
-            .setAccentColor(0xFF4FA3);
+        const components = [
+            header(
+                "ASTER / REP HISTORY",
+                styles.sections.reputation
+            ),
 
-        // ========================================================
-        // HEADER
-        // ========================================================
+            separator()
+        ];
 
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `# ${symbols.history} ASTER / REP HISTORY\n` +
-                `-# Your recent reputation activity`
-            )
-        );
-
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        // ========================================================
-        // NO ACTIVITY
-        // ========================================================
+        // ====================================================
+        // EMPTY STATE
+        // ====================================================
 
         if (!logs.length) {
+            components.push(
+                ...section(
+                    "No Activity",
+                    "No reputation activity yet.",
+                    styles.status.info
+                ),
 
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `### ${symbols.info} No Activity\n` +
-                    "No reputation activity yet."
+                separator(),
+
+                stat(
+                    "Info",
+                    "Your reputation history will appear here.",
+                    symbols.info
+                ),
+
+                separator(),
+
+                stat(
+                    "Checked",
+                    timestamps.now(),
+                    symbols.time
+                ),
+
+                stat(
+                    "System",
+                    `${styles.brand.name} • Reputation System`,
+                    styles.brand.symbol
                 )
             );
 
-            container.addSeparatorComponents(
-                new SeparatorBuilder()
-            );
-
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `-# ${symbols.brand} Your reputation history will appear here.`
-                )
-            );
-
-            container.addSeparatorComponents(
-                new SeparatorBuilder()
-            );
-
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `-# ${symbols.time} Checked ${timestamps.now()}`
-                )
-            );
+            const output = container(...components);
 
             return message.reply({
-                components: [container],
+                components: [output],
                 flags: MessageFlags.IsComponentsV2,
                 allowedMentions: {
                     parse: []
@@ -94,57 +96,65 @@ module.exports = {
             });
         }
 
-        // ========================================================
+        // ====================================================
         // HISTORY
-        // ========================================================
+        // ====================================================
 
-        const lines = [];
-
-        for (const log of logs) {
+        const lines = logs.map(log => {
 
             const received =
                 log.receiver_id === message.author.id;
-
-            const direction =
-                received
-                    ? "↑"
-                    : "↓";
-
-            const amount =
-                received
-                    ? "+1"
-                    : "−1";
 
             const otherUser =
                 received
                     ? log.giver_id
                     : log.receiver_id;
 
-            const timestamp =
-                Math.floor(
-                    new Date(log.created_at).getTime() / 1000
-                );
+            const positive =
+                log.type === "positive";
+
+            const amount =
+                received
+                    ? (positive ? "+1" : "−1")
+                    : (positive ? "−1" : "+1");
+
+            const direction =
+                received
+                    ? "↑"
+                    : "↓";
 
             const symbol =
-                received
+                positive
                     ? symbols.positive
                     : symbols.negative;
 
-            lines.push(
-                `${direction} ${symbol} **${amount} REP**  <@${otherUser}>  ·  <t:${timestamp}:R>`
-            );
-        }
+            const timestamp =
+                new Date(log.created_at).getTime();
 
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `### ${symbols.history} Recent Activity\n\n` +
-                lines.join("\n")
-            )
+            const time =
+                Number.isFinite(timestamp)
+                    ? timestamps.relative(timestamp)
+                    : "unknown time";
+
+            return (
+                `${direction} ${symbol} **${amount} REP**  ` +
+                `<@${otherUser}>  ·  ${time}`
+            );
+        });
+
+        components.push(
+            ...section(
+                "Recent Activity",
+                lines.join("\n"),
+                styles.sections.reputation
+            ),
+
+            separator()
         );
 
-        // ========================================================
+        // ====================================================
         // STATISTICS
-        // ========================================================
+        // ====================================================
 
         const totals = db.prepare(`
             SELECT
@@ -171,35 +181,33 @@ module.exports = {
             message.author.id
         );
 
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `### ${symbols.stats} REP Statistics\n\n` +
+        components.push(
+            ...section(
+                "REP Statistics",
                 `${symbols.positive} **Given**  ·  **${totals.given || 0}**\n` +
-                `${symbols.positive} **Received**  ·  **${totals.received || 0}**`
+                `${symbols.positive} **Received**  ·  **${totals.received || 0}**`,
+                styles.sections.reputation
+            ),
+
+            separator(),
+
+            stat(
+                "Updated",
+                timestamps.now(),
+                symbols.time
+            ),
+
+            stat(
+                "System",
+                `${styles.brand.name} • Reputation System`,
+                styles.brand.symbol
             )
         );
 
-        // ========================================================
-        // FOOTER
-        // ========================================================
-
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `-# ${symbols.time} Updated ${timestamps.now()}\n` +
-                `-# ${symbols.brand} ASTER • Reputation System`
-            )
-        );
+        const output = container(...components);
 
         return message.reply({
-            components: [container],
+            components: [output],
             flags: MessageFlags.IsComponentsV2,
             allowedMentions: {
                 parse: []
