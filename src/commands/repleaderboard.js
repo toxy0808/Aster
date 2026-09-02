@@ -1,5 +1,6 @@
 const {
-    MessageFlags
+    MessageFlags,
+    ContainerBuilder
 } = require("discord.js");
 
 const db = require("../database/database");
@@ -11,9 +12,32 @@ const {
     header,
     section,
     stat,
-    separator,
-    container
+    separator
 } = require("../utils/asterUI");
+
+// ========================================================
+// COMPONENT BUILDER
+// ========================================================
+
+function buildContainer(...components) {
+    const output = new ContainerBuilder();
+
+    for (const component of components.flat()) {
+        if (!component) continue;
+
+        if (component.constructor?.name === "SeparatorBuilder") {
+            output.addSeparatorComponents(component);
+        } else {
+            output.addTextDisplayComponents(component);
+        }
+    }
+
+    return output;
+}
+
+// ========================================================
+// COMMAND
+// ========================================================
 
 module.exports = {
     name: "repleaderboard",
@@ -48,7 +72,7 @@ module.exports = {
 
         if (!users.length) {
             components.push(
-                ...section(
+                section(
                     "No Reputation Data",
                     "There isn't any positive reputation data yet.",
                     styles.status.info
@@ -77,7 +101,7 @@ module.exports = {
                 )
             );
 
-            const output = container(...components);
+            const output = buildContainer(...components);
 
             return message.reply({
                 components: [output],
@@ -97,11 +121,11 @@ module.exports = {
             let rank;
 
             if (index === 0) {
-                rank = "🥇";
+                rank = `${symbols.trophy} **01**`;
             } else if (index === 1) {
-                rank = "🥈";
+                rank = `${symbols.rank} **02**`;
             } else if (index === 2) {
-                rank = "🥉";
+                rank = `${symbols.rank} **03**`;
             } else {
                 rank =
                     `**${String(index + 1).padStart(2, "0")}**`;
@@ -114,7 +138,7 @@ module.exports = {
         });
 
         components.push(
-            ...section(
+            section(
                 "Top 10",
                 lines.join("\n"),
                 styles.sections.leaderboard
@@ -143,7 +167,7 @@ module.exports = {
         `).get(myReputation);
 
         components.push(
-            ...section(
+            section(
                 "Your Standing",
                 `**#${rankResult.rank}**  ·  **${myReputation.toLocaleString()} REP**`,
                 styles.sections.rank
@@ -172,7 +196,7 @@ module.exports = {
             )
         );
 
-        const output = container(...components);
+        const output = buildContainer(...components);
 
         return message.reply({
             components: [output],
