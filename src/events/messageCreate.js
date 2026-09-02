@@ -38,6 +38,76 @@ module.exports = async (client, message) => {
     if (!message.guild) return;
 
     // ========================================================
+    // MESSAGE TRACKING
+    // ========================================================
+    // Track EVERY human guild message before any feature
+    // can return from this handler.
+    //
+    // This is important for the 24H and 7D leaderboards.
+    // ========================================================
+
+    const userId = message.author.id;
+
+    try {
+
+        activityDB.prepare(`
+            INSERT INTO activity_logs
+            (user_id, type, amount)
+            VALUES (?, ?, ?)
+        `).run(
+            userId,
+            "chat",
+            1
+        );
+
+        const user = db.prepare(
+            "SELECT * FROM users WHERE user_id = ?"
+        ).get(userId);
+
+        if (!user) {
+
+            db.prepare(`
+                INSERT INTO users
+                (user_id, messages, voice_time, xp, level)
+                VALUES (?, 1, 0, 10, 1)
+            `).run(userId);
+
+        } else {
+
+            const xpGain =
+                Math.floor(Math.random() * 11) + 5;
+
+            const newXp =
+                user.xp + xpGain;
+
+            const newLevel =
+                Math.floor(
+                    Math.sqrt(newXp / 100)
+                ) + 1;
+
+            db.prepare(`
+                UPDATE users
+                SET
+                    messages = messages + 1,
+                    xp = ?,
+                    level = ?
+                WHERE user_id = ?
+            `).run(
+                newXp,
+                newLevel,
+                userId
+            );
+        }
+
+    } catch (error) {
+
+        console.error(
+            "MESSAGE TRACKING ERROR:",
+            error
+        );
+    }
+
+    // ========================================================
     // AUTO REACTIONS
     // ========================================================
 
@@ -69,188 +139,162 @@ module.exports = async (client, message) => {
             .catch(() => {});
     }
 
-    
-// ========================================================
-// AUTO RESPONDER
-// ========================================================
+    // ========================================================
+    // AUTO RESPONDER
+    // ========================================================
 
-const autoresponderGuild =
-    client.autoresponders?.autoresponders?.get(
-        message.guild.id
-    );
+    const autoresponderGuild =
+        client.autoresponders?.autoresponders?.get(
+            message.guild.id
+        );
 
-if (
-    autoresponderGuild &&
-    autoresponderGuild.size > 0
-) {
+    if (
+        autoresponderGuild &&
+        autoresponderGuild.size > 0
+    ) {
 
-    const messageContent =
-        message.content.trim();
+        const messageContent =
+            message.content.trim();
 
-    if (messageContent) {
+        if (messageContent) {
 
-        const responses =
-            [...autoresponderGuild.entries()]
-                .sort(
-                    (a, b) =>
-                        b[0].length -
-                        a[0].length
-                );
+            const responses =
+                [...autoresponderGuild.entries()]
+                    .sort(
+                        (a, b) =>
+                            b[0].length -
+                            a[0].length
+                    );
 
-        for (
-            const [trigger, response]
-            of responses
-        ) {
-
-            const escapedTrigger =
-                trigger.replace(
-                    /[.*+?^${}()|[\]\\]/g,
-                    "\\$&"
-                );
-
-            const triggerRegex =
-                new RegExp(
-                    `(^|\\s)${escapedTrigger}(?=\\s|$|[!?.,:;'"()\\[\\]{}<>])`,
-                    "i"
-                );
-
-            if (
-                !triggerRegex.test(
-                    messageContent
-                )
+            for (
+                const [trigger, response]
+                of responses
             ) {
-                continue;
-            }
 
-            // 5 second cooldown
-            const key =
-                `${message.guild.id}:${message.author.id}:${trigger}`;
+                const escapedTrigger =
+                    trigger.replace(
+                        /[.*+?^${}()|[\]\\]/g,
+                        "\\$&"
+                    );
 
-            if (
-                autoresponderCooldowns.has(key)
-            ) {
-                continue;
-            }
+                const triggerRegex =
+                    new RegExp(
+                        `(^|\\s)${escapedTrigger}(?=\\s|$|[!?.,:;'"()\\[\\]{}<>])`,
+                        "i"
+                    );
 
-            autoresponderCooldowns.set(
-                key,
-                true
-            );
-
-            setTimeout(() => {
-                autoresponderCooldowns.delete(key);
-            }, 5000);
-
-            try {
-
-                // TEXT
                 if (
-                    response.type === "text"
+                    !triggerRegex.test(
+                        messageContent
+                    )
                 ) {
-
-                    await message.reply({
-                        content: response.content
-                    });
+                    continue;
                 }
 
-                // IMAGE / GIF
-                else if (
-                    response.type === "image" ||
-                    response.type === "gif"
-                ) {
+                // 5 second cooldown
+                const key =
+                    `${message.guild.id}:${message.author.id}:${trigger}`;
 
-                    await message.reply({
-                        files: [
-                            {
-                                attachment: response.content
-                            }
-                        ]
-                    });
+                if (
+                    autoresponderCooldowns.has(key)
+                ) {
+                    continue;
                 }
 
-                // COMPONENTS V2
-                else if (
-                    response.type === "embed"
-                ) {
-
-                    const container =
-                        new ContainerBuilder()
-                            .setAccentColor(0xFF006E)
-
-                            .addTextDisplayComponents(
-                                new TextDisplayBuilder()
-                                    .setContent(
-                                        `# ✦ ASTER\n\n${response.content}`
-                                    )
-                            )
-
-                            .addSeparatorComponents(
-                                new SeparatorBuilder()
-                            )
-
-                            .addTextDisplayComponents(
-                                new TextDisplayBuilder()
-                                    .setContent(
-                                        "-# ASTER • Autoresponder"
-                                    )
-                            );
-
-                    await message.reply({
-                        components: [
-                            container
-                        ],
-                        flags:
-                            MessageFlags.IsComponentsV2
-                    });
-                }
-
-            } catch (error) {
-
-                console.error(
-                    "AUTO-RESPONDER ERROR:",
-                    error
+                autoresponderCooldowns.set(
+                    key,
+                    true
                 );
-            }
 
-            // Only one autoresponder per message
-            break;
+                setTimeout(() => {
+                    autoresponderCooldowns.delete(key);
+                }, 5000);
+
+                try {
+
+                    // TEXT
+                    if (
+                        response.type === "text"
+                    ) {
+
+                        await message.reply({
+                            content: response.content
+                        });
+                    }
+
+                    // IMAGE / GIF
+                    else if (
+                        response.type === "image" ||
+                        response.type === "gif"
+                    ) {
+
+                        await message.reply({
+                            files: [
+                                {
+                                    attachment: response.content
+                                }
+                            ]
+                        });
+                    }
+
+                    // COMPONENTS V2
+                    else if (
+                        response.type === "embed"
+                    ) {
+
+                        const container =
+                            new ContainerBuilder()
+                                .setAccentColor(0xFF006E)
+
+                                .addTextDisplayComponents(
+                                    new TextDisplayBuilder()
+                                        .setContent(
+                                            `# ✦ ASTER\n\n${response.content}`
+                                        )
+                                )
+
+                                .addSeparatorComponents(
+                                    new SeparatorBuilder()
+                                )
+
+                                .addTextDisplayComponents(
+                                    new TextDisplayBuilder()
+                                        .setContent(
+                                            "-# ASTER • Autoresponder"
+                                        )
+                                );
+
+                        await message.reply({
+                            components: [
+                                container
+                            ],
+                            flags:
+                                MessageFlags.IsComponentsV2
+                        });
+                    }
+
+                } catch (error) {
+
+                    console.error(
+                        "AUTO-RESPONDER ERROR:",
+                        error
+                    );
+                }
+
+                // Only one autoresponder per message
+                break;
+            }
         }
     }
-}
 
     // ========================================================
     // ASTER INTRO
     // ========================================================
-
-    if (
-        !message.member.permissions.has(
-            PermissionFlagsBits.Administrator
-        ) &&
-        introCooldowns.has(
-            message.author.id
-        )
-    ) {
-        return;
-    }
-
-    if (
-        !message.member.permissions.has(
-            PermissionFlagsBits.Administrator
-        )
-    ) {
-
-        introCooldowns.add(
-            message.author.id
-        );
-
-        setTimeout(() => {
-
-            introCooldowns.delete(
-                message.author.id
-            );
-
-        }, 10 * 60 * 1000);
-    }
+    //
+    // IMPORTANT:
+    // The intro cooldown ONLY controls the intro response.
+    // It must NEVER stop message tracking.
+    // ========================================================
 
     if (
         message.mentions.users.has(
@@ -259,101 +303,129 @@ if (
         !message.reference
     ) {
 
-        const container =
-            new ContainerBuilder()
-                .setAccentColor(0xFF006E)
+        const isAdministrator =
+            message.member.permissions.has(
+                PermissionFlagsBits.Administrator
+            );
 
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder()
-                        .setContent(
-                            "# ✦ ASTER\n" +
-                            "### Activity • Reputation • Rewards\n\n" +
-                            "Your community assistant for tracking activity, " +
-                            "competition, reputation and server rewards."
-                        )
-                )
+        const introOnCooldown =
+            introCooldowns.has(
+                message.author.id
+            );
 
-                .addSeparatorComponents(
-                    new SeparatorBuilder()
-                )
+        if (
+            !isAdministrator &&
+            !introOnCooldown
+        ) {
 
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder()
-                        .setContent(
-                            "### 📊 Activity\n\n" +
-                            "Track messages, XP, levels and voice activity.\n\n" +
-                            "`,activity` • `,rank` • `,activitylb`"
-                        )
-                )
+            introCooldowns.add(
+                message.author.id
+            );
 
-                .addSeparatorComponents(
-                    new SeparatorBuilder()
-                )
+            setTimeout(() => {
 
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder()
-                        .setContent(
-                            "### 🏆 Leaderboards\n\n" +
-                            "Live **24H** and **7D** activity rankings.\n" +
-                            "Top performers can earn configurable winner roles."
-                        )
-                )
-
-                .addSeparatorComponents(
-                    new SeparatorBuilder()
-                )
-
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder()
-                        .setContent(
-                            "### ✨ Reputation\n\n" +
-                            "Give reputation with `+rep @user`.\n" +
-                            "Remove reputation with `-rep @user`.\n\n" +
-                            "Reputation can unlock configurable role rewards."
-                        )
-                )
-
-                .addSeparatorComponents(
-                    new SeparatorBuilder()
-                )
-
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder()
-                        .setContent(
-                            "### ⚙️ Server Features\n\n" +
-                            "• Automatic reactions\n" +
-                            "• Activity tracking & XP\n" +
-                            "• Activity leaderboard rewards\n" +
-                            "• Reputation rewards\n" +
-                            "• Staff & Funder reputation limits\n" +
-                            "• Custom server configuration"
-                        )
-                )
-
-                .addSeparatorComponents(
-                    new SeparatorBuilder()
-                )
-
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder()
-                        .setContent(
-                            "### 🚀 Getting Started\n\n" +
-                            "Use `,help` to explore the available commands.\n" +
-                            "Administrators can use `,config` to customize ASTER."
-                        )
-                )
-
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder()
-                        .setContent(
-                            "— **ASTER** • Built for communities"
-                        )
+                introCooldowns.delete(
+                    message.author.id
                 );
 
-        return message.reply({
-            components: [container],
-            flags: MessageFlags.IsComponentsV2
-        });
+            }, 10 * 60 * 1000);
+
+            const container =
+                new ContainerBuilder()
+                    .setAccentColor(0xFF006E)
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "# ✦ ASTER\n" +
+                                "### Activity • Reputation • Rewards\n\n" +
+                                "Your community assistant for tracking activity, " +
+                                "competition, reputation and server rewards."
+                            )
+                    )
+
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
+                    )
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "### 📊 Activity\n\n" +
+                                "Track messages, XP, levels and voice activity.\n\n" +
+                                "`,activity` • `,rank` • `,activitylb`"
+                            )
+                    )
+
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
+                    )
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "### 🏆 Leaderboards\n\n" +
+                                "Live **24H** and **7D** activity rankings.\n" +
+                                "Top performers can earn configurable winner roles."
+                            )
+                    )
+
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
+                    )
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "### ✨ Reputation\n\n" +
+                                "Give reputation with `+rep @user`.\n" +
+                                "Remove reputation with `-rep @user`.\n\n" +
+                                "Reputation can unlock configurable role rewards."
+                            )
+                    )
+
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
+                    )
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "### ⚙️ Server Features\n\n" +
+                                "• Automatic reactions\n" +
+                                "• Activity tracking & XP\n" +
+                                "• Activity leaderboard rewards\n" +
+                                "• Reputation rewards\n" +
+                                "• Staff & Funder reputation limits\n" +
+                                "• Custom server configuration"
+                            )
+                    )
+
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
+                    )
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "### 🚀 Getting Started\n\n" +
+                                "Use `,help` to explore the available commands.\n" +
+                                "Administrators can use `,config` to customize ASTER."
+                            )
+                    )
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "— **ASTER** • Built for communities"
+                            )
+                    );
+
+            return message.reply({
+                components: [container],
+                flags: MessageFlags.IsComponentsV2
+            });
+        }
     }
 
     // ========================================================
@@ -414,74 +486,6 @@ if (
         }
 
         return;
-    }
-
-    // ========================================================
-    // MESSAGE TRACKING
-    // ========================================================
-
-    // Track ALL messages, including normal messages that
-    // do not start with the prefix.
-
-    const userId =
-        message.author.id;
-
-    activityDB.prepare(`
-        INSERT INTO activity_logs
-        (user_id, type, amount)
-        VALUES (?, ?, ?)
-    `)
-    .run(
-        userId,
-        "chat",
-        1
-    );
-
-    const user =
-        db.prepare(
-            "SELECT * FROM users WHERE user_id = ?"
-        )
-        .get(userId);
-
-    if (!user) {
-
-        db.prepare(`
-            INSERT INTO users
-            (user_id, messages, voice_time, xp, level)
-            VALUES (?, 1, 0, 10, 1)
-        `)
-        .run(userId);
-
-    } else {
-
-        const xpGain =
-            Math.floor(
-                Math.random() * 11
-            ) + 5;
-
-        const newXp =
-            user.xp + xpGain;
-
-        const newLevel =
-            Math.floor(
-                Math.sqrt(
-                    newXp / 100
-                )
-            ) + 1;
-
-        db.prepare(`
-            UPDATE users
-            SET
-                messages = messages + 1,
-                xp = ?,
-                level = ?
-            WHERE user_id = ?
-        `)
-        .run(
-            newXp,
-            newLevel,
-            userId
-        );
     }
 
     // ========================================================
