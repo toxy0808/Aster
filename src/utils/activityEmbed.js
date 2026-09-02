@@ -3,7 +3,6 @@ const {
 } = require("discord.js");
 
 const symbols = require("./asterUI/symbols");
-const timestamps = require("./asterUI/timestamps");
 const styles = require("./asterUI/styles");
 const sections = require("./asterUI/sections");
 
@@ -243,10 +242,15 @@ function createActivityEmbed(
             ? "Resets daily at midnight"
             : "Resets every Monday";
 
+    // Generate a completely fresh Discord timestamp
+    // every time this leaderboard is rebuilt.
+    const updatedTimestamp =
+        Math.floor(Date.now() / 1000);
+
     container.addTextDisplayComponents(
         sections.text(
             `-# ${symbols.online} LIVE ${styles.text.bullet} ${updateText}\n` +
-            `-# ${symbols.time} Updated ${timestamps.now()}\n` +
+            `-# ${symbols.time} Updated <t:${updatedTimestamp}:f>\n` +
             `-# ${styles.brand.symbol} ${styles.brand.name} Activity System`
         )
     );
