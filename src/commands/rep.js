@@ -1,37 +1,29 @@
 const {
-    ContainerBuilder,
-    TextDisplayBuilder,
-    SeparatorBuilder,
     MessageFlags
 } = require("discord.js");
 
 const db = require("../database/database");
 const { syncRepRewards } = require("../utils/repRewards");
-const { symbols, timestamps } = require("../utils/asterUI");
+
+const {
+    symbols,
+    timestamps,
+    styles,
+    header,
+    section,
+    stat,
+    status,
+    separator,
+    container
+} = require("../utils/asterUI");
 
 const COOLDOWN = 10 * 60 * 1000;
-
-// ========================================================
-// ASTER CUSTOM EMOJIS
-// ========================================================
-
-const EMOJI = {
-    aster: "<a:pinkogniK:1537116042466164868>",
-    rep: "<a:Arrow_setupxD:1537115995171459103>",
-    up: "<a:auraup:15371160755106508892>",
-    down: "<a:4w_PinkArrowDown:1537716113899491358>",
-    leaderboard: "<a:va_red_crown:1537116142211047496>",
-    rank: "<a:01x_diamond:1537116171185164388>",
-    history: "<a:brownclock:1537116208435040388>",
-    stats: "<a:795108partykillerpenguin:1537116231067377734>"
-};
 
 // ========================================================
 // REP CONFIG
 // ========================================================
 
 function getRepConfig(guildId) {
-
     let config = db.prepare(`
         SELECT
             rep_staff_role,
@@ -45,7 +37,6 @@ function getRepConfig(guildId) {
     `).get(guildId);
 
     if (!config) {
-
         db.prepare(`
             INSERT OR IGNORE INTO server_config (
                 guild_id,
@@ -78,14 +69,17 @@ function getRepConfig(guildId) {
 // ========================================================
 
 function getDailyLimit(member, config) {
-
     const isStaff =
-        config.rep_staff_role &&
-        member.roles.cache.has(config.rep_staff_role);
+        Boolean(
+            config.rep_staff_role &&
+            member.roles.cache.has(config.rep_staff_role)
+        );
 
     const isFunder =
-        config.rep_funder_role &&
-        member.roles.cache.has(config.rep_funder_role);
+        Boolean(
+            config.rep_funder_role &&
+            member.roles.cache.has(config.rep_funder_role)
+        );
 
     if (isStaff && isFunder) {
         return config.rep_staff_funder_limit ?? 10;
@@ -107,14 +101,12 @@ function getDailyLimit(member, config) {
 // ========================================================
 
 function resetDaily(user) {
-
     const now = Date.now();
 
     if (
         !user.daily_reset ||
         now - user.daily_reset >= 24 * 60 * 60 * 1000
     ) {
-
         db.prepare(`
             UPDATE reputation
             SET daily_given = 0,
@@ -141,14 +133,13 @@ module.exports = {
 
     async execute(message, args) {
 
+        // ====================================================
+        // VIEW OWN REP
+        // ====================================================
+
         const target = message.mentions.users.first();
 
-        // ========================================================
-        // VIEW REP
-        // ========================================================
-
         if (!target) {
-
             const user = db.prepare(`
                 SELECT reputation
                 FROM reputation
@@ -163,55 +154,45 @@ module.exports = {
                 WHERE reputation > ?
             `).get(reputation).rank;
 
-            const container = new ContainerBuilder()
-                .setAccentColor(0xFF4FA3)
+            const output = container(
+                header(
+                    "ASTER / REP",
+                    styles.headers.command
+                ),
 
-                // HEADER
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(
-                        `# ${EMOJI.aster} ASTER / REP\n` +
-                        `-# ${message.author.username}'s reputation profile`
-                    )
+                separator(),
+
+                ...section(
+                    "Reputation",
+                    `**${symbols.reputation} ${reputation.toLocaleString()} REP**`,
+                    styles.sections.reputation
+                ),
+
+                separator(),
+
+                ...section(
+                    "Server Standing",
+                    `**#${rank}**`,
+                    styles.sections.rank
+                ),
+
+                separator(),
+
+                stat(
+                    "Updated",
+                    timestamps.now(),
+                    symbols.time
+                ),
+
+                stat(
+                    "System",
+                    `${styles.brand.name} • Reputation System`,
+                    styles.brand.symbol
                 )
-
-                .addSeparatorComponents(
-                    new SeparatorBuilder()
-                )
-
-                // REP
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(
-                        `### ${EMOJI.rep} Reputation\n` +
-                        `**${reputation.toLocaleString()} REP**`
-                    )
-                )
-
-                .addSeparatorComponents(
-                    new SeparatorBuilder()
-                )
-
-                // RANK
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(
-                        `### ${EMOJI.rank} Server Standing\n` +
-                        `**#${rank}**`
-                    )
-                )
-
-                .addSeparatorComponents(
-                    new SeparatorBuilder()
-                )
-
-                // FOOTER
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(
-                        `-# ${symbols.time} Updated ${timestamps.now()}\n` +
-                        `-# ${symbols.brand} ASTER • Reputation System`
-                    )
-                );
+            );
 
             return message.reply({
-                components: [container],
+                components: [output],
                 flags: MessageFlags.IsComponentsV2,
                 allowedMentions: {
                     parse: []
@@ -219,9 +200,9 @@ module.exports = {
             });
         }
 
-        // ========================================================
+        // ====================================================
         // VALIDATION
-        // ========================================================
+        // ====================================================
 
         if (target.id === message.author.id) {
             return message.reply(
@@ -235,31 +216,28 @@ module.exports = {
             );
         }
 
-        // ========================================================
+        // ====================================================
         // REP TYPE
-        // ========================================================
+        // ====================================================
 
         const typeArg = args[0]?.toLowerCase();
 
-        let amount = 1;
-
-        if (
+        const amount =
             typeArg === "-" ||
             typeArg === "negative" ||
             typeArg === "neg"
-        ) {
-            amount = -1;
-        }
+                ? -1
+                : 1;
 
-        // ========================================================
+        // ====================================================
         // CONFIG
-        // ========================================================
+        // ====================================================
 
         const config = getRepConfig(message.guild.id);
 
-        // ========================================================
-        // GIVER
-        // ========================================================
+        // ====================================================
+        // GIVER PROFILE
+        // ====================================================
 
         let giver = db.prepare(`
             SELECT *
@@ -268,7 +246,6 @@ module.exports = {
         `).get(message.author.id);
 
         if (!giver) {
-
             db.prepare(`
                 INSERT INTO reputation (
                     user_id,
@@ -279,6 +256,7 @@ module.exports = {
                 VALUES (?, 0, 0, ?)
             `).run(
                 message.author.id,
+                0,
                 Date.now()
             );
 
@@ -289,9 +267,9 @@ module.exports = {
             `).get(message.author.id);
         }
 
-        // ========================================================
+        // ====================================================
         // DAILY RESET
-        // ========================================================
+        // ====================================================
 
         resetDaily(giver);
 
@@ -301,9 +279,9 @@ module.exports = {
             WHERE user_id = ?
         `).get(message.author.id);
 
-        // ========================================================
+        // ====================================================
         // DAILY LIMIT
-        // ========================================================
+        // ====================================================
 
         const limit = getDailyLimit(
             message.member,
@@ -317,15 +295,21 @@ module.exports = {
             );
         }
 
-        // ========================================================
-        // COOLDOWN
-        // ========================================================
+        // ====================================================
+        // PAIR-SPECIFIC COOLDOWN
+        //
+        // ONLY:
+        // giver -> receiver
+        //
+        // Giving REP to another user is unaffected.
+        // +rep and -rep use the same pair cooldown.
+        // ====================================================
 
         const recent = db.prepare(`
             SELECT created_at
             FROM reputation_logs
             WHERE giver_id = ?
-            AND receiver_id = ?
+              AND receiver_id = ?
             ORDER BY id DESC
             LIMIT 1
         `).get(
@@ -334,21 +318,24 @@ module.exports = {
         );
 
         if (recent) {
+            const createdAt = new Date(
+                recent.created_at
+            ).getTime();
 
-            const lastTime =
-                new Date(recent.created_at).getTime();
-
-            if (Date.now() - lastTime < COOLDOWN) {
+            if (
+                Number.isFinite(createdAt) &&
+                Date.now() - createdAt < COOLDOWN
+            ) {
                 return message.reply(
                     `${symbols.pending} Reputation cooldown active.\n` +
-                    `-# Please wait before giving REP to this member again.`
+                    `-# You can REP <@${target.id}> again in **10 minutes**.`
                 );
             }
         }
 
-        // ========================================================
+        // ====================================================
         // TARGET PROFILE
-        // ========================================================
+        // ====================================================
 
         db.prepare(`
             INSERT OR IGNORE INTO reputation (
@@ -363,9 +350,9 @@ module.exports = {
             Date.now()
         );
 
-        // ========================================================
-        // UPDATE REP
-        // ========================================================
+        // ====================================================
+        // UPDATE TARGET
+        // ====================================================
 
         db.prepare(`
             UPDATE reputation
@@ -376,9 +363,9 @@ module.exports = {
             target.id
         );
 
-        // ========================================================
+        // ====================================================
         // UPDATE GIVER
-        // ========================================================
+        // ====================================================
 
         db.prepare(`
             UPDATE reputation
@@ -388,9 +375,9 @@ module.exports = {
             message.author.id
         );
 
-        // ========================================================
+        // ====================================================
         // LOG
-        // ========================================================
+        // ====================================================
 
         db.prepare(`
             INSERT INTO reputation_logs (
@@ -407,9 +394,9 @@ module.exports = {
                 : "negative"
         );
 
-        // ========================================================
-        // UPDATED REP
-        // ========================================================
+        // ====================================================
+        // UPDATED TOTAL
+        // ====================================================
 
         const updated = db.prepare(`
             SELECT reputation
@@ -417,83 +404,73 @@ module.exports = {
             WHERE user_id = ?
         `).get(target.id);
 
-        // ========================================================
+        // ====================================================
         // REWARDS
-        // ========================================================
+        // ====================================================
 
         await syncRepRewards(
             message.guild,
             target.id
         );
 
-        // ========================================================
+        // ====================================================
         // RESULT
-        // ========================================================
+        // ====================================================
 
-        const actionEmoji =
+        const actionSymbol =
             amount > 0
-                ? EMOJI.up
-                : EMOJI.down;
-
-        const action =
-            amount > 0
-                ? "+"
-                : "−";
+                ? symbols.positive
+                : symbols.negative;
 
         const actionLabel =
             amount > 0
                 ? "Positive Reputation"
                 : "Negative Reputation";
 
-        const container = new ContainerBuilder()
-            .setAccentColor(0xFF4FA3)
+        const action =
+            amount > 0
+                ? "+"
+                : "−";
 
-            // HEADER
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `# ${EMOJI.aster} ASTER / REP\n` +
-                    `-# Reputation action completed`
-                )
+        const output = container(
+            header(
+                "ASTER / REP",
+                styles.headers.command
+            ),
+
+            separator(),
+
+            ...status(
+                actionLabel,
+                `<@${target.id}> received **${action}${Math.abs(amount)} REP**`,
+                amount > 0 ? "success" : "warning"
+            ),
+
+            separator(),
+
+            ...section(
+                "New Total",
+                `**${actionSymbol} ${updated.reputation.toLocaleString()} REP**`,
+                styles.sections.reputation
+            ),
+
+            separator(),
+
+            stat(
+                "Updated",
+                timestamps.now(),
+                symbols.time
+            ),
+
+            stat(
+                "System",
+                `${styles.brand.name} • Reputation System`,
+                styles.brand.symbol
             )
-
-            .addSeparatorComponents(
-                new SeparatorBuilder()
-            )
-
-            // ACTION
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `### ${actionEmoji} ${actionLabel}\n` +
-                    `<@${target.id}> received **${action}${Math.abs(amount)} REP**`
-                )
-            )
-
-            .addSeparatorComponents(
-                new SeparatorBuilder()
-            )
-
-            // TOTAL
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `### ${EMOJI.rep} New Total\n` +
-                    `**${updated.reputation.toLocaleString()} REP**`
-                )
-            )
-
-            .addSeparatorComponents(
-                new SeparatorBuilder()
-            )
-
-            // FOOTER
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `-# ${symbols.time} ${timestamps.now()}\n` +
-                    `-# ${symbols.brand} ASTER • Reputation System`
-                )
-            );
+        );
 
         return message.reply({
-            components: [container],
+            components: [output],
             flags: MessageFlags.IsComponentsV2,
             allowedMentions: {
                 parse: []
