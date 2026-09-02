@@ -578,4 +578,4 @@ module.exports = async (client, message) => {
 
         } catch {}
     }
-};git
+};
