@@ -1,5 +1,6 @@
 const {
-    MessageFlags
+    MessageFlags,
+    ContainerBuilder
 } = require("discord.js");
 
 const db = require("../database/database");
@@ -11,9 +12,32 @@ const {
     header,
     section,
     stat,
-    separator,
-    container
+    separator
 } = require("../utils/asterUI");
+
+// ========================================================
+// COMPONENT BUILDER
+// ========================================================
+
+function buildContainer(...components) {
+    const output = new ContainerBuilder();
+
+    for (const component of components.flat()) {
+        if (!component) continue;
+
+        if (component.constructor?.name === "SeparatorBuilder") {
+            output.addSeparatorComponents(component);
+        } else {
+            output.addTextDisplayComponents(component);
+        }
+    }
+
+    return output;
+}
+
+// ========================================================
+// COMMAND
+// ========================================================
 
 module.exports = {
     name: "rephistory",
@@ -56,7 +80,7 @@ module.exports = {
 
         if (!logs.length) {
             components.push(
-                ...section(
+                section(
                     "No Activity",
                     "No reputation activity yet.",
                     styles.status.info
@@ -85,7 +109,7 @@ module.exports = {
                 )
             );
 
-            const output = container(...components);
+            const output = buildContainer(...components);
 
             return message.reply({
                 components: [output],
@@ -113,6 +137,11 @@ module.exports = {
             const positive =
                 log.type === "positive";
 
+            // From the user's perspective:
+            // received positive = +1
+            // received negative = -1
+            // gave positive = -1
+            // gave negative = +1
             const amount =
                 received
                     ? (positive ? "+1" : "−1")
@@ -129,7 +158,15 @@ module.exports = {
                     : symbols.negative;
 
             const timestamp =
-                new Date(log.created_at).getTime();
+                typeof log.created_at === "number"
+                    ? (
+                        log.created_at > 1e12
+                            ? log.created_at
+                            : log.created_at * 1000
+                    )
+                    : new Date(
+                        log.created_at
+                    ).getTime();
 
             const time =
                 Number.isFinite(timestamp)
@@ -143,7 +180,7 @@ module.exports = {
         });
 
         components.push(
-            ...section(
+            section(
                 "Recent Activity",
                 lines.join("\n"),
                 styles.sections.reputation
@@ -182,7 +219,7 @@ module.exports = {
         );
 
         components.push(
-            ...section(
+            section(
                 "REP Statistics",
                 `${symbols.positive} **Given**  ·  **${totals.given || 0}**\n` +
                 `${symbols.positive} **Received**  ·  **${totals.received || 0}**`,
@@ -204,7 +241,7 @@ module.exports = {
             )
         );
 
-        const output = container(...components);
+        const output = buildContainer(...components);
 
         return message.reply({
             components: [output],
