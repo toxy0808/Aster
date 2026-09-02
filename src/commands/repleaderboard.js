@@ -1,23 +1,18 @@
 const {
-    ContainerBuilder,
-    TextDisplayBuilder,
-    SeparatorBuilder,
     MessageFlags
 } = require("discord.js");
 
 const db = require("../database/database");
 
-const EMOJI = {
-    aster: "<a:pinkogniK:1537116042466164868>",
-    rep: "<a:Arrow_setupxD:1537115995171459103>",
-    leaderboard: "<a:va_red_crown:1537116142211047496>",
-    rank: "<a:01x_diamond:1537116171185164388>",
-    stats: "<a:795108partykillerpenguin:1537116231067377734>"
-};
-
 const {
     symbols,
-    timestamps
+    timestamps,
+    styles,
+    header,
+    section,
+    stat,
+    separator,
+    container
 } = require("../utils/asterUI");
 
 module.exports = {
@@ -26,72 +21,66 @@ module.exports = {
 
     async execute(message) {
 
-        // ========================================================
-        // FETCH TOP REP
-        // ========================================================
+        // ====================================================
+        // FETCH TOP 10
+        // ====================================================
 
         const users = db.prepare(`
             SELECT user_id, reputation
             FROM reputation
             WHERE reputation > 0
-            ORDER BY reputation DESC
+            ORDER BY reputation DESC, user_id ASC
             LIMIT 10
         `).all();
 
-        const container = new ContainerBuilder()
-            .setAccentColor(0xFF4FA3);
+        const components = [
+            header(
+                "ASTER / REP LEADERBOARD",
+                styles.sections.leaderboard
+            ),
 
-        // ========================================================
-        // HEADER
-        // ========================================================
+            separator()
+        ];
 
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `# ${EMOJI.leaderboard} ASTER / REP LEADERBOARD\n` +
-                `-# Top reputation holders in the server`
-            )
-        );
-
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        // ========================================================
+        // ====================================================
         // EMPTY STATE
-        // ========================================================
+        // ====================================================
 
         if (!users.length) {
+            components.push(
+                ...section(
+                    "No Reputation Data",
+                    "There isn't any positive reputation data yet.",
+                    styles.status.info
+                ),
 
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `### ${EMOJI.rep} No Reputation Data\n` +
-                    "There isn't any positive reputation data yet."
+                separator(),
+
+                stat(
+                    "Info",
+                    "Start giving REP to populate the leaderboard.",
+                    symbols.info
+                ),
+
+                separator(),
+
+                stat(
+                    "Updated",
+                    timestamps.now(),
+                    symbols.time
+                ),
+
+                stat(
+                    "System",
+                    `${styles.brand.name} • Reputation System`,
+                    styles.brand.symbol
                 )
             );
 
-            container.addSeparatorComponents(
-                new SeparatorBuilder()
-            );
-
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `-# ${symbols.info} Start giving REP to populate the leaderboard.`
-                )
-            );
-
-            container.addSeparatorComponents(
-                new SeparatorBuilder()
-            );
-
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `-# ${symbols.time} Updated ${timestamps.now()}\n` +
-                    `-# ${symbols.brand} ASTER • Reputation System`
-                )
-            );
+            const output = container(...components);
 
             return message.reply({
-                components: [container],
+                components: [output],
                 flags: MessageFlags.IsComponentsV2,
                 allowedMentions: {
                     parse: []
@@ -99,44 +88,44 @@ module.exports = {
             });
         }
 
-        // ========================================================
+        // ====================================================
         // TOP 10
-        // ========================================================
+        // ====================================================
 
-        const lines = [];
-
-        for (let i = 0; i < users.length; i++) {
-
-            const user = users[i];
+        const lines = users.map((user, index) => {
 
             let rank;
 
-            if (i === 0) {
+            if (index === 0) {
                 rank = "🥇";
-            } else if (i === 1) {
+            } else if (index === 1) {
                 rank = "🥈";
-            } else if (i === 2) {
+            } else if (index === 2) {
                 rank = "🥉";
             } else {
                 rank =
-                    `**${String(i + 1).padStart(2, "0")}**`;
+                    `**${String(index + 1).padStart(2, "0")}**`;
             }
 
-            lines.push(
-                `${rank}  <@${user.user_id}>  ·  **${user.reputation.toLocaleString()} REP**`
+            return (
+                `${rank}  <@${user.user_id}>  ·  ` +
+                `**${user.reputation.toLocaleString()} REP**`
             );
-        }
+        });
 
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `### ${EMOJI.leaderboard} Top 10\n\n` +
-                lines.join("\n")
-            )
+        components.push(
+            ...section(
+                "Top 10",
+                lines.join("\n"),
+                styles.sections.leaderboard
+            ),
+
+            separator()
         );
 
-        // ========================================================
+        // ====================================================
         // PERSONAL STANDING
-        // ========================================================
+        // ====================================================
 
         const myRep = db.prepare(`
             SELECT reputation
@@ -153,35 +142,40 @@ module.exports = {
             WHERE reputation > ?
         `).get(myReputation);
 
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
+        components.push(
+            ...section(
+                "Your Standing",
+                `**#${rankResult.rank}**  ·  **${myReputation.toLocaleString()} REP**`,
+                styles.sections.rank
+            ),
 
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `### ${EMOJI.rank} Your Standing\n` +
-                `**#${rankResult.rank}**  ·  **${myReputation.toLocaleString()} REP**\n` +
-                `${EMOJI.stats} Server Ranking`
+            separator(),
+
+            stat(
+                "Ranking",
+                "Server Reputation Ranking",
+                symbols.rank
+            ),
+
+            separator(),
+
+            stat(
+                "Updated",
+                timestamps.now(),
+                symbols.time
+            ),
+
+            stat(
+                "System",
+                `${styles.brand.name} • Reputation System`,
+                styles.brand.symbol
             )
         );
 
-        // ========================================================
-        // FOOTER
-        // ========================================================
-
-        container.addSeparatorComponents(
-            new SeparatorBuilder()
-        );
-
-        container.addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `-# ${symbols.time} Updated ${timestamps.now()}\n` +
-                `-# ${symbols.brand} ASTER • Reputation System`
-            )
-        );
+        const output = container(...components);
 
         return message.reply({
-            components: [container],
+            components: [output],
             flags: MessageFlags.IsComponentsV2,
             allowedMentions: {
                 parse: []
