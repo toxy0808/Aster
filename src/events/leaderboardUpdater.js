@@ -426,14 +426,18 @@ async function sendOrUpdate(channel, type, embed) {
                         old.message_id
                     );
 
-                console.log(`✏️ Updating ${type}`);
+                console.log(`✏️ Updating ${type} — message ${message.id}`);
 
-                await message.edit({
-                    components: [embed],
-                    flags: MessageFlags.IsComponentsV2
-                });
+const editedMessage = await message.edit({
+    components: [embed],
+    flags: MessageFlags.IsComponentsV2
+});
 
-                return true;
+console.log(
+    `✅ ${type} EDIT SUCCESS — message ${editedMessage.id}`
+);
+
+return true;
 
             } catch (error) {
                 if (error.code === 10008) {
