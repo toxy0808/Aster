@@ -1,5 +1,6 @@
 const {
-    MessageFlags
+    MessageFlags,
+    ContainerBuilder
 } = require("discord.js");
 
 const db = require("../database/database");
@@ -13,11 +14,30 @@ const {
     section,
     stat,
     status,
-    separator,
-    container
+    separator
 } = require("../utils/asterUI");
 
 const COOLDOWN = 10 * 60 * 1000;
+
+// ========================================================
+// ASTER COMPONENT BUILDER
+// ========================================================
+
+function buildContainer(...components) {
+    const output = new ContainerBuilder();
+
+    for (const component of components.flat()) {
+        if (!component) continue;
+
+        if (component.constructor?.name === "SeparatorBuilder") {
+            output.addSeparatorComponents(component);
+        } else {
+            output.addTextDisplayComponents(component);
+        }
+    }
+
+    return output;
+}
 
 // ========================================================
 // REP CONFIG
@@ -154,7 +174,7 @@ module.exports = {
                 WHERE reputation > ?
             `).get(reputation).rank;
 
-            const output = container(
+            const output = buildContainer(
                 header(
                     "ASTER / REP",
                     styles.headers.command
@@ -162,7 +182,7 @@ module.exports = {
 
                 separator(),
 
-                ...section(
+                section(
                     "Reputation",
                     `**${symbols.reputation} ${reputation.toLocaleString()} REP**`,
                     styles.sections.reputation
@@ -170,7 +190,7 @@ module.exports = {
 
                 separator(),
 
-                ...section(
+                section(
                     "Server Standing",
                     `**#${rank}**`,
                     styles.sections.rank
@@ -256,7 +276,6 @@ module.exports = {
                 VALUES (?, 0, 0, ?)
             `).run(
                 message.author.id,
-                0,
                 Date.now()
             );
 
@@ -297,12 +316,6 @@ module.exports = {
 
         // ====================================================
         // PAIR-SPECIFIC COOLDOWN
-        //
-        // ONLY:
-        // giver -> receiver
-        //
-        // Giving REP to another user is unaffected.
-        // +rep and -rep use the same pair cooldown.
         // ====================================================
 
         const recent = db.prepare(`
@@ -318,9 +331,16 @@ module.exports = {
         );
 
         if (recent) {
-            const createdAt = new Date(
-                recent.created_at
-            ).getTime();
+            const createdAt =
+                typeof recent.created_at === "number"
+                    ? (
+                        recent.created_at > 1e12
+                            ? recent.created_at
+                            : recent.created_at * 1000
+                    )
+                    : new Date(
+                        recent.created_at
+                    ).getTime();
 
             if (
                 Number.isFinite(createdAt) &&
@@ -432,7 +452,7 @@ module.exports = {
                 ? "+"
                 : "−";
 
-        const output = container(
+        const output = buildContainer(
             header(
                 "ASTER / REP",
                 styles.headers.command
@@ -440,7 +460,7 @@ module.exports = {
 
             separator(),
 
-            ...status(
+            status(
                 actionLabel,
                 `<@${target.id}> received **${action}${Math.abs(amount)} REP**`,
                 amount > 0 ? "success" : "warning"
@@ -448,7 +468,7 @@ module.exports = {
 
             separator(),
 
-            ...section(
+            section(
                 "New Total",
                 `**${actionSymbol} ${updated.reputation.toLocaleString()} REP**`,
                 styles.sections.reputation
