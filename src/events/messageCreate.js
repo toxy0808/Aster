@@ -7,7 +7,6 @@ const {
 } = require("discord.js");
 
 const db = require("../database/database");
-const activityDB = require("../database/activityLogs");
 
 const prefix = ",";
 
@@ -43,20 +42,10 @@ module.exports = async (client, message) => {
     // ========================================================
     // MESSAGE ACTIVITY TRACKING
     // ========================================================
-    // EVERY human guild message is counted.
-    //
-    // This happens BEFORE:
-    // - autoresponders
-    // - intro cooldowns
-    // - +rep / -rep
-    // - prefix commands
-    //
-    // No cooldown is allowed to block activity tracking.
-    // ========================================================
 
     try {
 
-        activityDB.prepare(`
+        db.prepare(`
             INSERT INTO activity_logs
             (user_id, type, amount)
             VALUES (?, ?, ?)
@@ -198,9 +187,6 @@ module.exports = async (client, message) => {
                 // ====================================================
                 // AUTORESPONDER COOLDOWN
                 // ====================================================
-                // This ONLY prevents repeated autoresponder replies.
-                // It does NOT affect message activity tracking.
-                // ====================================================
 
                 const key =
                     `${message.guild.id}:${userId}:${trigger}`;
@@ -303,9 +289,6 @@ module.exports = async (client, message) => {
 
     // ========================================================
     // ASTER INTRO
-    // ========================================================
-    // This cooldown ONLY controls the intro response.
-    // It NEVER blocks activity tracking.
     // ========================================================
 
     if (
