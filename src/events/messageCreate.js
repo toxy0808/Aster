@@ -99,9 +99,9 @@ module.exports = async (client, message) => {
     } catch (error) {
 
         console.error(
-            "MESSAGE TRACKING ERROR:",
-            error
-        );
+    "MESSAGE TRACKING ERROR:",
+    error.stack || error
+);
     }
 
     // ========================================================
