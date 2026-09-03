@@ -31,8 +31,6 @@ db.prepare(`
 
 module.exports = async (client, message) => {
 
-    console.log("MESSAGE EVENT FIRED:", message.author.tag, message.content);
-
     // Ignore bots
     if (message.author.bot) return;
 
