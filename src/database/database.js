@@ -42,34 +42,48 @@ for (const [column, type] of serverConfigColumns) {
 
 
 // =========================
+// USERS
+// =========================
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS users (
+    user_id TEXT PRIMARY KEY,
+    messages INTEGER DEFAULT 0,
+    voice_time INTEGER DEFAULT 0,
+    xp INTEGER DEFAULT 0,
+    level INTEGER DEFAULT 1
+)
+`);
+
+
+// =========================
 // ACTIVITY LOGS
 // =========================
 
-db.prepare(`
+db.exec(`
 CREATE TABLE IF NOT EXISTS activity_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id TEXT,
-    type TEXT,
-    amount INTEGER,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    amount INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )
-`).run();
+`);
 
 
 // =========================
 // REPUTATION
 // =========================
 
-db.prepare(`
+db.exec(`
 CREATE TABLE IF NOT EXISTS reputation (
     user_id TEXT PRIMARY KEY,
     reputation INTEGER DEFAULT 0,
     daily_given INTEGER DEFAULT 0,
     daily_reset INTEGER DEFAULT 0
 )
-`).run();
+`);
 
-// Add new reputation column to existing databases
 try {
     db.prepare(`
         ALTER TABLE reputation
@@ -77,7 +91,6 @@ try {
     `).run();
 } catch {}
 
-// Make sure old positive/negative data is converted
 try {
     db.prepare(`
         UPDATE reputation
@@ -91,7 +104,7 @@ try {
 // REPUTATION LOGS
 // =========================
 
-db.prepare(`
+db.exec(`
 CREATE TABLE IF NOT EXISTS reputation_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     giver_id TEXT NOT NULL,
@@ -99,27 +112,27 @@ CREATE TABLE IF NOT EXISTS reputation_logs (
     type TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )
-`).run();
+`);
+
 
 // =========================
 // REPUTATION REWARDS
 // =========================
 
-db.prepare(`
+db.exec(`
 CREATE TABLE IF NOT EXISTS reputation_rewards (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     guild_id TEXT NOT NULL,
     role_id TEXT NOT NULL,
     threshold INTEGER NOT NULL,
-    type TEXT DEFAULT 'positive'
+    type TEXT DEFAULT 'positive',
+    enabled INTEGER DEFAULT 1
 )
-`).run();
+`);
 
-try {
-    db.prepare(`
-        ALTER TABLE reputation_rewards
-        ADD COLUMN enabled INTEGER DEFAULT 1
-    `).run();
-} catch {}
+
+// =========================
+// EXPORT
+// =========================
 
 module.exports = db;
