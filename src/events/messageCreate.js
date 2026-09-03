@@ -45,61 +45,36 @@ module.exports = async (client, message) => {
 
     try {
 
+        // Log message activity
         db.prepare(`
             INSERT INTO activity_logs
-            (user_id, type, amount)
-            VALUES (?, ?, ?)
-        `).run(
-            userId,
-            "chat",
-            1
-        );
+                (user_id, type, amount)
+            VALUES (?, 'chat', 1)
+        `).run(userId);
 
-        const user = db.prepare(
-            "SELECT * FROM users WHERE user_id = ?"
-        ).get(userId);
-
-        if (!user) {
-
-            db.prepare(`
-                INSERT INTO users
+        // Create user or update existing user
+        db.prepare(`
+            INSERT INTO users
                 (user_id, messages, voice_time, xp, level)
-                VALUES (?, 1, 0, 10, 1)
-            `).run(userId);
+            VALUES (?, 1, 0, 10, 1)
 
-        } else {
+            ON CONFLICT(user_id) DO UPDATE SET
+                messages = users.messages + 1,
+                xp = users.xp + 10,
+                level = CAST(
+                    SQRT((users.xp + 10) / 100.0)
+                    AS INTEGER
+                ) + 1
+        `).run(userId);
 
-            const xpGain =
-                Math.floor(Math.random() * 11) + 5;
-
-            const newXp =
-                user.xp + xpGain;
-
-            const newLevel =
-                Math.floor(
-                    Math.sqrt(newXp / 100)
-                ) + 1;
-
-            db.prepare(`
-                UPDATE users
-                SET
-                    messages = messages + 1,
-                    xp = ?,
-                    level = ?
-                WHERE user_id = ?
-            `).run(
-                newXp,
-                newLevel,
-                userId
-            );
-        }
+        console.log("✦ ASTER TRACKED:", userId);
 
     } catch (error) {
 
         console.error(
-    "MESSAGE TRACKING ERROR:",
-    error.stack || error
-);
+            "MESSAGE TRACKING ERROR:",
+            error.stack || error
+        );
     }
 
     // ========================================================
