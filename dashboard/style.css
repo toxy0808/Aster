@@ -1340,4 +1340,973 @@ footer span:first-child {
     gap: 8px;
   }
 
+
+/* =========================================================
+   ASTER — FINAL PREMIUM POLISH
+   ========================================================= */
+
+/* Glass depth */
+.stat-card,
+.panel,
+.hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+}
+
+.stat-card::before,
+.panel::before,
+.hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+
+    background:
+        linear-gradient(
+            120deg,
+            rgba(255, 255, 255, 0.035),
+            transparent 30%,
+            transparent 70%,
+            rgba(168, 85, 247, 0.025)
+        );
+}
+
+/* Moving card shine */
+.stat-card::after,
+.panel::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -120%;
+    width: 70%;
+    height: 100%;
+    pointer-events: none;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.035),
+            transparent
+        );
+
+    transform: skewX(-20deg);
+    transition: left 0.7s ease;
+}
+
+.stat-card:hover::after,
+.panel:hover::after {
+    left: 140%;
+}
+
+/* Stat value glow */
+.stat-value {
+    text-shadow:
+        0 0 18px rgba(168, 85, 247, 0.08);
+    transition:
+        text-shadow 0.25s ease,
+        transform 0.25s ease;
+}
+
+.stat-card:hover .stat-value {
+    text-shadow:
+        0 0 22px rgba(192, 132, 252, 0.22);
+    transform: translateX(2px);
+}
+
+/* Stronger brand symbol */
+.brand-symbol {
+    position: relative;
+    transition:
+        transform 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+.brand:hover .brand-symbol {
+    transform: rotate(8deg) scale(1.05);
+    box-shadow:
+        0 0 25px rgba(168, 85, 247, 0.25),
+        inset 0 0 15px rgba(168, 85, 247, 0.08);
+}
+
+/* Sidebar active indicator */
+.nav-item.active::before {
+    content: "";
+    position: absolute;
+    left: -1px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+
+    border-radius: 2px;
+
+    background: var(--purple-bright);
+
+    box-shadow:
+        0 0 12px rgba(192, 132, 252, 0.8);
+}
+
+/* Navigation click feedback */
+.nav-item:active {
+    transform: translateX(3px) scale(0.985);
+}
+
+/* Period buttons */
+.period-selector button {
+    transition:
+        color 0.2s ease,
+        background 0.2s ease,
+        transform 0.2s ease;
+}
+
+.period-selector button:hover {
+    color: var(--text);
+    background: rgba(168, 85, 247, 0.08);
+}
+
+.period-selector button:active {
+    transform: scale(0.94);
+}
+
+/* Live badge */
+.live-badge {
+    animation:
+        liveBadgePulse 2.5s ease-in-out infinite;
+}
+
+@keyframes liveBadgePulse {
+    0%,
+    100% {
+        box-shadow:
+            0 0 0 rgba(114, 245, 162, 0);
+    }
+
+    50% {
+        box-shadow:
+            0 0 14px rgba(114, 245, 162, 0.08);
+    }
+}
+
+/* Core orb */
+.core-orb {
+    animation:
+        coreOrbPulse 4s ease-in-out infinite;
+}
+
+@keyframes coreOrbPulse {
+    0%,
+    100% {
+        transform: scale(1);
+        box-shadow:
+            0 0 25px rgba(168, 85, 247, 0.15);
+    }
+
+    50% {
+        transform: scale(1.045);
+        box-shadow:
+            0 0 35px rgba(168, 85, 247, 0.25);
+    }
+}
+
+/* King icons */
+.king-icon {
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.king-card:hover .king-icon {
+    transform: rotate(-5deg) scale(1.08);
+    box-shadow:
+        0 0 18px rgba(168, 85, 247, 0.16);
+}
+
+/* Event rows */
+.event {
+    transition:
+        padding-left 0.2s ease,
+        background 0.2s ease;
+}
+
+.event:hover {
+    padding-left: 5px;
+}
+
+.event:hover .event-symbol {
+    text-shadow:
+        0 0 18px rgba(192, 132, 252, 0.9);
+}
+
+/* Chart animation */
+.chart-line {
+    animation:
+        chartScan 4s ease-in-out infinite;
+}
+
+@keyframes chartScan {
+    0%,
+    100% {
+        opacity: 0.45;
+        transform: rotate(-2deg) translateX(-2%);
+    }
+
+    50% {
+        opacity: 0.9;
+        transform: rotate(-2deg) translateX(2%);
+    }
+}
+
+/* Staggered card entrance */
+.stats .stat-card:nth-child(1) {
+    animation-delay: 0.05s;
+}
+
+.stats .stat-card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.stats .stat-card:nth-child(3) {
+    animation-delay: 0.15s;
+}
+
+.stats .stat-card:nth-child(4) {
+    animation-delay: 0.2s;
+}
+
+.dashboard-grid .panel:nth-child(1) {
+    animation-delay: 0.25s;
+}
+
+.dashboard-grid .panel:nth-child(2) {
+    animation-delay: 0.3s;
+}
+
+.bottom-grid .panel:nth-child(1) {
+    animation-delay: 0.35s;
+}
+
+.bottom-grid .panel:nth-child(2) {
+    animation-delay: 0.4s;
+}
+
+/* Better mobile cards */
+@media (max-width: 560px) {
+    .stat-card {
+        min-height: 120px;
+    }
+
+    .stat-value {
+        font-size: 25px;
+    }
+
+    .panel {
+        padding: 17px;
+    }
+
+    .hero {
+        min-height: 165px;
+    }
+
+    .hero p {
+        font-size: 11px;
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .live-badge,
+    .core-orb,
+    .chart-line {
+        animation: none !important;
+    }
+}
+
+/* =========================================================
+   ASTER — VIEW TRANSITIONS
+   ========================================================= */
+
+.dashboard-view {
+    animation: viewEnter 0.35s ease both;
+}
+
+@keyframes viewEnter {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+        filter: blur(2px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+
+/* Smooth dashboard content */
+.main {
+    animation: mainEnter 0.55s ease both;
+}
+
+@keyframes mainEnter {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Keep animations disabled for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-view,
+    .main {
+        animation: none !important;
+    }
+}
+
+/* =========================================================
+   ASTER — SIDEBAR PREMIUM POLISH
+   ========================================================= */
+
+.sidebar {
+    box-shadow:
+        12px 0 40px rgba(0, 0, 0, 0.18);
+}
+
+.nav-item {
+    overflow: hidden;
+}
+
+.nav-item::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(192, 132, 252, 0.055),
+            transparent
+        );
+
+    transform: translateX(-110%);
+    transition: transform 0.45s ease;
+
+    pointer-events: none;
+}
+
+.nav-item:hover::after {
+    transform: translateX(110%);
+}
+
+.nav-item.active {
+    box-shadow:
+        inset 1px 0 0 var(--purple),
+        0 0 20px rgba(168, 85, 247, 0.035);
+}
+
+.nav-item.active span {
+    filter:
+        drop-shadow(
+            0 0 5px rgba(192, 132, 252, 0.35)
+        );
+}
+
+.sidebar-footer {
+    transition:
+        border-color 0.25s ease,
+        background 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.sidebar-footer:hover {
+    border-color:
+        rgba(114, 245, 162, 0.16);
+
+    background:
+        rgba(114, 245, 162, 0.04);
+
+    box-shadow:
+        0 0 20px rgba(114, 245, 162, 0.035);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nav-item::after {
+        transition: none;
+    }
+}
+
+/* =========================================================
+   ASTER — STAT CARD MICRO-INTERACTIONS
+   ========================================================= */
+
+.stat-card {
+    position: relative;
+    transition:
+        transform 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.stat-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    background:
+        radial-gradient(
+            circle at 50% 0%,
+            rgba(168, 85, 247, 0.10),
+            transparent 65%
+        );
+
+    opacity: 0;
+    transition: opacity 0.3s ease;
+
+    pointer-events: none;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+
+    border-color:
+        rgba(168, 85, 247, 0.24);
+
+    box-shadow:
+        0 14px 35px rgba(0, 0, 0, 0.25),
+        0 0 25px rgba(168, 85, 247, 0.06);
+}
+
+.stat-card:hover::before {
+    opacity: 1;
+}
+
+.stat-card .stat-value {
+    transition:
+        text-shadow 0.25s ease;
+}
+
+.stat-card:hover .stat-value {
+    text-shadow:
+        0 0 18px rgba(192, 132, 252, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stat-card,
+    .stat-card::before,
+    .stat-card .stat-value {
+        transition: none;
+    }
+
+    .stat-card:hover {
+        transform: none;
+    }
+}
+
+
+/* =========================================================
+   ASTER — ACTIVITY CHART POLISH
+   ========================================================= */
+
+.chart-bars {
+    isolation: isolate;
+}
+
+.chart-bars span {
+    position: relative;
+    overflow: hidden;
+
+    background:
+        linear-gradient(
+            to top,
+            rgba(168, 85, 247, 0.10),
+            rgba(192, 132, 252, 0.72)
+        );
+
+    box-shadow:
+        0 0 12px rgba(168, 85, 247, 0.10);
+
+    transform-origin: bottom;
+    transition:
+        height 0.45s ease,
+        opacity 0.25s ease,
+        filter 0.25s ease,
+        transform 0.25s ease;
+}
+
+.chart-bars span::after {
+    content: "";
+
+    position: absolute;
+    top: 0;
+    left: -100%;
+
+    width: 60%;
+    height: 100%;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.18),
+            transparent
+        );
+
+    animation: chartShine 3.5s ease-in-out infinite;
+}
+
+.chart-bars span:hover {
+    opacity: 1;
+    filter:
+        brightness(1.25)
+        drop-shadow(0 0 7px rgba(192, 132, 252, 0.35));
+
+    transform:
+        scaleX(1.25);
+}
+
+@keyframes chartShine {
+    0% {
+        left: -100%;
+    }
+
+    45%,
+    100% {
+        left: 160%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chart-bars span {
+        transition: none;
+    }
+
+    .chart-bars span::after {
+        animation: none;
+    }
+
+    .chart-bars span:hover {
+        transform: none;
+    }
+}
+
+/* =========================================================
+   ASTER — LIVE VALUE REFRESH
+   ========================================================= */
+
+.value-refresh {
+    animation: valueRefresh 0.45s ease both;
+}
+
+@keyframes valueRefresh {
+    0% {
+        opacity: 0.65;
+        transform: translateY(3px);
+        filter: blur(1px);
+    }
+
+    55% {
+        opacity: 1;
+        transform: translateY(-1px);
+        filter: blur(0);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .value-refresh {
+        animation: none;
+    }
+}
+
+/* =========================================================
+   ASTER — LIVE STATUS POLISH
+   ========================================================= */
+
+.live-badge {
+    position: relative;
+    overflow: hidden;
+
+    transition:
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.live-badge::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    background:
+        linear-gradient(
+            110deg,
+            transparent 20%,
+            rgba(114, 245, 162, 0.08) 50%,
+            transparent 80%
+        );
+
+    transform: translateX(-120%);
+    animation: liveSweep 4s ease-in-out infinite;
+}
+
+.live-badge::after {
+    content: "";
+
+    position: absolute;
+
+    width: 6px;
+    height: 6px;
+
+    border-radius: 50%;
+
+    background: #72f5a2;
+
+    box-shadow:
+        0 0 7px rgba(114, 245, 162, 0.8),
+        0 0 14px rgba(114, 245, 162, 0.35);
+
+    animation: liveDot 1.8s ease-in-out infinite;
+}
+
+@keyframes liveSweep {
+    0%,
+    55% {
+        transform: translateX(-120%);
+    }
+
+    75%,
+    100% {
+        transform: translateX(120%);
+    }
+}
+
+@keyframes liveDot {
+    0%,
+    100% {
+        opacity: 0.65;
+        transform: scale(0.9);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.15);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .live-badge::before,
+    .live-badge::after {
+        animation: none;
+    }
+}
+
+/* =========================================================
+   ASTER — CORE ENERGY POLISH
+   ========================================================= */
+
+.core-panel {
+    position: relative;
+    overflow: hidden;
+}
+
+.core-panel::before {
+    content: "";
+
+    position: absolute;
+    width: 320px;
+    height: 320px;
+
+    left: 50%;
+    top: 50%;
+
+    transform: translate(-50%, -50%);
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(168, 85, 247, 0.10),
+            rgba(168, 85, 247, 0.035) 35%,
+            transparent 70%
+        );
+
+    pointer-events: none;
+
+    animation:
+        coreAmbient 5s ease-in-out infinite;
+}
+
+.core-orb {
+    animation:
+        coreOrbPulse 3.5s ease-in-out infinite;
+}
+
+@keyframes coreAmbient {
+    0%,
+    100% {
+        opacity: 0.55;
+        transform: translate(-50%, -50%) scale(0.92);
+    }
+
+    50% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.08);
+    }
+}
+
+@keyframes coreOrbPulse {
+    0%,
+    100% {
+        filter:
+            drop-shadow(
+                0 0 8px rgba(168, 85, 247, 0.18)
+            );
+    }
+
+    50% {
+        filter:
+            drop-shadow(
+                0 0 20px rgba(168, 85, 247, 0.42)
+            );
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .core-panel::before,
+    .core-orb {
+        animation: none;
+    }
+}
+
+
+/* =========================================================
+   ASTER — KING CARD POLISH
+   ========================================================= */
+
+.king-card {
+    position: relative;
+    overflow: hidden;
+
+    transition:
+        transform 0.3s ease,
+        border-color 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+.king-card::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    background:
+        radial-gradient(
+            circle at 15% 50%,
+            rgba(168, 85, 247, 0.08),
+            transparent 55%
+        );
+
+    opacity: 0;
+    transition: opacity 0.3s ease;
+
+    pointer-events: none;
+}
+
+.king-card:hover {
+    transform: translateY(-3px);
+
+    border-color:
+        rgba(168, 85, 247, 0.22);
+
+    box-shadow:
+        0 12px 30px rgba(0, 0, 0, 0.22),
+        0 0 24px rgba(168, 85, 247, 0.05);
+}
+
+.king-card:hover::before {
+    opacity: 1;
+}
+
+.king-card .king-icon {
+    transition:
+        transform 0.3s ease,
+        filter 0.3s ease;
+}
+
+.king-card:hover .king-icon {
+    transform:
+        scale(1.08)
+        rotate(-3deg);
+
+    filter:
+        drop-shadow(
+            0 0 10px rgba(192, 132, 252, 0.3)
+        );
+}
+
+.king-card .king-value {
+    transition:
+        text-shadow 0.3s ease;
+}
+
+.king-card:hover .king-value {
+    text-shadow:
+        0 0 16px rgba(192, 132, 252, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .king-card,
+    .king-card::before,
+    .king-card .king-icon,
+    .king-card .king-value {
+        transition: none;
+    }
+
+    .king-card:hover {
+        transform: none;
+    }
+
+    .king-card:hover .king-icon {
+        transform: none;
+    }
+}
+
+
+
+/* =========================================================
+   ASTER — EVENT ROW POLISH
+   ========================================================= */
+
+.event-row {
+    position: relative;
+    overflow: hidden;
+
+    transition:
+        transform 0.25s ease,
+        background 0.25s ease,
+        border-color 0.25s ease;
+}
+
+.event-row::after {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(168, 85, 247, 0.055),
+            transparent
+        );
+
+    transform: translateX(-120%);
+    transition: transform 0.45s ease;
+
+    pointer-events: none;
+}
+
+.event-row:hover {
+    transform: translateX(3px);
+
+    background:
+        rgba(168, 85, 247, 0.035);
+
+    border-color:
+        rgba(168, 85, 247, 0.16);
+}
+
+.event-row:hover::after {
+    transform: translateX(120%);
+}
+
+.event-row .event-icon {
+    transition:
+        transform 0.25s ease,
+        filter 0.25s ease;
+}
+
+.event-row:hover .event-icon {
+    transform: scale(1.08);
+
+    filter:
+        drop-shadow(
+            0 0 7px rgba(192, 132, 252, 0.3)
+        );
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .event-row,
+    .event-row::after,
+    .event-row .event-icon {
+        transition: none;
+    }
+
+    .event-row:hover {
+        transform: none;
+    }
+}
+
+
+
+/* =========================================================
+   ASTER — BACKGROUND REFRESH STATE
+   ========================================================= */
+
+.dashboard-refreshing::after {
+    content: "";
+
+    position: fixed;
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 2px;
+
+    z-index: 9999;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(168, 85, 247, 0.9),
+            transparent
+        );
+
+    box-shadow:
+        0 0 12px rgba(168, 85, 247, 0.45);
+
+    animation:
+        refreshSweep 0.7s ease-in-out;
+    pointer-events: none;
+}
+
+@keyframes refreshSweep {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(100%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-refreshing::after {
+        animation: none;
+    }
+}
+
 }

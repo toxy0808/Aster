@@ -151,46 +151,82 @@ app.get("/api/overview", (req, res) => {
 
 app.get("/api/activity", (req, res) => {
     try {
+        const period =
+            String(req.query.period || "24h").toLowerCase();
+
+        const periods = {
+            "24h": {
+                modifier: "-24 hours",
+                format: "%H"
+            },
+
+            "7d": {
+                modifier: "-7 days",
+                format: "%Y-%m-%d"
+            },
+
+            "30d": {
+                modifier: "-30 days",
+                format: "%Y-%m-%d"
+            }
+        };
+
+        const selected =
+            periods[period] || periods["24h"];
+
         const rows = db.prepare(`
             SELECT
-                strftime('%H', created_at) AS hour,
+                strftime(
+                    '${selected.format}',
+                    created_at
+                ) AS bucket,
                 type,
                 COALESCE(SUM(amount), 0) AS amount
             FROM activity_logs
-            WHERE created_at >= datetime('now', '-24 hours')
+            WHERE created_at >= datetime(
+                'now',
+                '${selected.modifier}'
+            )
               AND user_id != 'TEST'
-            GROUP BY hour, type
-            ORDER BY hour ASC
+            GROUP BY bucket, type
+            ORDER BY bucket ASC
         `).all();
 
-        const activity = [];
+        const buckets = new Map();
 
-        for (let hour = 0; hour < 24; hour++) {
-            const hourString =
-                String(hour).padStart(2, "0");
+        for (const row of rows) {
+            if (!buckets.has(row.bucket)) {
+                buckets.set(row.bucket, {
+                    bucket: row.bucket,
+                    chat: 0,
+                    voice: 0
+                });
+            }
 
-            const chat = rows.find(
-                row =>
-                    row.hour === hourString &&
-                    row.type === "chat"
-            );
+            const entry =
+                buckets.get(row.bucket);
 
-            const voice = rows.find(
-                row =>
-                    row.hour === hourString &&
-                    row.type === "voice"
-            );
+            if (row.type === "chat") {
+                entry.chat =
+                    Number(row.amount) || 0;
+            }
 
-            activity.push({
-                hour: hourString,
-                chat: Number(chat?.amount || 0),
-                voice: Number(voice?.amount || 0)
-            });
+            if (row.type === "voice") {
+                entry.voice =
+                    Number(row.amount) || 0;
+            }
         }
 
         res.json({
-            period: "24H",
-            activity
+            period:
+                period === "7d"
+                    ? "7D"
+                    : period === "30d"
+                        ? "30D"
+                        : "24H",
+
+            activity:
+                Array.from(buckets.values())
         });
 
     } catch (error) {
