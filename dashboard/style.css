@@ -1339,7 +1339,7 @@ footer span:first-child {
 
     gap: 8px;
   }
-
+}
 
 /* =========================================================
    ASTER — FINAL PREMIUM POLISH
@@ -2309,4 +2309,308 @@ footer span:first-child {
     }
 }
 
+
+/* =========================================================
+   ASTER — MOBILE DASHBOARD POLISH
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+    .sidebar {
+        width: 72px;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .sidebar .brand-text,
+    .sidebar .nav-label,
+    .sidebar-footer .status-text {
+        display: none;
+    }
+
+    .sidebar .brand {
+        justify-content: center;
+    }
+
+    .nav-item {
+        justify-content: center;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .main {
+        margin-left: 72px;
+        width: calc(100% - 72px);
+    }
+
+    .dashboard-header,
+    .hero,
+    .panel {
+        border-radius: 16px;
+    }
+
+    .stats-grid {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .content-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+
+    .sidebar {
+        width: 58px;
+    }
+
+    .main {
+        margin-left: 58px;
+        width: calc(100% - 58px);
+        padding: 14px;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .hero {
+        padding: 18px;
+    }
+
+    .hero h1 {
+        font-size: 1.5rem;
+    }
+
+    .panel {
+        padding: 14px;
+    }
+
+    .period-selector {
+        width: 100%;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .period-selector::-webkit-scrollbar {
+        display: none;
+    }
+
+    .period-selector button {
+        flex: 0 0 auto;
+    }
+
+    .chart-bars {
+        padding: 0 6px;
+    }
+
+    .chart-bars span {
+        width: 3.5%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nav-item,
+    .stat-card,
+    .panel {
+        transition: none;
+    }
+}
+
+
+/* =========================================================
+   ASTER — AMBIENT BACKGROUND DEPTH
+   ========================================================= */
+
+body::before {
+    content: "";
+
+    position: fixed;
+    inset: 0;
+
+    pointer-events: none;
+    z-index: -1;
+
+    background:
+        radial-gradient(
+            circle at 18% 18%,
+            rgba(168, 85, 247, 0.045),
+            transparent 28%
+        ),
+        radial-gradient(
+            circle at 82% 72%,
+            rgba(99, 102, 241, 0.035),
+            transparent 30%
+        );
+
+    animation:
+        ambientDrift 14s ease-in-out infinite alternate;
+}
+
+@keyframes ambientDrift {
+    from {
+        transform: scale(1);
+        opacity: 0.7;
+    }
+
+    to {
+        transform: scale(1.08);
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body::before {
+        animation: none;
+    }
+}
+
+
+/* =========================================================
+   ASTER — NAV ICON POLISH
+   ========================================================= */
+
+.nav-item span:first-child {
+    transition:
+        transform 0.25s ease,
+        filter 0.25s ease;
+}
+
+.nav-item:hover span:first-child {
+    transform: scale(1.08);
+    filter:
+        drop-shadow(
+            0 0 7px rgba(192, 132, 252, 0.28)
+        );
+}
+
+.nav-item.active span:first-child {
+    filter:
+        drop-shadow(
+            0 0 9px rgba(168, 85, 247, 0.42)
+        );
+}
+
+.nav-item:active span:first-child {
+    transform: scale(0.94);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nav-item span:first-child {
+        transition: none;
+    }
+
+    .nav-item:hover span:first-child,
+    .nav-item:active span:first-child {
+        transform: none;
+    }
+}
+
+/* =========================================================
+   ASTER — PANEL DEPTH POLISH
+   ========================================================= */
+
+.panel {
+    position: relative;
+    transition:
+        transform 0.3s ease,
+        border-color 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+.panel::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    border-radius: inherit;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(192, 132, 252, 0.035),
+            transparent 35%
+        );
+
+    opacity: 0;
+    transition: opacity 0.3s ease;
+
+    pointer-events: none;
+}
+
+.panel:hover {
+    transform: translateY(-2px);
+
+    border-color:
+        rgba(168, 85, 247, 0.14);
+
+    box-shadow:
+        0 14px 35px rgba(0, 0, 0, 0.18),
+        0 0 24px rgba(168, 85, 247, 0.035);
+}
+
+.panel:hover::before {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .panel,
+    .panel::before {
+        transition: none;
+    }
+
+    .panel:hover {
+        transform: none;
+    }
+}
+
+/* =========================================================
+   ASTER — INTERACTIVE GLOW
+   ========================================================= */
+
+.stat-card,
+.panel,
+.king-card {
+    --mouse-x: 50%;
+    --mouse-y: 50%;
+}
+
+.stat-card::after,
+.panel::after,
+.king-card::after {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    border-radius: inherit;
+
+    background:
+        radial-gradient(
+            220px circle at var(--mouse-x) var(--mouse-y),
+            rgba(192, 132, 252, 0.08),
+            transparent 65%
+        );
+
+    opacity: 0;
+    transition: opacity 0.25s ease;
+
+    pointer-events: none;
+}
+
+.stat-card:hover::after,
+.panel:hover::after,
+.king-card:hover::after {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stat-card::after,
+    .panel::after,
+    .king-card::after {
+        transition: none;
+    }
 }

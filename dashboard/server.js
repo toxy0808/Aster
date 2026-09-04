@@ -154,79 +154,108 @@ app.get("/api/activity", (req, res) => {
         const period =
             String(req.query.period || "24h").toLowerCase();
 
-        const periods = {
-            "24h": {
-                modifier: "-24 hours",
-                format: "%H"
-            },
+        if (period === "24h") {
+            const rows = db.prepare(`
+                SELECT
+                    strftime('%H', created_at) AS hour,
+                    type,
+                    COALESCE(SUM(amount), 0) AS amount
+                FROM activity_logs
+                WHERE created_at >= datetime('now', '-24 hours')
+                  AND user_id != 'TEST'
+                GROUP BY hour, type
+                ORDER BY hour ASC
+            `).all();
 
-            "7d": {
-                modifier: "-7 days",
-                format: "%Y-%m-%d"
-            },
+            const activity = [];
 
-            "30d": {
-                modifier: "-30 days",
-                format: "%Y-%m-%d"
-            }
-        };
+            for (let hour = 0; hour < 24; hour++) {
+                const hourString =
+                    String(hour).padStart(2, "0");
 
-        const selected =
-            periods[period] || periods["24h"];
+                const chat =
+                    rows.find(
+                        row =>
+                            row.hour === hourString &&
+                            row.type === "chat"
+                    );
 
-        const rows = db.prepare(`
-            SELECT
-                strftime(
-                    '${selected.format}',
-                    created_at
-                ) AS bucket,
-                type,
-                COALESCE(SUM(amount), 0) AS amount
-            FROM activity_logs
-            WHERE created_at >= datetime(
-                'now',
-                '${selected.modifier}'
-            )
-              AND user_id != 'TEST'
-            GROUP BY bucket, type
-            ORDER BY bucket ASC
-        `).all();
+                const voice =
+                    rows.find(
+                        row =>
+                            row.hour === hourString &&
+                            row.type === "voice"
+                    );
 
-        const buckets = new Map();
-
-        for (const row of rows) {
-            if (!buckets.has(row.bucket)) {
-                buckets.set(row.bucket, {
-                    bucket: row.bucket,
-                    chat: 0,
-                    voice: 0
+                activity.push({
+                    hour: hourString,
+                    chat: Number(chat?.amount) || 0,
+                    voice: Number(voice?.amount) || 0
                 });
             }
 
-            const entry =
-                buckets.get(row.bucket);
-
-            if (row.type === "chat") {
-                entry.chat =
-                    Number(row.amount) || 0;
-            }
-
-            if (row.type === "voice") {
-                entry.voice =
-                    Number(row.amount) || 0;
-            }
+            return res.json({
+                period: "24H",
+                activity
+            });
         }
+
+        const days =
+            period === "30d" ? 30 : 7;
+
+        const rows = db.prepare(`
+            SELECT
+                strftime('%Y-%m-%d', created_at) AS day,
+                type,
+                COALESCE(SUM(amount), 0) AS amount
+            FROM activity_logs
+            WHERE created_at >= datetime('now', ?)
+              AND user_id != 'TEST'
+            GROUP BY day, type
+            ORDER BY day ASC
+        `).all(`-${days} days`);
+
+        const activity = rows.reduce(
+            (result, row) => {
+
+                let entry =
+                    result.find(
+                        item => item.day === row.day
+                    );
+
+                if (!entry) {
+                    entry = {
+                        day: row.day,
+                        chat: 0,
+                        voice: 0
+                    };
+
+                    result.push(entry);
+                }
+
+                if (row.type === "chat") {
+                    entry.chat =
+                        Number(row.amount) || 0;
+                }
+
+                if (row.type === "voice") {
+                    entry.voice =
+                        Number(row.amount) || 0;
+                }
+
+                return result;
+
+            },
+            []
+        );
 
         res.json({
             period:
-                period === "7d"
-                    ? "7D"
-                    : period === "30d"
-                        ? "30D"
-                        : "24H",
+                period === "30d"
+                    ? "30D"
+                    : "7D",
 
-            activity:
-                Array.from(buckets.values())
+            activity
         });
 
     } catch (error) {
