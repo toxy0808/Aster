@@ -160,9 +160,15 @@ if (interaction.customId === "set_log_channel") {
         interaction.guild.id
     );
 
-    // Log the configuration change
-    const asterLogger = require("../utils/asterLogger");
+    // Acknowledge Discord immediately
+    await interaction.update({
+        content:
+            `✦ **ASTER Logging configured.**\n\n` +
+            `Log channel: <#${channelId}>`,
+        components: []
+    });
 
+    // Log after the interaction has been acknowledged
     await asterLogger.config(
         interaction.guild.id,
         "Logging Channel Updated",
@@ -174,12 +180,7 @@ if (interaction.customId === "set_log_channel") {
         }
     );
 
-    return interaction.update({
-        content:
-            `✦ **ASTER Logging configured.**\n\n` +
-            `Log channel: <#${channelId}>`,
-        components: []
-    });
+    return;
 }
 
 
