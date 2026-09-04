@@ -271,6 +271,72 @@ app.get("/api/activity", (req, res) => {
 });
 
 
+
+// =========================
+// ASTER MEMBERS API
+// =========================
+
+app.get("/api/members", (req, res) => {
+    try {
+        const search =
+            String(req.query.search || "").trim();
+
+        const limit = 50;
+
+        let rows;
+
+        if (search) {
+            rows = db.prepare(`
+                SELECT
+                    user_id,
+                    messages,
+                    voice_time,
+                    xp,
+                    level
+                FROM users
+                WHERE user_id != 'TEST'
+                  AND user_id LIKE ?
+                ORDER BY xp DESC
+                LIMIT ?
+            `).all(`%${search}%`, limit);
+        } else {
+            rows = db.prepare(`
+                SELECT
+                    user_id,
+                    messages,
+                    voice_time,
+                    xp,
+                    level
+                FROM users
+                WHERE user_id != 'TEST'
+                ORDER BY xp DESC
+                LIMIT ?
+            `).all(limit);
+        }
+
+        res.json({
+            members: rows.map(member => ({
+                userId: member.user_id,
+                messages: Number(member.messages) || 0,
+                voiceTime: Number(member.voice_time) || 0,
+                xp: Number(member.xp) || 0,
+                level: Number(member.level) || 1
+            }))
+        });
+
+    } catch (error) {
+        console.error(
+            "ASTER MEMBERS API ERROR:",
+            error
+        );
+
+        res.status(500).json({
+            error: "Failed to load members"
+        });
+    }
+});
+
+
 // =========================
 // DASHBOARD
 // =========================

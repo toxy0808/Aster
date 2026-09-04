@@ -2613,4 +2613,467 @@ body::before {
     .king-card::after {
         transition: none;
     }
+
+ /* =========================================================
+   ASTER MEMBERS
+   ========================================================= */
+
+.members-panel {
+    margin-top: 24px;
+    padding: 24px;
+}
+
+.member-search {
+    width: 260px;
+}
+
+.member-search input {
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 11px 14px;
+
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 12px;
+
+    outline: none;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.member-search input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.member-search input:focus {
+    border-color: rgba(155, 92, 255, 0.65);
+
+    background: rgba(155, 92, 255, 0.035);
+
+    box-shadow:
+        0 0 0 3px rgba(155, 92, 255, 0.08),
+        0 0 20px rgba(155, 92, 255, 0.08);
+}
+
+
+/* TABLE */
+
+.members-table {
+    margin-top: 20px;
+    width: 100%;
+}
+
+
+.member-row {
+    display: grid;
+
+    grid-template-columns:
+        minmax(220px, 2fr)
+        90px
+        120px
+        140px
+        120px;
+
+    align-items: center;
+
+    min-height: 58px;
+
+    padding: 0 16px;
+
+    border-bottom: 1px solid
+        rgba(255, 255, 255, 0.045);
+
+    font-size: 12px;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
+}
+
+
+.member-row:not(.member-header):hover {
+    background:
+        linear-gradient(
+            90deg,
+            rgba(155, 92, 255, 0.07),
+            rgba(155, 92, 255, 0.015)
+        );
+
+    border-bottom-color:
+        rgba(155, 92, 255, 0.16);
+}
+
+
+.member-header {
+    min-height: 38px;
+
+    color:
+        rgba(255, 255, 255, 0.35);
+
+    font-size: 10px;
+    font-weight: 600;
+
+    letter-spacing: 0.12em;
+
+    text-transform: uppercase;
+
+    border-bottom:
+        1px solid rgba(255, 255, 255, 0.09);
+}
+
+
+.member-row > span {
+    color:
+        rgba(255, 255, 255, 0.72);
+}
+
+
+.member-row .member-id {
+    color: #ffffff;
+
+    font-family:
+        "JetBrains Mono",
+        "SFMono-Regular",
+        Consolas,
+        monospace;
+
+    font-size: 11px;
+}
+
+
+.member-row:not(.member-header) > span:nth-child(2) {
+    color: #b995ff;
+    font-weight: 600;
+}
+
+
+.member-row:not(.member-header) > span:nth-child(3) {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+
+.member-row:not(.member-header) > span:nth-child(4),
+.member-row:not(.member-header) > span:nth-child(5) {
+    color: rgba(255, 255, 255, 0.58);
+}
+
+
+.member-empty {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    min-height: 180px;
+
+    color:
+        rgba(255, 255, 255, 0.3);
+
+    font-size: 12px;
+
+    letter-spacing: 0.04em;
+}
+
+
+/* =========================================================
+   MEMBERS MOBILE
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+    .member-row {
+        grid-template-columns:
+            minmax(160px, 2fr)
+            70px
+            100px
+            110px
+            90px;
+
+        padding: 0 10px;
+    }
+
+}
+
+
+@media (max-width: 700px) {
+
+    .members-panel {
+        padding: 18px;
+    }
+
+    .panel-header {
+        gap: 16px;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .member-search {
+        width: 100%;
+    }
+
+    .members-table {
+        overflow-x: auto;
+    }
+
+    .member-row {
+        min-width: 600px;
+    }
+
+}
+
+/* =========================================================
+   ASTER LEADERBOARDS
+   ========================================================= */
+
+.leaderboard-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin-top: 24px;
+}
+
+.leaderboard-panel {
+    padding: 22px;
+    min-height: 320px;
+}
+
+.leaderboard-panel h3 {
+    margin: 5px 0 20px;
+}
+
+.leaderboard-entry {
+    display: grid;
+    grid-template-columns: 34px 1fr auto;
+    align-items: center;
+    gap: 12px;
+
+    min-height: 52px;
+
+    border-bottom: 1px solid
+        rgba(255,255,255,0.045);
+}
+
+.leaderboard-rank {
+    color: #a875ff;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.leaderboard-user {
+    min-width: 0;
+    overflow: hidden;
+
+    color: #fff;
+
+    font-family:
+        "JetBrains Mono",
+        Consolas,
+        monospace;
+
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.leaderboard-value {
+    color: rgba(255,255,255,0.65);
+    font-size: 11px;
+}
+
+.leaderboard-entry:first-child .leaderboard-rank {
+    color: #d6b5ff;
+}
+
+@media (max-width: 1000px) {
+    .leaderboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* =========================================================
+   ASTER ECONOMY
+   ========================================================= */
+
+#economy-view .stats-grid {
+    margin-top: 24px;
+}
+
+#economy-view .panel {
+    margin-top: 18px;
+    padding: 24px;
+}
+
+#economy-view .stat-value {
+    font-size: 28px;
+}
+
+#economy-view .stat-card {
+    min-height: 120px;
+}
+
+/* =========================================================
+   ASTER XP & LEVELS
+   ========================================================= */
+
+#xp-and-levels-view .stats-grid {
+    margin-top: 24px;
+}
+
+#xp-and-levels-view .panel {
+    margin-top: 18px;
+    padding: 24px;
+}
+
+#xp-and-levels-view .stat-value {
+    font-size: 28px;
+}
+
+#xp-and-levels-view .stat-card {
+    min-height: 120px;
+}
+
+
+/* =========================================================
+   ASTER REPUTATION
+   ========================================================= */
+
+#reputation-view .stats-grid {
+    margin-top: 24px;
+}
+
+#reputation-view .panel {
+    margin-top: 18px;
+    padding: 24px;
+}
+
+#reputation-view .stat-value {
+    font-size: 28px;
+}
+
+#reputation-view .stat-card {
+    min-height: 120px;
+}
+
+/* =========================================================
+   ASTER CORE
+   ========================================================= */
+
+#aster-core-view .stats-grid {
+    margin-top: 24px;
+}
+
+#aster-core-view .panel {
+    margin-top: 18px;
+    padding: 24px;
+}
+
+#aster-core-view .stat-value {
+    font-size: 28px;
+}
+
+#aster-core-view .stat-card {
+    min-height: 120px;
+}
+
+/* =========================================================
+   ASTER LOGS
+   ========================================================= */
+
+#logs-view .logs-panel {
+    margin-top: 24px;
+    padding: 24px;
+}
+
+.system-logs {
+    margin-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.log-entry {
+    display: grid;
+    grid-template-columns: 70px 100px 1fr;
+    gap: 16px;
+    align-items: center;
+
+    min-height: 52px;
+
+    border-bottom: 1px solid rgba(255,255,255,0.045);
+
+    font-size: 11px;
+}
+
+.log-time {
+    color: rgba(255,255,255,0.3);
+    font-family: monospace;
+}
+
+.log-type {
+    color: #a875ff;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.log-message {
+    color: rgba(255,255,255,0.65);
+}
+
+.log-entry:hover {
+    background: rgba(155,92,255,0.035);
+}
+
+@media (max-width: 700px) {
+    .log-entry {
+        grid-template-columns: 60px 85px 1fr;
+        gap: 10px;
+    }
+}
+
+/* =========================================================
+   ASTER CONFIGURATION
+   ========================================================= */
+
+#configuration-view .configuration-panel {
+    margin-top: 24px;
+    padding: 24px;
+}
+
+.config-list {
+    margin-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.config-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    min-height: 56px;
+
+    border-bottom: 1px solid rgba(255,255,255,0.045);
+
+    font-size: 11px;
+}
+
+.config-row span {
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.1em;
+}
+
+.config-row strong {
+    color: #a875ff;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+}
+
+
 }
