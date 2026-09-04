@@ -220,3 +220,5 @@ client.login(
 console.log(
     client.commands
 );
+
+require("../dashboard/server");
