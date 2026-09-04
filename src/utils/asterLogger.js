@@ -311,9 +311,14 @@ class AsterLogger {
             // ------------------------------------------------
 
             await channel.send({
-                components: [container],
-                flags: MessageFlags.IsComponentsV2
-            });
+    components: [container],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: {
+        users: [],
+        roles: [],
+        repliedUser: false
+    }
+});
 
         } catch (error) {
 
