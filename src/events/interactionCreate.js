@@ -146,7 +146,6 @@ if (interaction.customId === "config_logging") {
 // ========================================================
 
 if (interaction.customId === "set_log_channel") {
-
     ensureServerConfig(interaction.guild.id);
 
     const channelId = interaction.values[0];
@@ -160,16 +159,24 @@ if (interaction.customId === "set_log_channel") {
         interaction.guild.id
     );
 
-    // Acknowledge Discord immediately
+    const confirmation = new ContainerBuilder()
+        .setAccentColor(0xFF4DA6)
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `# ✦ ASTER / LOGGING\n` +
+                `-# Logging configuration updated.\n\n` +
+                `### ◇ Log Channel\n` +
+                `<#${channelId}>\n\n` +
+                `-# ✦ ASTER audit logging is now active.`
+            )
+        );
+
     await interaction.update({
-        content:
-            `✦ **ASTER Logging configured.**\n\n` +
-            `Log channel: <#${channelId}>`,
-        components: []
+        components: [confirmation],
+        flags: MessageFlags.IsComponentsV2
     });
 
-    // Log after the interaction has been acknowledged
-    await asterLogger.config(
+    asterLogger.config(
         interaction.guild.id,
         "Logging Channel Updated",
         `ASTER logging has been configured for <#${channelId}>.`,
@@ -178,7 +185,7 @@ if (interaction.customId === "set_log_channel") {
             "Channel": `<#${channelId}>`,
             "Channel ID": channelId
         }
-    );
+    ).catch(console.error);
 
     return;
 }
