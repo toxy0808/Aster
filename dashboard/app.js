@@ -323,63 +323,219 @@ function formatVoiceTime(minutes) {
 }
 
 /* =========================================================
-   NAVIGATION
+   ASTER NAVIGATION
    ========================================================= */
 
 const navItems =
-    document.querySelectorAll(
-        ".nav-item"
+    document.querySelectorAll(".nav-item");
+
+const allViews =
+    document.querySelectorAll(".dashboard-view");
+
+const sectionNames = [
+    "Overview",
+    "Activity",
+    "Members",
+    "Moderation",
+    "Automation",
+    "Roles",
+    "Welcome",
+    "Verification",
+    "Leaderboards",
+    "Economy",
+    "XP & Levels",
+    "Reputation",
+    "ASTER CORE",
+    "Logs",
+    "Configuration"
+];
+
+/* Create missing dashboard views */
+sectionNames.forEach(section => {
+
+    const id =
+        section
+            .toLowerCase()
+            .replace(/&/g, "and")
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "");
+
+    if (document.getElementById(`${id}-view`)) {
+        return;
+    }
+
+    const view =
+        document.createElement("div");
+
+    view.id = `${id}-view`;
+    view.className = "dashboard-view";
+    view.style.display = "none";
+
+    view.innerHTML = `
+        <header class="topbar">
+            <div>
+                <div class="eyebrow">
+                    ASTER / ${section.toUpperCase()}
+                </div>
+
+                <h1>${section}</h1>
+            </div>
+
+            <div class="topbar-right">
+                <div class="server-status">
+                    <span class="pulse"></span>
+                    ONLINE
+                </div>
+
+                <div class="server-time">
+                    ASTER SYSTEM
+                </div>
+            </div>
+        </header>
+
+        <section class="hero">
+            <div>
+                <div class="hero-label">
+                    ASTER COMMAND CENTER
+                </div>
+
+                <h2>
+                    ${section.toUpperCase()}
+                    <span>CONTROL</span>
+                </h2>
+
+                <p>
+                    ${section} controls are ready
+                    for configuration.
+                </p>
+            </div>
+
+            <div class="hero-symbol">✦</div>
+        </section>
+
+        <section class="dashboard-grid">
+            <div class="panel">
+                <div class="panel-label">MODULE</div>
+                <h3>${section}</h3>
+
+                <div class="core-status">
+                    <div class="core-orb">✦</div>
+
+                    <div>
+                        <div class="core-online">
+                            ONLINE
+                        </div>
+
+                        <div class="core-subtitle">
+                            ASTER ${section}
+                            module is operational.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-label">STATUS</div>
+                <h3>SYSTEM READY</h3>
+
+                <div class="system-row">
+                    <span>MODULE</span>
+                    <strong class="healthy">
+                        ACTIVE
+                    </strong>
+                </div>
+
+                <div class="system-row">
+                    <span>ASTER CORE</span>
+                    <strong class="healthy">
+                        CONNECTED
+                    </strong>
+                </div>
+
+                <div class="system-row">
+                    <span>DATABASE</span>
+                    <strong class="healthy">
+                        HEALTHY
+                    </strong>
+                </div>
+            </div>
+        </section>
+    `;
+
+    document
+        .querySelector(".main")
+        .insertBefore(
+            view,
+            document.querySelector("footer")
+        );
+});
+
+
+function getSectionName(item) {
+    const clone = item.cloneNode(true);
+
+    const icon =
+        clone.querySelector("span");
+
+    if (icon) {
+        icon.remove();
+    }
+
+    return clone.textContent.trim();
+}
+
+
+function showView(section) {
+
+    const id =
+        section
+            .toLowerCase()
+            .replace(/&/g, "and")
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "");
+
+    const target =
+        document.getElementById(`${id}-view`);
+
+    if (!target) return;
+
+    document
+        .querySelectorAll(".dashboard-view")
+        .forEach(view => {
+            view.style.display = "none";
+        });
+
+    target.style.display = "block";
+
+    navItems.forEach(item => {
+        item.classList.toggle(
+            "active",
+            getSectionName(item) === section
+        );
+    });
+
+    console.log(
+        `✦ ASTER NAVIGATION → ${section}`
     );
+}
 
-const views = {
-    "Overview":
-        document.getElementById(
-            "overview-view"
-        ),
-
-    "Activity":
-        document.getElementById(
-            "activity-view"
-        )
-};
 
 navItems.forEach(item => {
-    item.addEventListener(
-        "click",
-        () => {
-            const section =
-                item.textContent.trim();
 
-            navItems.forEach(nav =>
-                nav.classList.remove(
-                    "active"
-                )
-            );
+    item.addEventListener("click", event => {
 
-            item.classList.add(
-                "active"
-            );
+        event.preventDefault();
 
-            document
-                .querySelectorAll(
-                    ".dashboard-view"
-                )
-                .forEach(view => {
-                    view.style.display =
-                        "none";
-                });
+        const section =
+            getSectionName(item);
 
-            if (views[section]) {
-                views[section].style.display =
-                    "block";
-            }
-
-            console.log(
-                `✦ ASTER NAVIGATION → ${section}`
-            );
-        }
-    );
+        showView(section);
+    });
 });
+
+
+/* Always start on Overview */
+showView("Overview");
 
 /* =========================================================
    PERIOD SELECTOR
