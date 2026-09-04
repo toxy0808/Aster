@@ -13,21 +13,6 @@ const prefix = ",";
 const introCooldowns = new Set();
 const autoresponderCooldowns = new Map();
 
-// ========================================================
-// AUTO REACT — BOOSTER PERK
-// ========================================================
-
-const autoReact = db.prepare(`
-    SELECT emoji
-    FROM autoreacts
-    WHERE user_id = ?
-      AND enabled = 1
-`).get(message.author.id);
-
-if (autoReact && message.member?.premiumSince) {
-    message.react(autoReact.emoji).catch(() => {});
-}
-
 // ============================================================
 // MESSAGE CREATE
 // ============================================================
@@ -81,7 +66,7 @@ module.exports = async (client, message) => {
     }
 
     // ========================================================
-    // AUTO REACTIONS
+    // AUTO REACTIONS — BOOSTER PERK
     // ========================================================
 
     if (!client.autoreacts) {
@@ -103,7 +88,11 @@ module.exports = async (client, message) => {
     const emoji =
         client.autoreacts.get(userId);
 
-    if (emoji) {
+    // Only active server boosters receive the perk
+    if (
+        emoji &&
+        message.member?.premiumSince
+    ) {
 
         message
             .react(emoji)
@@ -190,7 +179,10 @@ module.exports = async (client, message) => {
 
                 try {
 
+                    // =================================================
                     // TEXT
+                    // =================================================
+
                     if (
                         response.type === "text"
                     ) {
@@ -200,7 +192,10 @@ module.exports = async (client, message) => {
                         });
                     }
 
+                    // =================================================
                     // IMAGE / GIF
+                    // =================================================
+
                     else if (
                         response.type === "image" ||
                         response.type === "gif"
@@ -209,13 +204,17 @@ module.exports = async (client, message) => {
                         await message.reply({
                             files: [
                                 {
-                                    attachment: response.content
+                                    attachment:
+                                        response.content
                                 }
                             ]
                         });
                     }
 
+                    // =================================================
                     // COMPONENTS V2
+                    // =================================================
+
                     else if (
                         response.type === "embed"
                     ) {
@@ -391,8 +390,11 @@ module.exports = async (client, message) => {
             try {
 
                 await message.reply({
-                    components: [container],
-                    flags: MessageFlags.IsComponentsV2
+                    components: [
+                        container
+                    ],
+                    flags:
+                        MessageFlags.IsComponentsV2
                 });
 
             } catch (error) {
