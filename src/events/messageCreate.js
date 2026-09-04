@@ -13,17 +13,20 @@ const prefix = ",";
 const introCooldowns = new Set();
 const autoresponderCooldowns = new Map();
 
-// ============================================================
-// AUTO REACT TABLE
-// ============================================================
+// ========================================================
+// AUTO REACT — BOOSTER PERK
+// ========================================================
 
-db.prepare(`
-    CREATE TABLE IF NOT EXISTS autoreacts (
-        user_id TEXT PRIMARY KEY,
-        emoji TEXT,
-        enabled INTEGER DEFAULT 1
-    )
-`).run();
+const autoReact = db.prepare(`
+    SELECT emoji
+    FROM autoreacts
+    WHERE user_id = ?
+      AND enabled = 1
+`).get(message.author.id);
+
+if (autoReact && message.member?.premiumSince) {
+    message.react(autoReact.emoji).catch(() => {});
+}
 
 // ============================================================
 // MESSAGE CREATE
