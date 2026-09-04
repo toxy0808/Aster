@@ -9,7 +9,7 @@ console.log(
 
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 25626;
 const HOST = "0.0.0.0";
 
 app.use(express.json());
