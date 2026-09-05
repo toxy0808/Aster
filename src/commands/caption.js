@@ -8,7 +8,9 @@ const { URL } = require("url");
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 const MAX_PIXELS = 100_000_000;
 const DOWNLOAD_TIMEOUT = 30_000;
+
 const activeJobs = new Set();
+const emojiCache = new Map();
 
 /* =========================================================
    DOWNLOAD
@@ -61,6 +63,7 @@ function downloadBuffer(url, redirects = 0) {
 
                 if (res.statusCode !== 200) {
                     res.resume();
+
                     return reject(
                         new Error(`HTTP ${res.statusCode}`)
                     );
@@ -74,9 +77,11 @@ function downloadBuffer(url, redirects = 0) {
 
                     if (total > MAX_FILE_SIZE) {
                         req.destroy();
+
                         reject(
                             new Error("File is too large.")
                         );
+
                         return;
                     }
 
@@ -191,15 +196,21 @@ const segmenter = new Intl.Segmenter(undefined, {
 function isEmojiCluster(value) {
     if (!value) return false;
 
-    if (/\p{Extended_Pictographic}/u.test(value)) {
+    if (
+        /\p{Extended_Pictographic}/u.test(value)
+    ) {
         return true;
     }
 
-    if (/^\p{Regional_Indicator}{2}$/u.test(value)) {
+    if (
+        /^\p{Regional_Indicator}{2}$/u.test(value)
+    ) {
         return true;
     }
 
-    if (/^[0-9#*]\uFE0F?\u20E3$/u.test(value)) {
+    if (
+        /^[0-9#*]\uFE0F?\u20E3$/u.test(value)
+    ) {
         return true;
     }
 
@@ -228,13 +239,28 @@ function splitCaption(text) {
 }
 
 async function getEmojiSvg(emoji) {
+    if (emojiCache.has(emoji)) {
+        return emojiCache.get(emoji);
+    }
+
     const codePoint =
         twemoji.convert.toCodePoint(emoji);
 
     const url =
         `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${codePoint}.svg`;
 
-    return downloadBuffer(url);
+    const promise = downloadBuffer(url);
+
+    emojiCache.set(emoji, promise);
+
+    try {
+        return await promise;
+    } catch (error) {
+        emojiCache.delete(emoji);
+        throw new Error(
+            `Couldn't load emoji: ${emoji}`
+        );
+    }
 }
 
 /* =========================================================
@@ -253,14 +279,6 @@ function escapeXml(value) {
 /* =========================================================
    TEXT SETTINGS
 ========================================================= */
-
-/*
- * This is deliberately a cleaner typography system.
- *
- * No per-character SVG positioning.
- * No fake character widths.
- * No letter-by-letter rendering.
- */
 
 function getFontSize(width, text) {
     const length = [...text].length;
@@ -301,16 +319,11 @@ function getFontSize(width, text) {
 }
 
 function getTextFont() {
-    /*
-     * Arial/Helvetica is intentionally used instead of
-     * system-dependent fonts so the appearance stays
-     * predictable on eCloudServ.
-     */
     return "Arial, Helvetica, sans-serif";
 }
 
 /* =========================================================
-   APPROXIMATE TEXT MEASUREMENT
+   TEXT MEASUREMENT
 ========================================================= */
 
 function estimateTextWidth(text, fontSize) {
@@ -333,9 +346,31 @@ function estimateTextWidth(text, fontSize) {
     return width;
 }
 
+/*
+ * Emoji gets its own visual width plus left/right
+ * breathing room. This prevents it touching text.
+ */
+
+function getEmojiMetrics(fontSize) {
+    const size = Math.round(
+        fontSize * 0.88
+    );
+
+    const gap = Math.max(
+        4,
+        Math.round(fontSize * 0.13)
+    );
+
+    return {
+        size,
+        gap,
+        width: size + gap * 2
+    };
+}
+
 function estimatePartWidth(part, fontSize) {
     if (part.type === "emoji") {
-        return fontSize;
+        return getEmojiMetrics(fontSize).width;
     }
 
     return estimateTextWidth(
@@ -350,14 +385,9 @@ function estimatePartWidth(part, fontSize) {
 
 function wrapCaption(parts, maxWidth, fontSize) {
     const lines = [];
-
     let current = [];
     let currentWidth = 0;
 
-    /*
-     * Keep spaces attached to text rather than making
-     * them independent layout objects.
-     */
     for (const part of parts) {
         const width =
             estimatePartWidth(
@@ -370,7 +400,6 @@ function wrapCaption(parts, maxWidth, fontSize) {
             currentWidth + width > maxWidth
         ) {
             lines.push(current);
-
             current = [];
             currentWidth = 0;
         }
@@ -398,16 +427,7 @@ function buildLineSvg(
     emojiIndexRef,
     emojiImages
 ) {
-    /*
-     * Instead of rendering each character separately,
-     * normal text is rendered as ONE text element.
-     *
-     * This gives the font renderer control over kerning,
-     * spacing and glyph shaping.
-     */
-
-    let textParts = [];
-    const elements = [];
+    const parts = [];
 
     let textBuffer = "";
 
@@ -416,7 +436,7 @@ function buildLineSvg(
             return;
         }
 
-        textParts.push({
+        parts.push({
             type: "text",
             value: textBuffer
         });
@@ -427,8 +447,7 @@ function buildLineSvg(
     for (const part of line) {
         if (part.type === "emoji") {
             flushText();
-
-            textParts.push(part);
+            parts.push(part);
         } else {
             textBuffer += part.value;
         }
@@ -437,29 +456,26 @@ function buildLineSvg(
     flushText();
 
     /*
-     * Calculate complete line width.
+     * Calculate exact visual width using the same
+     * emoji spacing that will be used when rendering.
      */
+
     let totalWidth = 0;
 
-    for (const part of textParts) {
-        if (part.type === "emoji") {
-            totalWidth += fontSize;
-        } else {
-            totalWidth +=
-                estimateTextWidth(
-                    part.value,
-                    fontSize
-                );
-        }
+    for (const part of parts) {
+        totalWidth +=
+            estimatePartWidth(
+                part,
+                fontSize
+            );
     }
 
-    /*
-     * Center the entire line.
-     */
     let x =
         (width - totalWidth) / 2;
 
-    for (const part of textParts) {
+    const elements = [];
+
+    for (const part of parts) {
         if (part.type === "emoji") {
             const emoji =
                 emojiImages[
@@ -468,21 +484,45 @@ function buildLineSvg(
 
             emojiIndexRef.value++;
 
+            const metrics =
+                getEmojiMetrics(fontSize);
+
+            /*
+             * Left side bearing.
+             */
+
+            x += metrics.gap;
+
             const base64 =
                 emoji.toString("base64");
+
+            /*
+             * Slightly smaller than the text and
+             * vertically aligned to the text baseline.
+             */
+
+            const emojiY =
+                y -
+                metrics.size * 0.82;
 
             elements.push(`
                 <image
                     href="data:image/svg+xml;base64,${base64}"
                     x="${x}"
-                    y="${y - fontSize * 0.86}"
-                    width="${fontSize}"
-                    height="${fontSize}"
+                    y="${emojiY}"
+                    width="${metrics.size}"
+                    height="${metrics.size}"
                     preserveAspectRatio="xMidYMid meet"
                 />
             `);
 
-            x += fontSize;
+            /*
+             * Emoji itself + right side bearing.
+             */
+
+            x +=
+                metrics.size +
+                metrics.gap;
 
             continue;
         }
@@ -522,49 +562,44 @@ async function createCaptionSvg(
     width,
     caption
 ) {
-    const fontSize =
+    let finalFontSize =
         getFontSize(
             width,
             caption
         );
 
-    const paddingX =
-        Math.max(
-            28,
-            Math.round(
-                fontSize * 0.70
-            )
-        );
-
-    const paddingY =
-        Math.max(
-            22,
-            Math.round(
-                fontSize * 0.50
-            )
-        );
-
-    const maxWidth =
-        width -
-        paddingX * 2;
-
     const parts =
         splitCaption(caption);
 
-    let lines =
-        wrapCaption(
-            parts,
-            maxWidth,
-            fontSize
-        );
+    let paddingX;
+    let maxWidth;
+    let lines;
 
     /*
-     * If the approximation produces an overly wide line,
-     * reduce the font size before rendering.
+     * Recalculate wrapping and padding every time
+     * the font size changes.
      */
-    let finalFontSize = fontSize;
 
-    for (let attempt = 0; attempt < 5; attempt++) {
+    for (let attempt = 0; attempt < 6; attempt++) {
+        paddingX =
+            Math.max(
+                28,
+                Math.round(
+                    finalFontSize * 0.70
+                )
+            );
+
+        maxWidth =
+            width -
+            paddingX * 2;
+
+        lines =
+            wrapCaption(
+                parts,
+                maxWidth,
+                finalFontSize
+            );
+
         let widest = 0;
 
         for (const line of lines) {
@@ -596,26 +631,13 @@ async function createCaptionSvg(
                     finalFontSize * 0.92
                 )
             );
-
-        lines =
-            wrapCaption(
-                parts,
-                maxWidth,
-                finalFontSize
-            );
     }
 
-    /*
-     * Comfortable modern caption spacing.
-     */
     const lineHeight =
         Math.round(
             finalFontSize * 1.20
         );
 
-    /*
-     * Slightly larger vertical padding for one line.
-     */
     const verticalPadding =
         lines.length === 1
             ? Math.round(
@@ -632,6 +654,7 @@ async function createCaptionSvg(
     /*
      * Download emoji graphics.
      */
+
     const emojiImages = [];
 
     for (const line of lines) {
@@ -659,10 +682,6 @@ async function createCaptionSvg(
         i < lines.length;
         i++
     ) {
-        /*
-         * Alphabetic baseline gives much more natural
-         * typography than manually moving every glyph.
-         */
         const y =
             verticalPadding +
             finalFontSize +
@@ -812,24 +831,22 @@ async function renderGif(
         metadata.delay;
 
     if (!Array.isArray(delays)) {
-        delays = Array(
-            frameCount
-        ).fill(
-            typeof delays === "number"
-                ? delays
-                : 100
-        );
+        delays =
+            Array(frameCount).fill(
+                typeof delays === "number"
+                    ? delays
+                    : 100
+            );
     }
 
     if (
         delays.length !==
         frameCount
     ) {
-        delays = Array(
-            frameCount
-        ).fill(
-            delays[0] || 100
-        );
+        delays =
+            Array(frameCount).fill(
+                delays[0] || 100
+            );
     }
 
     const loop =
@@ -850,9 +867,6 @@ async function renderGif(
             .png()
             .toBuffer();
 
-    /*
-     * Decode all frames.
-     */
     const rawFrames =
         await sharp(input, {
             animated: true,
@@ -981,6 +995,7 @@ module.exports = {
          * Read the complete message because the normal
          * dispatcher splits arguments on spaces.
          */
+
         const match =
             message.content.match(
                 /^\s*,(?:caption|cap)\s+([\s\S]+?)\s*$/
@@ -998,6 +1013,7 @@ module.exports = {
         /*
          * Remove surrounding quotes.
          */
+
         if (
             caption.length >= 2 &&
             (
@@ -1036,12 +1052,14 @@ module.exports = {
         /*
          * First check an attachment on the command.
          */
+
         let attachment =
             getOwnAttachment(message);
 
         /*
          * Otherwise use the replied-to message.
          */
+
         if (!attachment) {
             attachment =
                 await getReferencedAttachment(
@@ -1159,6 +1177,7 @@ module.exports = {
             await message.reply({
                 files: [file]
             });
+
         } catch (error) {
             console.error(
                 "CAPTION ERROR:",
