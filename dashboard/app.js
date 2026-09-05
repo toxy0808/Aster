@@ -1,9 +1,13 @@
+/* =========================================================
+   ASTER DASHBOARD
+   ========================================================= */
+
 async function loadDashboard() {
     try {
         const [overviewResponse, activityResponse] =
             await Promise.all([
                 fetch("/api/overview"),
-                fetch("/api/activity")
+                fetch("/api/activity?period=24h")
             ]);
 
         if (!overviewResponse.ok ||
@@ -17,16 +21,26 @@ async function loadDashboard() {
         const activityData =
             await activityResponse.json();
 
+        if (!data?.stats) {
+            throw new Error("Invalid overview response");
+        }
+
         updateStatCards(data);
         updateKings(data);
         updateActivityPage(data);
         updateActivityChart(activityData);
 
+        console.log(
+            "✦ ASTER DASHBOARD → LIVE DATA UPDATED"
+        );
+
     } catch (error) {
+
         console.error(
             "ASTER DASHBOARD ERROR:",
             error
         );
+
     }
 }
 
@@ -36,26 +50,45 @@ async function loadDashboard() {
    ========================================================= */
 
 function animateNumber(element, target, duration = 700) {
-    const end = Number(target) || 0;
-    const start = Number(element.dataset.value || 0);
+
+    if (!element) return;
+
+    const end =
+        Number(target) || 0;
+
+    const start =
+        Number(element.dataset.value || 0);
 
     if (start === end) {
+
         element.textContent =
             end.toLocaleString();
+
+        element.dataset.value =
+            end;
+
         return;
     }
 
-    element.dataset.value = end;
+    element.dataset.value =
+        end;
 
-    element.classList.remove("value-refresh");
+    element.classList.remove(
+        "value-refresh"
+    );
 
     void element.offsetWidth;
 
-    element.classList.add("value-refresh");
+    element.classList.add(
+        "value-refresh"
+    );
 
-    const startTime = performance.now();
+    const startTime =
+        performance.now();
+
 
     function tick(now) {
+
         const progress =
             Math.min(
                 (now - startTime) / duration,
@@ -63,29 +96,46 @@ function animateNumber(element, target, duration = 700) {
             );
 
         const eased =
-            1 - Math.pow(1 - progress, 3);
+            1 -
+            Math.pow(
+                1 - progress,
+                3
+            );
 
         const value =
             Math.round(
                 start +
-                (end - start) * eased
+                (end - start) *
+                eased
             );
 
         element.textContent =
             value.toLocaleString();
 
+
         if (progress < 1) {
-            requestAnimationFrame(tick);
+
+            requestAnimationFrame(
+                tick
+            );
+
         } else {
+
             setTimeout(() => {
+
                 element.classList.remove(
                     "value-refresh"
                 );
+
             }, 180);
+
         }
     }
 
-    requestAnimationFrame(tick);
+
+    requestAnimationFrame(
+        tick
+    );
 }
 
 
@@ -94,40 +144,51 @@ function animateNumber(element, target, duration = 700) {
    ========================================================= */
 
 function updateStatCards(data) {
+
     const values =
         document.querySelectorAll(
             "#overview-view .stat-value"
         );
 
-    if (values.length < 4) return;
+    if (values.length < 4) {
+        return;
+    }
+
 
     animateNumber(
         values[0],
-        data.stats.members
+        data.stats?.members || 0
     );
+
 
     animateNumber(
         values[1],
-        data.stats.messages
+        data.stats?.messages || 0
     );
+
 
     animateNumber(
         values[2],
-        data.stats.xp
+        data.stats?.xp || 0
     );
+
 
     animateVoice(
         values[3],
-        data.stats.voice
+        data.stats?.voice || 0
     );
 }
 
 
 function animateVoice(element, minutes) {
+
+    if (!element) return;
+
     const value =
         Number(minutes) || 0;
 
-    element.dataset.value = value;
+    element.dataset.value =
+        value;
 
     element.textContent =
         formatVoiceTime(value);
@@ -139,19 +200,27 @@ function animateVoice(element, minutes) {
    ========================================================= */
 
 function updateKings(data) {
+
     const kingCards =
         document.querySelectorAll(
             "#overview-view .king-card"
         );
 
-    if (kingCards.length < 2) return;
+    if (kingCards.length < 2) {
+        return;
+    }
+
 
     const chatKing =
-        data.kings.chat;
+        data.kings?.chat || null;
 
     const voiceKing =
-        data.kings.voice;
+        data.kings?.voice || null;
 
+
+    /* -------------------------
+       CHAT KING
+       ------------------------- */
 
     const chatName =
         kingCards[0].querySelector(
@@ -166,23 +235,46 @@ function updateKings(data) {
 
     if (chatKing) {
 
-        chatName.textContent =
-            chatKing.user_id;
+        if (chatName) {
 
-        chatValue.innerHTML =
-            `${Number(
-                chatKing.amount
-            ).toLocaleString()}<small>MESSAGES</small>`;
+            chatName.textContent =
+                chatKing.user_id || "Unknown";
+
+        }
+
+
+        if (chatValue) {
+
+            chatValue.innerHTML =
+                `${Number(
+                    chatKing.amount
+                ).toLocaleString()}<small>MESSAGES</small>`;
+
+        }
 
     } else {
 
-        chatName.textContent =
-            "No data";
+        if (chatName) {
 
-        chatValue.innerHTML =
-            `0<small>MESSAGES</small>`;
+            chatName.textContent =
+                "No data";
+
+        }
+
+
+        if (chatValue) {
+
+            chatValue.innerHTML =
+                `0<small>MESSAGES</small>`;
+
+        }
+
     }
 
+
+    /* -------------------------
+       VOICE KING
+       ------------------------- */
 
     const voiceName =
         kingCards[1].querySelector(
@@ -197,21 +289,40 @@ function updateKings(data) {
 
     if (voiceKing) {
 
-        voiceName.textContent =
-            voiceKing.user_id;
+        if (voiceName) {
 
-        voiceValue.innerHTML =
-            `${formatVoiceTime(
-                voiceKing.amount
-            )}<small>VOICE TIME</small>`;
+            voiceName.textContent =
+                voiceKing.user_id || "Unknown";
+
+        }
+
+
+        if (voiceValue) {
+
+            voiceValue.innerHTML =
+                `${formatVoiceTime(
+                    voiceKing.amount
+                )}<small>VOICE TIME</small>`;
+
+        }
 
     } else {
 
-        voiceName.textContent =
-            "No data";
+        if (voiceName) {
 
-        voiceValue.innerHTML =
-            `0m<small>VOICE TIME</small>`;
+            voiceName.textContent =
+                "No data";
+
+        }
+
+
+        if (voiceValue) {
+
+            voiceValue.innerHTML =
+                `0m<small>VOICE TIME</small>`;
+
+        }
+
     }
 }
 
@@ -250,6 +361,11 @@ function updateActivityPage(data) {
 
     if (voice) {
 
+        voice.dataset.value =
+            Number(
+                data.activity24h?.voice
+            ) || 0;
+
         voice.textContent =
             formatVoiceTime(
                 data.activity24h?.voice || 0
@@ -262,7 +378,7 @@ function updateActivityPage(data) {
 
         animateNumber(
             xp,
-            data.stats.xp || 0
+            data.stats?.xp || 0
         );
 
     }
@@ -280,16 +396,23 @@ function updateActivityChart(data) {
             ".chart-bars"
         );
 
-    if (!chart) return;
+    if (!chart) {
+        return;
+    }
 
 
     const activity =
-        Array.isArray(data.activity)
+        Array.isArray(data?.activity)
             ? data.activity
             : [];
 
 
-    if (!activity.length) return;
+    if (!activity.length) {
+
+        chart.innerHTML = "";
+
+        return;
+    }
 
 
     chart.innerHTML = "";
@@ -305,55 +428,71 @@ function updateActivityChart(data) {
                 Number(item.voice) || 0;
 
             return chat + voice;
+
         });
 
 
     const max =
-        Math.max(...values, 1);
+        Math.max(
+            ...values,
+            1
+        );
 
 
-    activity.forEach((item, index) => {
+    activity.forEach(
+        (item, index) => {
 
-        const bar =
-            document.createElement("span");
-
-
-        const total =
-            (Number(item.chat) || 0) +
-            (Number(item.voice) || 0);
+            const bar =
+                document.createElement(
+                    "span"
+                );
 
 
-        const height =
-            Math.max(
+            const chat =
+                Number(item.chat) || 0;
+
+            const voice =
+                Number(item.voice) || 0;
+
+            const total =
+                chat + voice;
+
+
+            const height =
                 total > 0
-                    ? (total / max) * 100
-                    : 2,
-                2
+                    ? Math.max(
+                        (total / max) * 100,
+                        2
+                    )
+                    : 2;
+
+
+            bar.style.height =
+                `${height}%`;
+
+
+            const label =
+                item.hour !== undefined
+                    ? `${item.hour}:00`
+                    : item.day || "Unknown";
+
+
+            bar.title =
+                `${label} — ` +
+                `${chat.toLocaleString()} messages · ` +
+                `${voice.toLocaleString()} voice`;
+
+
+            bar.style.animationDelay =
+                `${index * 0.025}s`;
+
+
+            chart.appendChild(
+                bar
             );
 
-
-        bar.style.height =
-            `${height}%`;
-
-
-        const label =
-            item.hour !== undefined
-                ? `${item.hour}:00`
-                : item.day || "Unknown";
-
-
-        bar.title =
-            `${label} — ` +
-            `${Number(item.chat) || 0} messages · ` +
-            `${Number(item.voice) || 0} voice`;
-
-
-        bar.style.animationDelay =
-            `${index * 0.025}s`;
-
-
-        chart.appendChild(bar);
-    });
+        }
+    );
 }
 
 
@@ -367,17 +506,52 @@ function formatVoiceTime(minutes) {
         Number(minutes) || 0;
 
     const hours =
-        Math.floor(value / 60);
+        Math.floor(
+            value / 60
+        );
 
     const mins =
         value % 60;
 
 
     if (hours > 0) {
+
         return `${hours}h ${mins}m`;
+
     }
 
+
     return `${mins}m`;
+}
+
+
+/* =========================================================
+   HTML ESCAPE
+   ========================================================= */
+
+function escapeHtml(value) {
+
+    return String(value)
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
 }
 
 
@@ -411,9 +585,18 @@ function getViewId(section) {
 
     return section
         .toLowerCase()
-        .replace(/&/g, "and")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
+        .replace(
+            /&/g,
+            "and"
+        )
+        .replace(
+            /[^a-z0-9]+/g,
+            "-"
+        )
+        .replace(
+            /^-|-$/g,
+            ""
+        );
 }
 
 
@@ -429,9 +612,11 @@ function showView(section) {
 
 
     if (!target) {
+
         console.warn(
             `ASTER: View not found → ${section}`
         );
+
         return;
     }
 
@@ -463,12 +648,19 @@ function showView(section) {
 
 
     if (section === "Members") {
-    loadMembers();
-}
 
-if (section === "Leaderboards") {
-    loadLeaderboards();
-}
+        loadMembers(
+            memberSearch?.value.trim() || ""
+        );
+
+    }
+
+
+    if (section === "Leaderboards") {
+
+        loadLeaderboards();
+
+    }
 
 
     console.log(
@@ -488,7 +680,10 @@ navItems.forEach(item => {
             const section =
                 getSectionName(item);
 
-            showView(section);
+            showView(
+                section
+            );
+
         }
     );
 
@@ -499,7 +694,8 @@ navItems.forEach(item => {
    MEMBERS
    ========================================================= */
 
-let membersSearchTimer = null;
+let membersSearchTimer =
+    null;
 
 
 async function loadMembers(search = "") {
@@ -509,7 +705,10 @@ async function loadMembers(search = "") {
             "members-list"
         );
 
-    if (!list) return;
+
+    if (!list) {
+        return;
+    }
 
 
     list.innerHTML = `
@@ -523,14 +722,18 @@ async function loadMembers(search = "") {
 
         const response =
             await fetch(
-                `/api/members?search=${encodeURIComponent(search)}`
+                `/api/members?search=${encodeURIComponent(
+                    search
+                )}`
             );
 
 
         if (!response.ok) {
+
             throw new Error(
                 "Members request failed"
             );
+
         }
 
 
@@ -556,6 +759,7 @@ async function loadMembers(search = "") {
                 Failed to load members.
             </div>
         `;
+
     }
 }
 
@@ -567,7 +771,10 @@ function renderMembers(members) {
             "members-list"
         );
 
-    if (!list) return;
+
+    if (!list) {
+        return;
+    }
 
 
     if (!members.length) {
@@ -583,54 +790,47 @@ function renderMembers(members) {
 
 
     list.innerHTML =
-        members.map(member => {
+        members.map(
+            member => {
 
-            return `
-                <div class="member-row">
+                return `
+                    <div class="member-row">
 
-                    <span class="member-id">
-                        ${escapeHtml(
-                            member.userId
-                        )}
-                    </span>
+                        <span class="member-id">
+                            ${escapeHtml(
+                                member.userId
+                            )}
+                        </span>
 
-                    <span>
-                        ${member.level}
-                    </span>
+                        <span>
+                            ${Number(
+                                member.level
+                            ) || 1}
+                        </span>
 
-                    <span>
-                        ${Number(
-                            member.xp
-                        ).toLocaleString()}
-                    </span>
+                        <span>
+                            ${Number(
+                                member.xp
+                            ).toLocaleString()}
+                        </span>
 
-                    <span>
-                        ${Number(
-                            member.messages
-                        ).toLocaleString()}
-                    </span>
+                        <span>
+                            ${Number(
+                                member.messages
+                            ).toLocaleString()}
+                        </span>
 
-                    <span>
-                        ${formatVoiceTime(
-                            member.voiceTime
-                        )}
-                    </span>
+                        <span>
+                            ${formatVoiceTime(
+                                member.voiceTime
+                            )}
+                        </span>
 
-                </div>
-            `;
+                    </div>
+                `;
 
-        }).join("");
-}
-
-
-function escapeHtml(value) {
-
-    return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+            }
+        ).join("");
 }
 
 
@@ -660,11 +860,16 @@ if (memberSearch) {
 
 
             membersSearchTimer =
-                setTimeout(() => {
+                setTimeout(
+                    () => {
 
-                    loadMembers(search);
+                        loadMembers(
+                            search
+                        );
 
-                }, 250);
+                    },
+                    250
+                );
 
         }
     );
@@ -691,12 +896,16 @@ document
 
 
                 parent
-                    .querySelectorAll("button")
-                    .forEach(btn =>
+                    .querySelectorAll(
+                        "button"
+                    )
+                    .forEach(btn => {
+
                         btn.classList.remove(
                             "selected"
-                        )
-                    );
+                        );
+
+                    });
 
 
                 button.classList.add(
@@ -719,9 +928,11 @@ document
 
 
                     if (!response.ok) {
+
                         throw new Error(
                             "Activity request failed"
                         );
+
                     }
 
 
@@ -729,7 +940,9 @@ document
                         await response.json();
 
 
-                    updateActivityChart(data);
+                    updateActivityChart(
+                        data
+                    );
 
 
                     console.log(
@@ -771,13 +984,23 @@ document
 
 
                 const x =
-                    ((event.clientX - rect.left) /
-                        rect.width) * 100;
+                    (
+                        (
+                            event.clientX -
+                            rect.left
+                        ) /
+                        rect.width
+                    ) * 100;
 
 
                 const y =
-                    ((event.clientY - rect.top) /
-                        rect.height) * 100;
+                    (
+                        (
+                            event.clientY -
+                            rect.top
+                        ) /
+                        rect.height
+                    ) * 100;
 
 
                 card.style.setProperty(
@@ -796,7 +1019,8 @@ document
 
     });
 
-    /* =========================================================
+
+/* =========================================================
    LEADERBOARDS
    ========================================================= */
 
@@ -805,40 +1029,76 @@ async function loadLeaderboards() {
     try {
 
         const response =
-            await fetch("/api/members");
+            await fetch(
+                "/api/members"
+            );
+
 
         if (!response.ok) {
+
             throw new Error(
                 "Leaderboard request failed"
             );
+
         }
+
 
         const data =
             await response.json();
 
+
         const members =
-            data.members || [];
+            Array.isArray(
+                data.members
+            )
+                ? data.members
+                : [];
+
 
         renderLeaderboard(
             "xp-leaderboard",
             [...members]
-                .sort((a, b) => b.xp - a.xp),
-            member => member.xp.toLocaleString()
+                .sort(
+                    (a, b) =>
+                        Number(b.xp || 0) -
+                        Number(a.xp || 0)
+                ),
+            member =>
+                Number(
+                    member.xp || 0
+                ).toLocaleString()
         );
+
 
         renderLeaderboard(
             "chat-leaderboard",
             [...members]
-                .sort((a, b) => b.messages - a.messages),
-            member => member.messages.toLocaleString()
+                .sort(
+                    (a, b) =>
+                        Number(b.messages || 0) -
+                        Number(a.messages || 0)
+                ),
+            member =>
+                Number(
+                    member.messages || 0
+                ).toLocaleString()
         );
+
 
         renderLeaderboard(
             "voice-leaderboard",
             [...members]
-                .sort((a, b) => b.voiceTime - a.voiceTime),
-            member => formatVoiceTime(member.voiceTime)
+                .sort(
+                    (a, b) =>
+                        Number(b.voiceTime || 0) -
+                        Number(a.voiceTime || 0)
+                ),
+            member =>
+                formatVoiceTime(
+                    member.voiceTime
+                )
         );
+
 
     } catch (error) {
 
@@ -858,16 +1118,28 @@ function renderLeaderboard(
 ) {
 
     const element =
-        document.getElementById(elementId);
+        document.getElementById(
+            elementId
+        );
 
-    if (!element) return;
+
+    if (!element) {
+        return;
+    }
+
 
     const top =
         members
-            .filter(member =>
-                member.userId
+            .filter(
+                member =>
+                    member &&
+                    member.userId
             )
-            .slice(0, 10);
+            .slice(
+                0,
+                10
+            );
+
 
     if (!top.length) {
 
@@ -880,26 +1152,33 @@ function renderLeaderboard(
         return;
     }
 
+
     element.innerHTML =
-        top.map((member, index) => `
+        top.map(
+            (member, index) => `
 
-            <div class="leaderboard-entry">
+                <div class="leaderboard-entry">
 
-                <span class="leaderboard-rank">
-                    #${index + 1}
-                </span>
+                    <span class="leaderboard-rank">
+                        #${index + 1}
+                    </span>
 
-                <span class="leaderboard-user">
-                    ${escapeHtml(member.userId)}
-                </span>
+                    <span class="leaderboard-user">
+                        ${escapeHtml(
+                            member.userId
+                        )}
+                    </span>
 
-                <span class="leaderboard-value">
-                    ${formatValue(member)}
-                </span>
+                    <span class="leaderboard-value">
+                        ${formatValue(
+                            member
+                        )}
+                    </span>
 
-            </div>
+                </div>
 
-        `).join("");
+            `
+        ).join("");
 }
 
 
@@ -907,10 +1186,17 @@ function renderLeaderboard(
    START
    ========================================================= */
 
-showView("Overview");
+showView(
+    "Overview"
+);
+
 
 loadDashboard();
 
+
+/* =========================================================
+   AUTO REFRESH
+   ========================================================= */
 
 let dashboardRefreshing =
     false;
@@ -918,10 +1204,13 @@ let dashboardRefreshing =
 
 async function refreshDashboard() {
 
-    if (dashboardRefreshing) return;
+    if (dashboardRefreshing) {
+        return;
+    }
 
 
-    dashboardRefreshing = true;
+    dashboardRefreshing =
+        true;
 
 
     document.body.classList.add(
@@ -942,7 +1231,8 @@ async function refreshDashboard() {
 
         if (
             active &&
-            getSectionName(active) === "Members"
+            getSectionName(active) ===
+            "Members"
         ) {
 
             await loadMembers(
@@ -952,19 +1242,33 @@ async function refreshDashboard() {
         }
 
 
+        if (
+            active &&
+            getSectionName(active) ===
+            "Leaderboards"
+        ) {
+
+            await loadLeaderboards();
+
+        }
+
+
     } finally {
 
-        setTimeout(() => {
+        setTimeout(
+            () => {
 
-            document.body.classList.remove(
-                "dashboard-refreshing"
-            );
+                document.body.classList.remove(
+                    "dashboard-refreshing"
+                );
 
 
-            dashboardRefreshing =
-                false;
+                dashboardRefreshing =
+                    false;
 
-        }, 350);
+            },
+            350
+        );
 
     }
 }
