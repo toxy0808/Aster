@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     MessageFlags,
     ContainerBuilder,
     PermissionFlagsBits
@@ -45,7 +46,65 @@ module.exports = {
     name: "represet",
     aliases: ["resetrep"],
 
+    data: new SlashCommandBuilder()
+        .setName("represet")
+        .setDescription("Reset or set a member's reputation.")
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.Administrator.toString()
+        )
+        .addUserOption(option =>
+            option
+                .setName("user")
+                .setDescription("The member whose REP should be reset.")
+                .setRequired(false)
+        )
+        .addIntegerOption(option =>
+            option
+                .setName("amount")
+                .setDescription("The new REP value. Defaults to 0.")
+                .setRequired(false)
+        )
+        .addStringOption(option =>
+            option
+                .setName("all")
+                .setDescription("Type confirm to reset everyone's REP.")
+                .setRequired(false)
+                .addChoices({
+                    name: "Confirm reset everyone",
+                    value: "confirm"
+                })
+        ),
+
     async execute(message, args) {
+
+        // ====================================================
+        // SLASH ARGUMENT ADAPTER
+        // ====================================================
+
+        const slashUser =
+            message.options?.getUser("user");
+
+        const slashAmount =
+            message.options?.getInteger("amount");
+
+        const slashAll =
+            message.options?.getString("all");
+
+        if (message.options?.getUser) {
+            if (slashUser) {
+                message.mentions.users.first = () => slashUser;
+            }
+
+            if (slashAll === "confirm") {
+                args = ["all", "confirm"];
+            } else if (slashUser) {
+                args = [slashUser.id];
+
+                if (slashAmount !== null) {
+                    args.push(String(slashAmount));
+                }
+            }
+        }
 
         // ====================================================
         // ADMIN CHECK
@@ -62,6 +121,7 @@ module.exports = {
         // ====================================================
 
         const target = message.mentions.users.first();
+
         const isEveryone =
             args[0]?.toLowerCase() === "all";
 

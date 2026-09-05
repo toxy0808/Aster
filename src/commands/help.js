@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     ContainerBuilder,
     TextDisplayBuilder,
     MessageFlags
@@ -13,6 +14,10 @@ const {
 module.exports = {
     name: "help",
     aliases: ["commands", "cmds"],
+
+    data: new SlashCommandBuilder()
+        .setName("help")
+        .setDescription("View ASTER commands and features."),
 
     async execute(message) {
         const container = new ContainerBuilder()

@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     MessageFlags,
     ContainerBuilder
 } = require("discord.js");
@@ -42,6 +43,10 @@ function buildContainer(...components) {
 module.exports = {
     name: "rephistory",
     aliases: ["reph", "rep-history"],
+
+    data: new SlashCommandBuilder()
+        .setName("rephistory")
+        .setDescription("View your recent reputation history."),
 
     async execute(message) {
 

@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     ContainerBuilder,
     TextDisplayBuilder,
     SeparatorBuilder,
@@ -21,7 +22,140 @@ module.exports = {
 
     aliases: ["ar"],
 
+    data: new SlashCommandBuilder()
+        .setName("autoresponder")
+        .setDescription("Manage server autoresponders.")
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.Administrator.toString()
+        )
+
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName("add")
+                .setDescription("Create an autoresponder.")
+                .addStringOption(option =>
+                    option
+                        .setName("trigger")
+                        .setDescription("The trigger phrase.")
+                        .setRequired(true)
+                )
+                .addStringOption(option =>
+                    option
+                        .setName("type")
+                        .setDescription("The response type.")
+                        .setRequired(true)
+                        .addChoices(
+                            {
+                                name: "Text",
+                                value: "text"
+                            },
+                            {
+                                name: "GIF",
+                                value: "gif"
+                            },
+                            {
+                                name: "Image",
+                                value: "image"
+                            },
+                            {
+                                name: "Embed",
+                                value: "embed"
+                            }
+                        )
+                )
+                .addStringOption(option =>
+                    option
+                        .setName("response")
+                        .setDescription("The response text. Not required for images/GIFs.")
+                        .setRequired(false)
+                )
+        )
+
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName("remove")
+                .setDescription("Remove an autoresponder.")
+                .addStringOption(option =>
+                    option
+                        .setName("trigger")
+                        .setDescription("The trigger phrase to remove.")
+                        .setRequired(true)
+                )
+        )
+
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName("list")
+                .setDescription("List active autoresponders.")
+        )
+
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName("clear")
+                .setDescription("Remove all autoresponders.")
+        )
+
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName("guide")
+                .setDescription("View the autoresponder guide.")
+        ),
+
     async execute(message, args) {
+
+        // ========================================================
+        // SLASH COMMAND ADAPTER
+        // ========================================================
+
+        if (message.options?.getSubcommand) {
+
+            const subcommand =
+                message.options.getSubcommand();
+
+            if (subcommand === "add") {
+
+                const trigger =
+                    message.options.getString("trigger");
+
+                const type =
+                    message.options.getString("type");
+
+                const response =
+                    message.options.getString("response");
+
+                args = [
+                    "add",
+                    trigger,
+                    type
+                ];
+
+                if (response) {
+                    args.push(response);
+                }
+
+            } else if (subcommand === "remove") {
+
+                const trigger =
+                    message.options.getString("trigger");
+
+                args = [
+                    "remove",
+                    trigger
+                ];
+
+            } else if (subcommand === "list") {
+
+                args = ["list"];
+
+            } else if (subcommand === "clear") {
+
+                args = ["clear"];
+
+            } else if (subcommand === "guide") {
+
+                args = ["guide"];
+            }
+        }
 
         // ========================================================
         // PERMISSION
@@ -72,7 +206,7 @@ module.exports = {
                                 new TextDisplayBuilder().setContent(
                                     "# ✦ ASTER / AUTORESPONDER\n" +
                                     "### ⚙ Usage\n\n" +
-                                    "`,ar add <trigger> <text|gif|image|embed> <response>`"
+                                    "`/autoresponder add <trigger> <type> [response]`"
                                 )
                             )
                     ],
@@ -138,7 +272,7 @@ module.exports = {
             // ====================================================
 
             const attachment =
-                message.attachments.first();
+                message.attachments?.first();
 
             let content =
                 args.join(" ").trim();
@@ -302,7 +436,7 @@ module.exports = {
                                 new TextDisplayBuilder().setContent(
                                     "# ✦ ASTER / AUTORESPONDER\n" +
                                     "### ⚙ Usage\n\n" +
-                                    "`,ar remove <trigger>`"
+                                    "`/autoresponder remove <trigger>`"
                                 )
                             )
                     ],
@@ -492,10 +626,8 @@ module.exports = {
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(
                         "### ✦ Create\n\n" +
-                        "`,ar add <trigger> text <response>`\n" +
-                        "`,ar add <trigger> embed <text>`\n" +
-                        "`,ar add <trigger> image` + **attach an image**\n" +
-                        "`,ar add <trigger> gif` + **attach a GIF**"
+                        "`/autoresponder add <trigger> <type> [response]`\n\n" +
+                        "For **image/GIF** responses, attach the media to the command message."
                     )
                 )
 
@@ -506,9 +638,9 @@ module.exports = {
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(
                         "### ⚙ Manage\n\n" +
-                        "`,ar remove <trigger>`\n" +
-                        "`,ar list`\n" +
-                        "`,ar clear`"
+                        "`/autoresponder remove <trigger>`\n" +
+                        "`/autoresponder list`\n" +
+                        "`/autoresponder clear`"
                     )
                 )
 
@@ -519,9 +651,9 @@ module.exports = {
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(
                         "### 🧪 Examples\n\n" +
-                        "`,ar add toxy text TOXY MENTIONED 👀`\n" +
-                        "`,ar add cat gif` + **attach `cat.gif`**\n" +
-                        "`,ar add logo image` + **attach `logo.png`**"
+                        "`/autoresponder add toxy text TOXY MENTIONED 👀`\n" +
+                        "`/autoresponder add cat gif` + **attach `cat.gif`**\n" +
+                        "`/autoresponder add logo image` + **attach `logo.png`**"
                     )
                 )
 

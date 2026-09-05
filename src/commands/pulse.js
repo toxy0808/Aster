@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     ContainerBuilder,
     TextDisplayBuilder,
     SeparatorBuilder,
@@ -10,6 +11,10 @@ const { symbols, timestamps } = require("../utils/asterUI");
 
 module.exports = {
     name: "pulse",
+
+    data: new SlashCommandBuilder()
+        .setName("pulse")
+        .setDescription("View the live server activity pulse."),
 
     async execute(message) {
 

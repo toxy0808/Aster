@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     MessageFlags,
     ContainerBuilder
 } = require("discord.js");
@@ -42,6 +43,10 @@ function buildContainer(...components) {
 module.exports = {
     name: "repleaderboard",
     aliases: ["replb", "reputationlb"],
+
+    data: new SlashCommandBuilder()
+        .setName("repleaderboard")
+        .setDescription("View the server reputation leaderboard."),
 
     async execute(message) {
 

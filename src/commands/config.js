@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
@@ -26,6 +27,13 @@ const timestamps = require("../utils/asterUI/timestamps");
 module.exports = {
     name: "config",
     aliases: ["setup"],
+
+    data: new SlashCommandBuilder()
+        .setName("config")
+        .setDescription("Open the ASTER server configuration panel.")
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.Administrator.toString()
+        ),
 
     async execute(message) {
 
