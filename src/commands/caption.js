@@ -159,7 +159,10 @@ function getOwnAttachment(message) {
         return null;
     }
 
-    if (typeof message.attachments.find === "function") {
+    if (
+        typeof message.attachments.find ===
+        "function"
+    ) {
 
         return (
             message.attachments.find(
@@ -173,16 +176,21 @@ function getOwnAttachment(message) {
 
     }
 
-    if (typeof message.attachments.first === "function") {
+    if (
+        typeof message.attachments.first ===
+        "function"
+    ) {
 
         const attachment =
             message.attachments.first();
 
-        return attachment &&
+        return (
+            attachment &&
             isSupportedImage(
                 attachment.name ||
                 attachment.url
             )
+        )
             ? attachment
             : null;
     }
@@ -368,7 +376,7 @@ async function getEmojiSvg(emoji) {
 
         return await promise;
 
-    } catch (error) {
+    } catch {
 
         emojiCache.delete(
             emoji
@@ -540,31 +548,47 @@ function estimateTextWidth(
 
 }
 
-/*
- * Emoji gets its own visual width plus left/right
- * breathing room. This prevents it touching text.
- */
+/* =========================================================
+   EMOJI METRICS
+========================================================= */
 
 function getEmojiMetrics(fontSize) {
 
+    /*
+     * Reserve a deliberately generous horizontal area
+     * around every emoji.
+     *
+     * This reserved width is used BOTH by:
+     * 1. text wrapping
+     * 2. actual SVG rendering
+     *
+     * Therefore the text can never be placed inside
+     * the emoji's reserved area.
+     */
+
     const size =
         Math.round(
-            fontSize * 0.88
+            fontSize * 0.82
         );
 
     const gap =
         Math.max(
-            4,
+            10,
             Math.round(
-                fontSize * 0.13
+                fontSize * 0.24
             )
         );
 
     return {
+
         size,
+
         gap,
+
         width:
-            size + gap * 2
+            size +
+            gap * 2
+
     };
 
 }
@@ -695,8 +719,8 @@ function buildLineSvg(
     flushText();
 
     /*
-     * Calculate exact visual width using the same
-     * emoji spacing that will be used when rendering.
+     * Calculate the total width using the exact same
+     * protected emoji widths used during wrapping.
      */
 
     let totalWidth = 0;
@@ -733,7 +757,7 @@ function buildLineSvg(
                 );
 
             /*
-             * Left side bearing.
+             * Enter the emoji's protected area.
              */
 
             x += metrics.gap;
@@ -744,8 +768,8 @@ function buildLineSvg(
                 );
 
             /*
-             * Slightly smaller than the text and
-             * vertically aligned to the text baseline.
+             * Keep the emoji vertically aligned
+             * with the text baseline.
              */
 
             const emojiY =
@@ -764,7 +788,8 @@ function buildLineSvg(
             `);
 
             /*
-             * Emoji itself + right side bearing.
+             * Completely leave the emoji's protected
+             * area before allowing any following text.
              */
 
             x +=
@@ -1375,11 +1400,6 @@ module.exports = {
 
         else {
 
-            /*
-             * Read the complete message because the normal
-             * dispatcher splits arguments on spaces.
-             */
-
             const match =
                 message.content.match(
                     /^\s*,(?:caption|cap)\s+([\s\S]+?)\s*$/
@@ -1426,7 +1446,8 @@ module.exports = {
                 caption.trim();
 
             /*
-             * First check an attachment on the command.
+             * First check an attachment on the prefix
+             * command.
              */
 
             attachment =
