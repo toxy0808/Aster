@@ -11,7 +11,8 @@ const {
     styles,
     header,
     section,
-    stat
+    stat,
+    separator
 } = require("../utils/asterUI");
 
 // ========================================================
@@ -45,7 +46,7 @@ module.exports = {
     async execute(message) {
 
         // ====================================================
-        // FETCH HISTORY
+        // HISTORY
         // ====================================================
 
         const logs = db.prepare(`
@@ -72,11 +73,13 @@ module.exports = {
         ];
 
         // ====================================================
-        // EMPTY STATE
+        // EMPTY
         // ====================================================
 
         if (!logs.length) {
             components.push(
+                separator(),
+
                 section(
                     "No Activity",
                     "No reputation activity yet.",
@@ -84,13 +87,7 @@ module.exports = {
                 ),
 
                 stat(
-                    "Info",
-                    "Your REP history will appear here.",
-                    symbols.info
-                ),
-
-                stat(
-                    "Checked",
+                    "Updated",
                     timestamps.now(),
                     symbols.time
                 )
@@ -108,7 +105,7 @@ module.exports = {
         }
 
         // ====================================================
-        // HISTORY
+        // RECENT ACTIVITY
         // ====================================================
 
         const lines = logs.map(log => {
@@ -148,25 +145,24 @@ module.exports = {
             const time =
                 Number.isFinite(timestamp)
                     ? timestamps.relative(timestamp)
-                    : "unknown time";
-
-            const action =
-                received
-                    ? "Received"
-                    : "Gave";
+                    : "unknown";
 
             return (
-                `${symbol} **${amount} REP** · ${action} ` +
-                `<@${otherUser}> · ${time}`
+                `${symbol} **${amount} REP** · ` +
+                `${received ? "Received" : "Gave"} <@${otherUser}> · ${time}`
             );
         });
 
         components.push(
+            separator(),
+
             section(
                 "Recent Activity",
                 lines.join("\n"),
                 styles.sections.reputation
-            )
+            ),
+
+            separator()
         );
 
         // ====================================================
@@ -199,11 +195,16 @@ module.exports = {
         );
 
         components.push(
-            section(
-                "REP Statistics",
-                `${symbols.positive} **Given** ${totals.given || 0}  ·  ` +
-                `${symbols.positive} **Received** ${totals.received || 0}`,
-                styles.sections.reputation
+            stat(
+                "Given",
+                totals.given || 0,
+                symbols.positive
+            ),
+
+            stat(
+                "Received",
+                totals.received || 0,
+                symbols.positive
             ),
 
             stat(
