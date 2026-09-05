@@ -415,75 +415,59 @@ function getFontSize(width, text) {
         [...text].length;
 
     if (length <= 8) {
-
         return Math.min(
             96,
             Math.round(width * 0.090)
         );
-
     }
 
     if (length <= 14) {
-
         return Math.min(
             82,
             Math.round(width * 0.078)
         );
-
     }
 
     if (length <= 22) {
-
         return Math.min(
             70,
             Math.round(width * 0.068)
         );
-
     }
 
     if (length <= 32) {
-
         return Math.min(
             60,
             Math.round(width * 0.058)
         );
-
     }
 
     if (length <= 45) {
-
         return Math.min(
             52,
             Math.round(width * 0.050)
         );
-
     }
 
     if (length <= 60) {
-
         return Math.min(
             45,
             Math.round(width * 0.043)
         );
-
     }
 
     if (length <= 80) {
-
         return Math.min(
             39,
             Math.round(width * 0.037)
         );
-
     }
 
     if (length <= 110) {
-
         return Math.min(
             34,
             Math.round(width * 0.032)
         );
-
     }
 
     return 30;
@@ -555,27 +539,23 @@ function estimateTextWidth(
 function getEmojiMetrics(fontSize) {
 
     /*
-     * Reserve a deliberately generous horizontal area
-     * around every emoji.
+     * The emoji receives a fixed "cell".
      *
-     * This reserved width is used BOTH by:
-     * 1. text wrapping
-     * 2. actual SVG rendering
-     *
-     * Therefore the text can never be placed inside
-     * the emoji's reserved area.
+     * Text is NEVER positioned based on the visual
+     * size of the SVG. It is positioned after this
+     * entire cell has been consumed.
      */
 
     const size =
         Math.round(
-            fontSize * 0.82
+            fontSize * 0.78
         );
 
     const gap =
         Math.max(
-            10,
+            14,
             Math.round(
-                fontSize * 0.24
+                fontSize * 0.30
             )
         );
 
@@ -585,31 +565,15 @@ function getEmojiMetrics(fontSize) {
 
         gap,
 
+        cellWidth:
+            size +
+            gap * 2,
+
         width:
             size +
             gap * 2
 
     };
-
-}
-
-function estimatePartWidth(
-    part,
-    fontSize
-) {
-
-    if (part.type === "emoji") {
-
-        return getEmojiMetrics(
-            fontSize
-        ).width;
-
-    }
-
-    return estimateTextWidth(
-        part.value,
-        fontSize
-    );
 
 }
 
@@ -651,6 +615,7 @@ function wrapCaption(
         }
 
         current.push(part);
+
         currentWidth += width;
 
     }
@@ -664,6 +629,30 @@ function wrapCaption(
     }
 
     return lines;
+
+}
+
+/* =========================================================
+   PART WIDTH
+========================================================= */
+
+function estimatePartWidth(
+    part,
+    fontSize
+) {
+
+    if (part.type === "emoji") {
+
+        return getEmojiMetrics(
+            fontSize
+        ).cellWidth;
+
+    }
+
+    return estimateTextWidth(
+        part.value,
+        fontSize
+    );
 
 }
 
@@ -719,8 +708,9 @@ function buildLineSvg(
     flushText();
 
     /*
-     * Calculate the total width using the exact same
-     * protected emoji widths used during wrapping.
+     * Every emoji is treated as a complete protected
+     * cell. The exact same cell width is used here
+     * and by the wrapping calculation.
      */
 
     let totalWidth = 0;
@@ -744,6 +734,11 @@ function buildLineSvg(
 
         if (part.type === "emoji") {
 
+            const metrics =
+                getEmojiMetrics(
+                    fontSize
+                );
+
             const emoji =
                 emojiImages[
                     emojiIndexRef.value
@@ -751,50 +746,75 @@ function buildLineSvg(
 
             emojiIndexRef.value++;
 
-            const metrics =
-                getEmojiMetrics(
-                    fontSize
-                );
-
             /*
-             * Enter the emoji's protected area.
+             * The entire emoji cell is protected.
              */
 
-            x += metrics.gap;
+            const cellStartX = x;
+
+            /*
+             * Center the actual SVG inside the
+             * protected cell.
+             */
+
+            const emojiX =
+                cellStartX +
+                metrics.gap;
+
+            const emojiY =
+                y -
+                metrics.size * 0.82;
+
+            /*
+             * Clip the emoji to its own cell.
+             *
+             * Even if the SVG itself contains artwork
+             * extending beyond its nominal bounds, it
+             * cannot visually escape into the text area.
+             */
+
+            const clipId =
+                `emojiClip${emojiIndexRef.value}`;
 
             const base64 =
                 emoji.toString(
                     "base64"
                 );
 
-            /*
-             * Keep the emoji vertically aligned
-             * with the text baseline.
-             */
-
-            const emojiY =
-                y -
-                metrics.size * 0.82;
-
             elements.push(`
-                <image
-                    href="data:image/svg+xml;base64,${base64}"
-                    x="${x}"
-                    y="${emojiY}"
-                    width="${metrics.size}"
-                    height="${metrics.size}"
-                    preserveAspectRatio="xMidYMid meet"
-                />
+                <defs>
+                    <clipPath id="${clipId}">
+                        <rect
+                            x="${cellStartX}"
+                            y="${y - fontSize}"
+                            width="${metrics.cellWidth}"
+                            height="${fontSize * 1.35}"
+                        />
+                    </clipPath>
+                </defs>
+
+                <g clip-path="url(#${clipId})">
+                    <image
+                        href="data:image/svg+xml;base64,${base64}"
+                        x="${emojiX}"
+                        y="${emojiY}"
+                        width="${metrics.size}"
+                        height="${metrics.size}"
+                        preserveAspectRatio="xMidYMid meet"
+                    />
+                </g>
             `);
 
             /*
-             * Completely leave the emoji's protected
-             * area before allowing any following text.
+             * CRITICAL:
+             *
+             * Move past the ENTIRE protected emoji cell.
+             * The next text character cannot enter it.
              */
 
-            x +=
-                metrics.size +
-                metrics.gap;
+            x =
+                cellStartX +
+                metrics.cellWidth;
 
             continue;
 
@@ -862,7 +882,7 @@ async function createCaptionSvg(
 
     for (
         let attempt = 0;
-        attempt < 6;
+        attempt < 8;
         attempt++
     ) {
 
@@ -951,7 +971,10 @@ async function createCaptionSvg(
 
         for (const part of line) {
 
-            if (part.type !== "emoji") {
+            if (
+                part.type !==
+                "emoji"
+            ) {
                 continue;
             }
 
@@ -1366,10 +1389,6 @@ module.exports = {
 
         }
 
-        /* =====================================================
-           DETECT SLASH COMMAND
-        ===================================================== */
-
         const isSlash =
             !!message.options?.getString;
 
@@ -1377,7 +1396,7 @@ module.exports = {
         let attachment = null;
 
         /* =====================================================
-           SLASH COMMAND
+           SLASH
         ===================================================== */
 
         if (isSlash) {
@@ -1395,7 +1414,7 @@ module.exports = {
         }
 
         /* =====================================================
-           PREFIX COMMAND
+           PREFIX
         ===================================================== */
 
         else {
@@ -1415,10 +1434,6 @@ module.exports = {
 
             caption =
                 match[1].trim();
-
-            /*
-             * Remove surrounding quotes.
-             */
 
             if (
                 caption.length >= 2 &&
@@ -1445,19 +1460,10 @@ module.exports = {
             caption =
                 caption.trim();
 
-            /*
-             * First check an attachment on the prefix
-             * command.
-             */
-
             attachment =
                 getOwnAttachment(
                     message
                 );
-
-            /*
-             * Otherwise use the replied-to message.
-             */
 
             if (!attachment) {
 
@@ -1503,19 +1509,6 @@ module.exports = {
                 message.attachment ||
                 message.attachments?.first?.() ||
                 null;
-
-        }
-
-        /* =====================================================
-           REPLY ATTACHMENT FALLBACK
-        ===================================================== */
-
-        if (!attachment) {
-
-            attachment =
-                await getReferencedAttachment(
-                    message
-                );
 
         }
 
@@ -1584,10 +1577,6 @@ module.exports = {
 
             }
 
-            /* =================================================
-               DOWNLOAD
-            ================================================= */
-
             const input =
                 await downloadBuffer(
                     attachment.url
@@ -1603,10 +1592,6 @@ module.exports = {
                 );
 
             }
-
-            /* =================================================
-               METADATA
-            ================================================= */
 
             const metadata =
                 await sharp(
@@ -1627,10 +1612,6 @@ module.exports = {
             let output;
             let outputName;
 
-            /* =================================================
-               GIF
-            ================================================= */
-
             if (isAnimatedGif) {
 
                 output =
@@ -1642,13 +1623,7 @@ module.exports = {
                 outputName =
                     "caption.gif";
 
-            }
-
-            /* =================================================
-               STATIC IMAGE
-            ================================================= */
-
-            else {
+            } else {
 
                 output =
                     await renderStatic(
@@ -1661,10 +1636,6 @@ module.exports = {
 
             }
 
-            /* =================================================
-               OUTPUT SIZE
-            ================================================= */
-
             if (
                 output.length >
                 MAX_FILE_SIZE
@@ -1676,10 +1647,6 @@ module.exports = {
 
             }
 
-            /* =================================================
-               DISCORD FILE
-            ================================================= */
-
             const file =
                 new AttachmentBuilder(
                     output,
@@ -1688,10 +1655,6 @@ module.exports = {
                             outputName
                     }
                 );
-
-            /* =================================================
-               SEND
-            ================================================= */
 
             await message.reply({
                 files: [file]
