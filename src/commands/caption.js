@@ -1,7 +1,6 @@
 const { AttachmentBuilder } = require("discord.js");
 const sharp = require("sharp");
 const twemoji = require("twemoji");
-
 const https = require("https");
 const http = require("http");
 const { URL } = require("url");
@@ -13,22 +12,22 @@ const MAX_PIXELS = 100_000_000;
 
 const activeUsers = new Set();
 
-/*
- * ------------------------------------------------------------
+/* ------------------------------------------------------------
  * CAPTION PARSER
- * ------------------------------------------------------------
- */
+ * ------------------------------------------------------------ */
 
 function parseCaption(message) {
     const content = message.content || "";
 
-    const match = content.match(/^\s*\S+\s+([\s\S]+?)\s*$/);
+    const match = content.match(
+        /^\s*,caption\s+([\s\S]+?)\s*$/
+    );
 
     if (!match) {
         return null;
     }
 
-    let caption = match[1];
+    let caption = match[1].trim();
 
     if (
         caption.length >= 2 &&
@@ -53,14 +52,12 @@ function parseCaption(message) {
     return caption;
 }
 
-/*
- * ------------------------------------------------------------
+/* ------------------------------------------------------------
  * SVG ESCAPING
- * ------------------------------------------------------------
- */
+ * ------------------------------------------------------------ */
 
 function escapeXml(text) {
-    return text
+    return String(text)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
@@ -68,11 +65,9 @@ function escapeXml(text) {
         .replace(/'/g, "&apos;");
 }
 
-/*
- * ------------------------------------------------------------
+/* ------------------------------------------------------------
  * TEXT WRAPPING
- * ------------------------------------------------------------
- */
+ * ------------------------------------------------------------ */
 
 function wrapText(text, maxChars) {
     const paragraphs = text.split(/\r?\n/);
@@ -108,14 +103,9 @@ function wrapText(text, maxChars) {
     return lines;
 }
 
-/*
- * ------------------------------------------------------------
+/* ------------------------------------------------------------
  * FONT SIZE
- *
- * Short = BIG
- * Long  = SMALLER
- * ------------------------------------------------------------
- */
+ * ------------------------------------------------------------ */
 
 function calculateFontSize(width, caption) {
     const base = Math.round(width * 0.065);
@@ -148,11 +138,9 @@ function calculateFontSize(width, caption) {
     return size;
 }
 
-/*
- * ------------------------------------------------------------
- * DOWNLOAD HELPER
- * ------------------------------------------------------------
- */
+/* ------------------------------------------------------------
+ * DOWNLOAD
+ * ------------------------------------------------------------ */
 
 function downloadBuffer(urlString, redirectCount = 0) {
     return new Promise((resolve, reject) => {
@@ -201,11 +189,10 @@ function downloadBuffer(urlString, redirectCount = 0) {
                 ) {
                     response.resume();
 
-                    const nextUrl =
-                        new URL(
-                            response.headers.location,
-                            parsed
-                        ).toString();
+                    const nextUrl = new URL(
+                        response.headers.location,
+                        parsed
+                    ).toString();
 
                     return downloadBuffer(
                         nextUrl,
@@ -237,7 +224,6 @@ function downloadBuffer(urlString, redirectCount = 0) {
                                 "Media is larger than 25 MB."
                             )
                         );
-
                         return;
                     }
 
@@ -269,44 +255,39 @@ function downloadBuffer(urlString, redirectCount = 0) {
     });
 }
 
-/*
- * ------------------------------------------------------------
+/* ------------------------------------------------------------
  * TWEMOJI
- *
- * Converts emojis into actual Twemoji SVG images.
- *
- * This means we DON'T need an emoji font installed
- * on eCloudServ.
- * ------------------------------------------------------------
- */
+ * ------------------------------------------------------------ */
 
 async function getTwemojiSvg(codePoint) {
+    // IMPORTANT:
+    // This must be a real URL, NOT Markdown.
     const url =
-        `https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/${codePoint}.svg`;
+        `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${codePoint}.svg`;
 
     return downloadBuffer(url);
 }
 
-async function prepareEmojiData(caption) {
-    const emojis = [];
+function findEmojiCodePoints(text) {
+    const found = [];
 
-    twemoji.parse(
-        caption,
-        {
-            callback: (icon) => {
-                emojis.push(icon);
-                return icon;
-            }
+    twemoji.parse(text, {
+        callback: icon => {
+            found.push(icon);
+
+            // Return placeholder.
+            return `@@EMOJI_${icon}@@`;
         }
-    );
+    });
 
-    const unique = [
-        ...new Set(emojis)
-    ];
+    return [...new Set(found)];
+}
 
+async function prepareEmojiData(caption) {
+    const icons = findEmojiCodePoints(caption);
     const result = new Map();
 
-    for (const icon of unique) {
+    for (const icon of icons) {
         try {
             const svgBuffer =
                 await getTwemojiSvg(icon);
@@ -317,7 +298,7 @@ async function prepareEmojiData(caption) {
             );
         } catch (error) {
             console.error(
-                `[caption] Failed to load emoji ${icon}:`,
+                `[caption] Failed to load Twemoji ${icon}:`,
                 error.message
             );
         }
@@ -326,18 +307,11 @@ async function prepareEmojiData(caption) {
     return result;
 }
 
-/*
- * ------------------------------------------------------------
+/* ------------------------------------------------------------
  * BUILD CAPTION SVG
- *
- * Uses Twemoji images when emojis exist.
- * ------------------------------------------------------------
- */
+ * ------------------------------------------------------------ */
 
-async function buildCaptionSvg(
-    width,
-    caption
-) {
+async function buildCaptionSvg(width, caption) {
     let fontSize =
         calculateFontSize(
             width,
@@ -385,11 +359,10 @@ async function buildCaptionSvg(
                 (fontSize * 0.52)
             );
 
-        maxChars =
-            Math.max(
-                10,
-                maxChars
-            );
+        maxChars = Math.max(
+            10,
+            maxChars
+        );
 
         lines =
             wrapText(
@@ -407,8 +380,7 @@ async function buildCaptionSvg(
         verticalPadding * 2 +
         lineHeight * lines.length;
 
-    const centerX =
-        width / 2;
+    const centerX = width / 2;
 
     const textBlockHeight =
         lineHeight * lines.length;
@@ -417,20 +389,9 @@ async function buildCaptionSvg(
         (captionHeight - textBlockHeight) / 2 +
         fontSize;
 
-    /*
-     * Find emoji data.
-     */
     const emojiData =
-        await prepareEmojiData(
-            caption
-        );
+        await prepareEmojiData(caption);
 
-    /*
-     * Turn each line into SVG.
-     *
-     * We use Twemoji images for emojis and
-     * normal text for everything else.
-     */
     const textElements = [];
 
     for (
@@ -438,40 +399,23 @@ async function buildCaptionSvg(
         lineIndex < lines.length;
         lineIndex++
     ) {
-        const line =
-            lines[lineIndex];
+        const line = lines[lineIndex];
 
         const baseline =
             firstBaseline +
             lineIndex * lineHeight;
 
-        /*
-         * Split the line into emoji/non-emoji pieces.
-         */
-        const parts = [];
-
-        twemoji.parse(
-            line,
-            {
-                callback: (icon) => {
-                    return `@@EMOJI_${icon}@@`;
-                }
-            }
-        );
-
         const parsed =
             twemoji.parse(
                 line,
                 {
-                    callback: (icon) => {
-                        return `@@EMOJI_${icon}@@`;
-                    }
+                    callback: icon =>
+                        `@@EMOJI_${icon}@@`
                 }
             );
 
-        /*
-         * Find our emoji placeholders.
-         */
+        const parts = [];
+
         const regex =
             /@@EMOJI_([0-9a-f-]+)@@/gi;
 
@@ -484,11 +428,10 @@ async function buildCaptionSvg(
             if (match.index > lastIndex) {
                 parts.push({
                     type: "text",
-                    value:
-                        parsed.slice(
-                            lastIndex,
-                            match.index
-                        )
+                    value: parsed.slice(
+                        lastIndex,
+                        match.index
+                    )
                 });
             }
 
@@ -504,14 +447,10 @@ async function buildCaptionSvg(
         if (lastIndex < parsed.length) {
             parts.push({
                 type: "text",
-                value:
-                    parsed.slice(lastIndex)
+                value: parsed.slice(lastIndex)
             });
         }
 
-        /*
-         * If there were no emojis.
-         */
         if (!parts.length) {
             parts.push({
                 type: "text",
@@ -519,9 +458,8 @@ async function buildCaptionSvg(
             });
         }
 
-        /*
-         * Estimate total width.
-         */
+        /* Calculate total width */
+
         let totalWidth = 0;
 
         for (const part of parts) {
@@ -539,9 +477,8 @@ async function buildCaptionSvg(
             centerX -
             totalWidth / 2;
 
-        /*
-         * Render every part.
-         */
+        /* Render parts */
+
         for (const part of parts) {
             if (
                 part.type === "emoji" &&
@@ -572,8 +509,7 @@ async function buildCaptionSvg(
                     />
                 `);
 
-                currentX +=
-                    emojiSize;
+                currentX += emojiSize;
             } else {
                 const safeText =
                     escapeXml(
@@ -597,8 +533,7 @@ async function buildCaptionSvg(
                     >${safeText}</text>
                 `);
 
-                currentX +=
-                    textWidth;
+                currentX += textWidth;
             }
         }
     }
@@ -628,11 +563,9 @@ async function buildCaptionSvg(
     };
 }
 
-/*
- * ------------------------------------------------------------
+/* ------------------------------------------------------------
  * FIND REPLIED ATTACHMENT
- * ------------------------------------------------------------
- */
+ * ------------------------------------------------------------ */
 
 async function getReferencedAttachment(message) {
     if (!message.reference?.messageId) {
@@ -662,12 +595,9 @@ async function getReferencedAttachment(message) {
         );
     }
 
-    const attachments =
-        [
-            ...referencedMessage
-                .attachments
-                .values()
-        ];
+    const attachments = [
+        ...referencedMessage.attachments.values()
+    ];
 
     if (!attachments.length) {
         throw new Error(
@@ -714,11 +644,9 @@ async function getReferencedAttachment(message) {
     return images[0];
 }
 
-/*
- * ------------------------------------------------------------
+/* ------------------------------------------------------------
  * STATIC IMAGE
- * ------------------------------------------------------------
- */
+ * ------------------------------------------------------------ */
 
 async function renderStatic(
     inputBuffer,
@@ -726,10 +654,13 @@ async function renderStatic(
     format
 ) {
     const image =
-        sharp(inputBuffer, {
-            limitInputPixels:
-                MAX_PIXELS
-        }).autoOrient();
+        sharp(
+            inputBuffer,
+            {
+                limitInputPixels:
+                    MAX_PIXELS
+            }
+        ).autoOrient();
 
     const metadata =
         await image.metadata();
@@ -821,17 +752,9 @@ async function renderStatic(
     }
 }
 
-/*
- * ------------------------------------------------------------
+/* ------------------------------------------------------------
  * GIF
- *
- * Keeps:
- * - every frame
- * - every frame delay
- * - loop count
- * - duplicate frames
- * ------------------------------------------------------------
- */
+ * ------------------------------------------------------------ */
 
 async function renderGif(
     inputBuffer,
@@ -991,27 +914,17 @@ async function renderGif(
         await sharp(
             strip,
             {
-                animated: {
-                    pages: frameCount,
-                    pageHeight:
-                        frameHeight
-                },
+                animated: true,
+                pageHeight: frameHeight,
                 limitInputPixels:
                     MAX_PIXELS
             }
         )
             .gif({
                 reuse: true,
-
-                // ORIGINAL frame timing
                 delay: originalDelays,
-
-                // ORIGINAL loop count
                 loop: originalLoop,
-
-                // Don't remove duplicate frames
                 keepDuplicateFrames: true,
-
                 effort: 3,
                 colours: 256
             })
@@ -1023,11 +936,9 @@ async function renderGif(
     };
 }
 
-/*
- * ------------------------------------------------------------
+/* ------------------------------------------------------------
  * MAIN RENDERER
- * ------------------------------------------------------------
- */
+ * ------------------------------------------------------------ */
 
 async function renderCaptionedImage(
     inputBuffer,
@@ -1077,11 +988,9 @@ async function renderCaptionedImage(
     );
 }
 
-/*
- * ------------------------------------------------------------
+/* ------------------------------------------------------------
  * COMMAND
- * ------------------------------------------------------------
- */
+ * ------------------------------------------------------------ */
 
 module.exports = {
     name: "caption",
