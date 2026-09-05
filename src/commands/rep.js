@@ -13,7 +13,8 @@ const {
     header,
     section,
     stat,
-    status
+    status,
+    separator
 } = require("../utils/asterUI");
 
 const COOLDOWN = 10 * 60 * 1000;
@@ -441,15 +442,10 @@ module.exports = {
                 ? symbols.positive
                 : symbols.negative;
 
-        const actionLabel =
-            amount > 0
-                ? "Positive REP"
-                : "Negative REP";
-
         const action =
             amount > 0
                 ? "+"
-                : "−";
+                : "-";
 
         const output = buildContainer(
             header(
@@ -457,18 +453,20 @@ module.exports = {
                 styles.headers.command
             ),
 
-            status(
-                actionLabel,
-                `<@${target.id}> received **${action}${Math.abs(amount)} REP**`,
-                amount > 0
-                    ? "success"
-                    : "warning"
+            section(
+                "Reputation",
+                `${actionSymbol} <@${target.id}> received ` +
+                `**${action}${Math.abs(amount)} reputation** ` +
+                `from <@${message.author.id}>.`,
+                styles.sections.reputation
             ),
 
-            section(
+            separator(),
+
+            stat(
                 "New Total",
-                `**${actionSymbol} ${updated.reputation.toLocaleString()} REP**`,
-                styles.sections.reputation
+                `${updated.reputation.toLocaleString()} REP`,
+                symbols.reputation
             ),
 
             stat(
@@ -482,7 +480,10 @@ module.exports = {
             components: [output],
             flags: MessageFlags.IsComponentsV2,
             allowedMentions: {
-                parse: []
+                users: [
+                    target.id,
+                    message.author.id
+                ]
             }
         });
     }

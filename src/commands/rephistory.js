@@ -16,7 +16,7 @@ const {
 } = require("../utils/asterUI");
 
 // ========================================================
-// COMPONENT BUILDER
+// ASTER COMPONENT BUILDER
 // ========================================================
 
 function buildContainer(...components) {
@@ -45,10 +45,6 @@ module.exports = {
 
     async execute(message) {
 
-        // ====================================================
-        // HISTORY
-        // ====================================================
-
         const logs = db.prepare(`
             SELECT
                 giver_id,
@@ -73,7 +69,7 @@ module.exports = {
         ];
 
         // ====================================================
-        // EMPTY
+        // EMPTY STATE
         // ====================================================
 
         if (!logs.length) {
@@ -109,7 +105,6 @@ module.exports = {
         // ====================================================
 
         const lines = logs.map(log => {
-
             const received =
                 log.receiver_id === message.author.id;
 
@@ -149,7 +144,8 @@ module.exports = {
 
             return (
                 `${symbol} **${amount} REP** · ` +
-                `${received ? "Received" : "Gave"} <@${otherUser}> · ${time}`
+                `${received ? "Received from" : "Given to"} ` +
+                `<@${otherUser}> · ${time}`
             );
         });
 
@@ -173,38 +169,55 @@ module.exports = {
             SELECT
                 SUM(
                     CASE
-                        WHEN receiver_id = ?
-                        AND type = 'positive'
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS received,
-
-                SUM(
-                    CASE
                         WHEN giver_id = ?
                         AND type = 'positive'
                         THEN 1
                         ELSE 0
                     END
-                ) AS given
+                ) AS positive_given,
+
+                SUM(
+                    CASE
+                        WHEN giver_id = ?
+                        AND type = 'negative'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS negative_given,
+
+                SUM(
+                    CASE
+                        WHEN receiver_id = ?
+                        AND type = 'positive'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS positive_received,
+
+                SUM(
+                    CASE
+                        WHEN receiver_id = ?
+                        AND type = 'negative'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS negative_received
             FROM reputation_logs
         `).get(
+            message.author.id,
+            message.author.id,
             message.author.id,
             message.author.id
         );
 
         components.push(
-            stat(
-                "Given",
-                totals.given || 0,
-                symbols.positive
-            ),
-
-            stat(
-                "Received",
-                totals.received || 0,
-                symbols.positive
+            section(
+                "REP Statistics",
+                `${symbols.positive} **+${totals.positive_received || 0}** received  ·  ` +
+                `${symbols.negative} **-${totals.negative_received || 0}** received\n` +
+                `${symbols.positive} **+${totals.positive_given || 0}** given  ·  ` +
+                `${symbols.negative} **-${totals.negative_given || 0}** given`,
+                styles.sections.reputation
             ),
 
             stat(
