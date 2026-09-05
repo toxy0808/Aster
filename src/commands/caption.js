@@ -1,4 +1,8 @@
-const { AttachmentBuilder } = require("discord.js");
+const {
+    AttachmentBuilder,
+    SlashCommandBuilder
+} = require("discord.js");
+
 const sharp = require("sharp");
 const twemoji = require("twemoji");
 const https = require("https");
@@ -17,9 +21,13 @@ const emojiCache = new Map();
 ========================================================= */
 
 function downloadBuffer(url, redirects = 0) {
+
     return new Promise((resolve, reject) => {
+
         if (redirects > 5) {
-            return reject(new Error("Too many redirects."));
+            return reject(
+                new Error("Too many redirects.")
+            );
         }
 
         let parsed;
@@ -27,11 +35,15 @@ function downloadBuffer(url, redirects = 0) {
         try {
             parsed = new URL(url);
         } catch {
-            return reject(new Error("Invalid URL."));
+            return reject(
+                new Error("Invalid URL.")
+            );
         }
 
         const client =
-            parsed.protocol === "https:" ? https : http;
+            parsed.protocol === "https:"
+                ? https
+                : http;
 
         const req = client.get(
             parsed,
@@ -41,17 +53,20 @@ function downloadBuffer(url, redirects = 0) {
                 }
             },
             res => {
+
                 if (
                     res.statusCode >= 300 &&
                     res.statusCode < 400 &&
                     res.headers.location
                 ) {
+
                     res.resume();
 
-                    const next = new URL(
-                        res.headers.location,
-                        parsed
-                    ).toString();
+                    const next =
+                        new URL(
+                            res.headers.location,
+                            parsed
+                        ).toString();
 
                     return downloadBuffer(
                         next,
@@ -62,10 +77,13 @@ function downloadBuffer(url, redirects = 0) {
                 }
 
                 if (res.statusCode !== 200) {
+
                     res.resume();
 
                     return reject(
-                        new Error(`HTTP ${res.statusCode}`)
+                        new Error(
+                            `HTTP ${res.statusCode}`
+                        )
                     );
                 }
 
@@ -73,13 +91,17 @@ function downloadBuffer(url, redirects = 0) {
                 let total = 0;
 
                 res.on("data", chunk => {
+
                     total += chunk.length;
 
                     if (total > MAX_FILE_SIZE) {
+
                         req.destroy();
 
                         reject(
-                            new Error("File is too large.")
+                            new Error(
+                                "File is too large."
+                            )
                         );
 
                         return;
@@ -89,21 +111,34 @@ function downloadBuffer(url, redirects = 0) {
                 });
 
                 res.on("end", () => {
-                    resolve(Buffer.concat(chunks));
+
+                    resolve(
+                        Buffer.concat(chunks)
+                    );
+
                 });
 
                 res.on("error", reject);
             }
         );
 
-        req.setTimeout(DOWNLOAD_TIMEOUT, () => {
-            req.destroy(
-                new Error("Download timed out.")
-            );
-        });
+        req.setTimeout(
+            DOWNLOAD_TIMEOUT,
+            () => {
+
+                req.destroy(
+                    new Error(
+                        "Download timed out."
+                    )
+                );
+
+            }
+        );
 
         req.on("error", reject);
+
     });
+
 }
 
 /* =========================================================
@@ -111,25 +146,58 @@ function downloadBuffer(url, redirects = 0) {
 ========================================================= */
 
 function isSupportedImage(name) {
+
     return /\.(png|jpe?g|gif|webp|avif)$/i.test(
         name || ""
     );
+
 }
 
 function getOwnAttachment(message) {
-    return (
-        message.attachments.find(
-            attachment =>
-                isSupportedImage(
-                    attachment.name ||
-                    attachment.url
-                )
-        ) || null
-    );
+
+    if (!message.attachments) {
+        return null;
+    }
+
+    if (typeof message.attachments.find === "function") {
+
+        return (
+            message.attachments.find(
+                attachment =>
+                    isSupportedImage(
+                        attachment.name ||
+                        attachment.url
+                    )
+            ) || null
+        );
+
+    }
+
+    if (typeof message.attachments.first === "function") {
+
+        const attachment =
+            message.attachments.first();
+
+        return attachment &&
+            isSupportedImage(
+                attachment.name ||
+                attachment.url
+            )
+            ? attachment
+            : null;
+    }
+
+    return null;
+
 }
 
 function getCachedReference(message) {
+
     if (!message.reference?.messageId) {
+        return null;
+    }
+
+    if (!message.channel?.messages?.cache) {
         return null;
     }
 
@@ -151,9 +219,11 @@ function getCachedReference(message) {
                 )
         ) || null
     );
+
 }
 
 async function getReferencedAttachment(message) {
+
     const cached =
         getCachedReference(message);
 
@@ -165,7 +235,14 @@ async function getReferencedAttachment(message) {
         return null;
     }
 
+    if (
+        !message.channel?.messages?.fetch
+    ) {
+        return null;
+    }
+
     try {
+
         const referenced =
             await message.channel.messages.fetch(
                 message.reference.messageId
@@ -180,87 +257,129 @@ async function getReferencedAttachment(message) {
                     )
             ) || null
         );
+
     } catch {
+
         return null;
+
     }
+
 }
 
 /* =========================================================
    EMOJI
 ========================================================= */
 
-const segmenter = new Intl.Segmenter(undefined, {
-    granularity: "grapheme"
-});
+const segmenter =
+    new Intl.Segmenter(undefined, {
+        granularity: "grapheme"
+    });
 
 function isEmojiCluster(value) {
-    if (!value) return false;
+
+    if (!value) {
+        return false;
+    }
 
     if (
-        /\p{Extended_Pictographic}/u.test(value)
+        /\p{Extended_Pictographic}/u.test(
+            value
+        )
     ) {
         return true;
     }
 
     if (
-        /^\p{Regional_Indicator}{2}$/u.test(value)
+        /^\p{Regional_Indicator}{2}$/u.test(
+            value
+        )
     ) {
         return true;
     }
 
     if (
-        /^[0-9#*]\uFE0F?\u20E3$/u.test(value)
+        /^[0-9#*]\uFE0F?\u20E3$/u.test(
+            value
+        )
     ) {
         return true;
     }
 
     return false;
+
 }
 
 function splitGraphemes(text) {
-    return [...segmenter.segment(text)].map(
+
+    return [
+        ...segmenter.segment(text)
+    ].map(
         item => item.segment
     );
+
 }
 
 function splitCaption(text) {
+
     const parts = [];
 
-    for (const segment of splitGraphemes(text)) {
+    for (
+        const segment of
+        splitGraphemes(text)
+    ) {
+
         parts.push({
-            type: isEmojiCluster(segment)
-                ? "emoji"
-                : "text",
+            type:
+                isEmojiCluster(segment)
+                    ? "emoji"
+                    : "text",
             value: segment
         });
+
     }
 
     return parts;
+
 }
 
 async function getEmojiSvg(emoji) {
+
     if (emojiCache.has(emoji)) {
         return emojiCache.get(emoji);
     }
 
     const codePoint =
-        twemoji.convert.toCodePoint(emoji);
+        twemoji.convert.toCodePoint(
+            emoji
+        );
 
     const url =
         `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${codePoint}.svg`;
 
-    const promise = downloadBuffer(url);
+    const promise =
+        downloadBuffer(url);
 
-    emojiCache.set(emoji, promise);
+    emojiCache.set(
+        emoji,
+        promise
+    );
 
     try {
+
         return await promise;
+
     } catch (error) {
-        emojiCache.delete(emoji);
+
+        emojiCache.delete(
+            emoji
+        );
+
         throw new Error(
             `Couldn't load emoji: ${emoji}`
         );
+
     }
+
 }
 
 /* =========================================================
@@ -268,12 +387,14 @@ async function getEmojiSvg(emoji) {
 ========================================================= */
 
 function escapeXml(value) {
+
     return value
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&apos;");
+
 }
 
 /* =========================================================
@@ -281,69 +402,142 @@ function escapeXml(value) {
 ========================================================= */
 
 function getFontSize(width, text) {
-    const length = [...text].length;
+
+    const length =
+        [...text].length;
 
     if (length <= 8) {
-        return Math.min(96, Math.round(width * 0.090));
+
+        return Math.min(
+            96,
+            Math.round(width * 0.090)
+        );
+
     }
 
     if (length <= 14) {
-        return Math.min(82, Math.round(width * 0.078));
+
+        return Math.min(
+            82,
+            Math.round(width * 0.078)
+        );
+
     }
 
     if (length <= 22) {
-        return Math.min(70, Math.round(width * 0.068));
+
+        return Math.min(
+            70,
+            Math.round(width * 0.068)
+        );
+
     }
 
     if (length <= 32) {
-        return Math.min(60, Math.round(width * 0.058));
+
+        return Math.min(
+            60,
+            Math.round(width * 0.058)
+        );
+
     }
 
     if (length <= 45) {
-        return Math.min(52, Math.round(width * 0.050));
+
+        return Math.min(
+            52,
+            Math.round(width * 0.050)
+        );
+
     }
 
     if (length <= 60) {
-        return Math.min(45, Math.round(width * 0.043));
+
+        return Math.min(
+            45,
+            Math.round(width * 0.043)
+        );
+
     }
 
     if (length <= 80) {
-        return Math.min(39, Math.round(width * 0.037));
+
+        return Math.min(
+            39,
+            Math.round(width * 0.037)
+        );
+
     }
 
     if (length <= 110) {
-        return Math.min(34, Math.round(width * 0.032));
+
+        return Math.min(
+            34,
+            Math.round(width * 0.032)
+        );
+
     }
 
     return 30;
+
 }
 
 function getTextFont() {
+
     return "Arial, Helvetica, sans-serif";
+
 }
 
 /* =========================================================
    TEXT MEASUREMENT
 ========================================================= */
 
-function estimateTextWidth(text, fontSize) {
+function estimateTextWidth(
+    text,
+    fontSize
+) {
+
     let width = 0;
 
     for (const char of [...text]) {
+
         if (char === " ") {
-            width += fontSize * 0.28;
-        } else if (/[ilI.,'!:;|]/.test(char)) {
-            width += fontSize * 0.27;
-        } else if (/[MW@#%&]/.test(char)) {
-            width += fontSize * 0.78;
-        } else if (/[A-Z]/.test(char)) {
-            width += fontSize * 0.63;
+
+            width +=
+                fontSize * 0.28;
+
+        } else if (
+            /[ilI.,'!:;|]/.test(char)
+        ) {
+
+            width +=
+                fontSize * 0.27;
+
+        } else if (
+            /[MW@#%&]/.test(char)
+        ) {
+
+            width +=
+                fontSize * 0.78;
+
+        } else if (
+            /[A-Z]/.test(char)
+        ) {
+
+            width +=
+                fontSize * 0.63;
+
         } else {
-            width += fontSize * 0.54;
+
+            width +=
+                fontSize * 0.54;
+
         }
+
     }
 
     return width;
+
 }
 
 /*
@@ -352,43 +546,66 @@ function estimateTextWidth(text, fontSize) {
  */
 
 function getEmojiMetrics(fontSize) {
-    const size = Math.round(
-        fontSize * 0.88
-    );
 
-    const gap = Math.max(
-        4,
-        Math.round(fontSize * 0.13)
-    );
+    const size =
+        Math.round(
+            fontSize * 0.88
+        );
+
+    const gap =
+        Math.max(
+            4,
+            Math.round(
+                fontSize * 0.13
+            )
+        );
 
     return {
         size,
         gap,
-        width: size + gap * 2
+        width:
+            size + gap * 2
     };
+
 }
 
-function estimatePartWidth(part, fontSize) {
+function estimatePartWidth(
+    part,
+    fontSize
+) {
+
     if (part.type === "emoji") {
-        return getEmojiMetrics(fontSize).width;
+
+        return getEmojiMetrics(
+            fontSize
+        ).width;
+
     }
 
     return estimateTextWidth(
         part.value,
         fontSize
     );
+
 }
 
 /* =========================================================
    WORD WRAPPING
 ========================================================= */
 
-function wrapCaption(parts, maxWidth, fontSize) {
+function wrapCaption(
+    parts,
+    maxWidth,
+    fontSize
+) {
+
     const lines = [];
+
     let current = [];
     let currentWidth = 0;
 
     for (const part of parts) {
+
         const width =
             estimatePartWidth(
                 part,
@@ -399,20 +616,31 @@ function wrapCaption(parts, maxWidth, fontSize) {
             current.length > 0 &&
             currentWidth + width > maxWidth
         ) {
-            lines.push(current);
+
+            lines.push(
+                current
+            );
+
             current = [];
             currentWidth = 0;
+
         }
 
         current.push(part);
         currentWidth += width;
+
     }
 
     if (current.length) {
-        lines.push(current);
+
+        lines.push(
+            current
+        );
+
     }
 
     return lines;
+
 }
 
 /* =========================================================
@@ -427,11 +655,13 @@ function buildLineSvg(
     emojiIndexRef,
     emojiImages
 ) {
+
     const parts = [];
 
     let textBuffer = "";
 
     const flushText = () => {
+
         if (!textBuffer) {
             return;
         }
@@ -442,15 +672,24 @@ function buildLineSvg(
         });
 
         textBuffer = "";
+
     };
 
     for (const part of line) {
+
         if (part.type === "emoji") {
+
             flushText();
+
             parts.push(part);
+
         } else {
-            textBuffer += part.value;
+
+            textBuffer +=
+                part.value;
+
         }
+
     }
 
     flushText();
@@ -463,11 +702,13 @@ function buildLineSvg(
     let totalWidth = 0;
 
     for (const part of parts) {
+
         totalWidth +=
             estimatePartWidth(
                 part,
                 fontSize
             );
+
     }
 
     let x =
@@ -476,7 +717,9 @@ function buildLineSvg(
     const elements = [];
 
     for (const part of parts) {
+
         if (part.type === "emoji") {
+
             const emoji =
                 emojiImages[
                     emojiIndexRef.value
@@ -485,7 +728,9 @@ function buildLineSvg(
             emojiIndexRef.value++;
 
             const metrics =
-                getEmojiMetrics(fontSize);
+                getEmojiMetrics(
+                    fontSize
+                );
 
             /*
              * Left side bearing.
@@ -494,7 +739,9 @@ function buildLineSvg(
             x += metrics.gap;
 
             const base64 =
-                emoji.toString("base64");
+                emoji.toString(
+                    "base64"
+                );
 
             /*
              * Slightly smaller than the text and
@@ -525,10 +772,13 @@ function buildLineSvg(
                 metrics.gap;
 
             continue;
+
         }
 
         const safe =
-            escapeXml(part.value);
+            escapeXml(
+                part.value
+            );
 
         const textWidth =
             estimateTextWidth(
@@ -549,9 +799,11 @@ function buildLineSvg(
         `);
 
         x += textWidth;
+
     }
 
     return elements.join("\n");
+
 }
 
 /* =========================================================
@@ -562,6 +814,7 @@ async function createCaptionSvg(
     width,
     caption
 ) {
+
     let finalFontSize =
         getFontSize(
             width,
@@ -569,7 +822,9 @@ async function createCaptionSvg(
         );
 
     const parts =
-        splitCaption(caption);
+        splitCaption(
+            caption
+        );
 
     let paddingX;
     let maxWidth;
@@ -580,7 +835,12 @@ async function createCaptionSvg(
      * the font size changes.
      */
 
-    for (let attempt = 0; attempt < 6; attempt++) {
+    for (
+        let attempt = 0;
+        attempt < 6;
+        attempt++
+    ) {
+
         paddingX =
             Math.max(
                 28,
@@ -603,14 +863,17 @@ async function createCaptionSvg(
         let widest = 0;
 
         for (const line of lines) {
+
             let lineWidth = 0;
 
             for (const part of line) {
+
                 lineWidth +=
                     estimatePartWidth(
                         part,
                         finalFontSize
                     );
+
             }
 
             widest =
@@ -618,6 +881,7 @@ async function createCaptionSvg(
                     widest,
                     lineWidth
                 );
+
         }
 
         if (widest <= maxWidth) {
@@ -631,6 +895,7 @@ async function createCaptionSvg(
                     finalFontSize * 0.92
                 )
             );
+
     }
 
     const lineHeight =
@@ -658,7 +923,9 @@ async function createCaptionSvg(
     const emojiImages = [];
 
     for (const line of lines) {
+
         for (const part of line) {
+
             if (part.type !== "emoji") {
                 continue;
             }
@@ -668,7 +935,9 @@ async function createCaptionSvg(
                     part.value
                 )
             );
+
         }
+
     }
 
     const emojiIndexRef = {
@@ -682,6 +951,7 @@ async function createCaptionSvg(
         i < lines.length;
         i++
     ) {
+
         const y =
             verticalPadding +
             finalFontSize +
@@ -697,6 +967,7 @@ async function createCaptionSvg(
                 emojiImages
             )
         );
+
     }
 
     const svg = `
@@ -720,6 +991,7 @@ async function createCaptionSvg(
         svg: Buffer.from(svg),
         height
     };
+
 }
 
 /* =========================================================
@@ -730,11 +1002,15 @@ async function renderStatic(
     input,
     caption
 ) {
+
     const image =
-        sharp(input, {
-            limitInputPixels:
-                MAX_PIXELS
-        });
+        sharp(
+            input,
+            {
+                limitInputPixels:
+                    MAX_PIXELS
+            }
+        );
 
     const metadata =
         await image.metadata();
@@ -743,9 +1019,11 @@ async function renderStatic(
         !metadata.width ||
         !metadata.height
     ) {
+
         throw new Error(
             "Could not determine image dimensions."
         );
+
     }
 
     const captionLayer =
@@ -763,10 +1041,13 @@ async function renderStatic(
         create: {
             width:
                 metadata.width,
+
             height:
                 captionLayer.height +
                 metadata.height,
+
             channels: 4,
+
             background: {
                 r: 255,
                 g: 255,
@@ -779,18 +1060,24 @@ async function renderStatic(
             {
                 input:
                     captionLayer.svg,
+
                 left: 0,
                 top: 0
             },
+
             {
-                input: imageBuffer,
+                input:
+                    imageBuffer,
+
                 left: 0,
+
                 top:
                     captionLayer.height
             }
         ])
         .png()
         .toBuffer();
+
 }
 
 /* =========================================================
@@ -801,12 +1088,16 @@ async function renderGif(
     input,
     caption
 ) {
+
     const metadata =
-        await sharp(input, {
-            animated: true,
-            limitInputPixels:
-                MAX_PIXELS
-        }).metadata();
+        await sharp(
+            input,
+            {
+                animated: true,
+                limitInputPixels:
+                    MAX_PIXELS
+            }
+        ).metadata();
 
     const frameCount =
         metadata.pages || 1;
@@ -822,31 +1113,37 @@ async function renderGif(
         !width ||
         !frameHeight
     ) {
+
         throw new Error(
             "Could not read GIF dimensions."
         );
+
     }
 
     let delays =
         metadata.delay;
 
     if (!Array.isArray(delays)) {
+
         delays =
             Array(frameCount).fill(
                 typeof delays === "number"
                     ? delays
                     : 100
             );
+
     }
 
     if (
         delays.length !==
         frameCount
     ) {
+
         delays =
             Array(frameCount).fill(
                 delays[0] || 100
             );
+
     }
 
     const loop =
@@ -868,11 +1165,14 @@ async function renderGif(
             .toBuffer();
 
     const rawFrames =
-        await sharp(input, {
-            animated: true,
-            limitInputPixels:
-                MAX_PIXELS
-        })
+        await sharp(
+            input,
+            {
+                animated: true,
+                limitInputPixels:
+                    MAX_PIXELS
+            }
+        )
             .ensureAlpha()
             .raw()
             .toBuffer();
@@ -889,6 +1189,7 @@ async function renderGif(
         i < frameCount;
         i++
     ) {
+
         const frame =
             rawFrames.subarray(
                 i * frameSize,
@@ -899,10 +1200,13 @@ async function renderGif(
             await sharp({
                 create: {
                     width,
+
                     height:
                         captionLayer.height +
                         frameHeight,
+
                     channels: 4,
+
                     background: {
                         r: 255,
                         g: 255,
@@ -915,18 +1219,23 @@ async function renderGif(
                     {
                         input:
                             captionBuffer,
+
                         left: 0,
                         top: 0
                     },
+
                     {
                         input: frame,
+
                         raw: {
                             width,
                             height:
                                 frameHeight,
                             channels: 4
                         },
+
                         left: 0,
+
                         top:
                             captionLayer.height
                     }
@@ -934,7 +1243,10 @@ async function renderGif(
                 .raw()
                 .toBuffer();
 
-        outputFrames.push(rendered);
+        outputFrames.push(
+            rendered
+        );
+
     }
 
     const combined =
@@ -947,13 +1259,19 @@ async function renderGif(
         {
             raw: {
                 width,
+
                 height:
                     captionLayer.height +
                     frameHeight,
+
                 channels: 4,
-                pages: frameCount
+
+                pages:
+                    frameCount
             },
+
             animated: true,
+
             pageHeight:
                 captionLayer.height +
                 frameHeight
@@ -968,6 +1286,7 @@ async function renderGif(
             colours: 256
         })
         .toBuffer();
+
 }
 
 /* =========================================================
@@ -975,103 +1294,225 @@ async function renderGif(
 ========================================================= */
 
 module.exports = {
+
     name: "caption",
+
     aliases: ["cap"],
 
     description:
         "Add a white caption to an image or GIF.",
 
+    data: new SlashCommandBuilder()
+
+        .setName("caption")
+
+        .setDescription(
+            "Add a white caption to an image or GIF."
+        )
+
+        .addStringOption(option =>
+            option
+                .setName("text")
+                .setDescription(
+                    "The caption text."
+                )
+                .setRequired(true)
+        )
+
+        .addAttachmentOption(option =>
+            option
+                .setName("attachment")
+                .setDescription(
+                    "Upload the image or GIF to caption."
+                )
+                .setRequired(false)
+        ),
+
     async execute(message) {
+
         const userId =
             message.author.id;
 
         if (activeJobs.has(userId)) {
+
             return message.reply(
                 "You already have a caption job running."
             );
+
         }
 
-        /*
-         * Read the complete message because the normal
-         * dispatcher splits arguments on spaces.
-         */
+        /* =====================================================
+           DETECT SLASH COMMAND
+        ===================================================== */
 
-        const match =
-            message.content.match(
-                /^\s*,(?:caption|cap)\s+([\s\S]+?)\s*$/
-            );
+        const isSlash =
+            !!message.options?.getString;
 
-        if (!match) {
-            return message.reply(
-                'Usage: `,caption "your text"`'
-            );
-        }
+        let caption = null;
+        let attachment = null;
 
-        let caption =
-            match[1].trim();
+        /* =====================================================
+           SLASH COMMAND
+        ===================================================== */
 
-        /*
-         * Remove surrounding quotes.
-         */
+        if (isSlash) {
 
-        if (
-            caption.length >= 2 &&
-            (
-                (
-                    caption.startsWith('"') &&
-                    caption.endsWith('"')
-                ) ||
-                (
-                    caption.startsWith("'") &&
-                    caption.endsWith("'")
-                )
-            )
-        ) {
             caption =
-                caption.slice(
-                    1,
-                    -1
+                message.options.getString(
+                    "text"
                 );
+
+            attachment =
+                message.options.getAttachment(
+                    "attachment"
+                ) || null;
+
         }
+
+        /* =====================================================
+           PREFIX COMMAND
+        ===================================================== */
+
+        else {
+
+            /*
+             * Read the complete message because the normal
+             * dispatcher splits arguments on spaces.
+             */
+
+            const match =
+                message.content.match(
+                    /^\s*,(?:caption|cap)\s+([\s\S]+?)\s*$/
+                );
+
+            if (!match) {
+
+                return message.reply(
+                    'Usage: `,caption "your text"`'
+                );
+
+            }
+
+            caption =
+                match[1].trim();
+
+            /*
+             * Remove surrounding quotes.
+             */
+
+            if (
+                caption.length >= 2 &&
+                (
+                    (
+                        caption.startsWith('"') &&
+                        caption.endsWith('"')
+                    ) ||
+                    (
+                        caption.startsWith("'") &&
+                        caption.endsWith("'")
+                    )
+                )
+            ) {
+
+                caption =
+                    caption.slice(
+                        1,
+                        -1
+                    );
+
+            }
+
+            caption =
+                caption.trim();
+
+            /*
+             * First check an attachment on the command.
+             */
+
+            attachment =
+                getOwnAttachment(
+                    message
+                );
+
+            /*
+             * Otherwise use the replied-to message.
+             */
+
+            if (!attachment) {
+
+                attachment =
+                    await getReferencedAttachment(
+                        message
+                    );
+
+            }
+
+        }
+
+        /* =====================================================
+           VALIDATE CAPTION
+        ===================================================== */
 
         caption =
-            caption.trim();
+            caption?.trim();
 
         if (!caption) {
+
             return message.reply(
                 "Caption cannot be empty."
             );
+
         }
 
         if (caption.length > 500) {
+
             return message.reply(
                 "Caption is too long. Maximum is 500 characters."
             );
+
         }
 
-        /*
-         * First check an attachment on the command.
-         */
-
-        let attachment =
-            getOwnAttachment(message);
-
-        /*
-         * Otherwise use the replied-to message.
-         */
+        /* =====================================================
+           SLASH ADAPTER FALLBACK
+        ===================================================== */
 
         if (!attachment) {
+
+            attachment =
+                message.attachment ||
+                message.attachments?.first?.() ||
+                null;
+
+        }
+
+        /* =====================================================
+           REPLY ATTACHMENT FALLBACK
+        ===================================================== */
+
+        if (!attachment) {
+
             attachment =
                 await getReferencedAttachment(
                     message
                 );
+
         }
 
+        /* =====================================================
+           NO MEDIA
+        ===================================================== */
+
         if (!attachment) {
+
             return message.reply(
                 "Reply to an image or GIF, or attach one to the command."
             );
+
         }
+
+        /* =====================================================
+           FILE TYPE
+        ===================================================== */
 
         const filename =
             attachment.name ||
@@ -1097,15 +1538,34 @@ module.exports = {
                 "avif"
             ].includes(extension)
         ) {
+
             return message.reply(
                 "That file type is not supported. Use PNG, JPG, GIF, WebP, or AVIF."
             );
+
         }
 
-        activeJobs.add(userId);
+        /* =====================================================
+           START JOB
+        ===================================================== */
+
+        activeJobs.add(
+            userId
+        );
 
         try {
-            await message.channel.sendTyping();
+
+            if (
+                message.channel?.sendTyping
+            ) {
+
+                await message.channel.sendTyping();
+
+            }
+
+            /* =================================================
+               DOWNLOAD
+            ================================================= */
 
             const input =
                 await downloadBuffer(
@@ -1116,18 +1576,28 @@ module.exports = {
                 input.length >
                 MAX_FILE_SIZE
             ) {
+
                 throw new Error(
                     "The image is larger than 25 MB."
                 );
+
             }
 
+            /* =================================================
+               METADATA
+            ================================================= */
+
             const metadata =
-                await sharp(input, {
-                    animated:
-                        extension === "gif",
-                    limitInputPixels:
-                        MAX_PIXELS
-                }).metadata();
+                await sharp(
+                    input,
+                    {
+                        animated:
+                            extension === "gif",
+
+                        limitInputPixels:
+                            MAX_PIXELS
+                    }
+                ).metadata();
 
             const isAnimatedGif =
                 extension === "gif" &&
@@ -1136,7 +1606,12 @@ module.exports = {
             let output;
             let outputName;
 
+            /* =================================================
+               GIF
+            ================================================= */
+
             if (isAnimatedGif) {
+
                 output =
                     await renderGif(
                         input,
@@ -1145,7 +1620,15 @@ module.exports = {
 
                 outputName =
                     "caption.gif";
-            } else {
+
+            }
+
+            /* =================================================
+               STATIC IMAGE
+            ================================================= */
+
+            else {
+
                 output =
                     await renderStatic(
                         input,
@@ -1154,16 +1637,27 @@ module.exports = {
 
                 outputName =
                     "caption.png";
+
             }
+
+            /* =================================================
+               OUTPUT SIZE
+            ================================================= */
 
             if (
                 output.length >
                 MAX_FILE_SIZE
             ) {
+
                 throw new Error(
                     "The resulting image is larger than 25 MB."
                 );
+
             }
+
+            /* =================================================
+               DISCORD FILE
+            ================================================= */
 
             const file =
                 new AttachmentBuilder(
@@ -1174,11 +1668,16 @@ module.exports = {
                     }
                 );
 
+            /* =================================================
+               SEND
+            ================================================= */
+
             await message.reply({
                 files: [file]
             });
 
         } catch (error) {
+
             console.error(
                 "CAPTION ERROR:",
                 error
@@ -1192,29 +1691,42 @@ module.exports = {
                     ?.toLowerCase()
                     .includes("timed out")
             ) {
+
                 errorMessage =
                     "The image took too long to download.";
+
             } else if (
                 error.message
                     ?.toLowerCase()
                     .includes("too large")
             ) {
+
                 errorMessage =
                     error.message;
+
             } else if (
                 error.message
                     ?.toLowerCase()
                     .includes("emoji")
             ) {
+
                 errorMessage =
                     "Couldn't load one of the emojis. Please try again.";
+
             }
 
             await message
                 .reply(errorMessage)
                 .catch(() => {});
+
         } finally {
-            activeJobs.delete(userId);
+
+            activeJobs.delete(
+                userId
+            );
+
         }
+
     }
+
 };
