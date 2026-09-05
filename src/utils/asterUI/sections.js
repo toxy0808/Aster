@@ -17,14 +17,17 @@ const symbols = require("./symbols");
 // --------------------------------------------------------
 
 function text(content) {
-    return new TextDisplayBuilder().setContent(content);
+    return new TextDisplayBuilder()
+        .setContent(content);
 }
 
 // --------------------------------------------------------
 // SEPARATOR
 // --------------------------------------------------------
 
-function separator(spacing = SeparatorSpacingSize.Small) {
+function separator(
+    spacing = SeparatorSpacingSize.Small
+) {
     return new SeparatorBuilder()
         .setSpacing(spacing);
 }
@@ -33,7 +36,10 @@ function separator(spacing = SeparatorSpacingSize.Small) {
 // HEADER
 // --------------------------------------------------------
 
-function header(title, symbol = styles.headers.default) {
+function header(
+    title,
+    symbol = styles.headers.default
+) {
     return text(`## ${symbol} ${title}`);
 }
 
@@ -41,7 +47,11 @@ function header(title, symbol = styles.headers.default) {
 // SECTION
 // --------------------------------------------------------
 
-function section(title, content, symbol = styles.headers.section) {
+function section(
+    title,
+    content,
+    symbol = styles.headers.section
+) {
     return [
         text(`### ${symbol} ${title}`),
         text(content)
@@ -52,7 +62,11 @@ function section(title, content, symbol = styles.headers.section) {
 // STAT
 // --------------------------------------------------------
 
-function stat(label, value, symbol = styles.sections.activity) {
+function stat(
+    label,
+    value,
+    symbol = styles.sections.activity
+) {
     return text(
         `**${symbol} ${label}**\n${value}`
     );
@@ -62,8 +76,14 @@ function stat(label, value, symbol = styles.sections.activity) {
 // STATUS
 // --------------------------------------------------------
 
-function status(label, value, type = "info") {
-    const symbol = styles.status[type] || styles.status.info;
+function status(
+    label,
+    value,
+    type = "info"
+) {
+    const symbol =
+        styles.status[type] ||
+        styles.status.info;
 
     return text(
         `**${symbol} ${label}**\n${value}`
@@ -75,15 +95,22 @@ function status(label, value, type = "info") {
 // --------------------------------------------------------
 
 function container(...components) {
-    const container = new ContainerBuilder();
+    const output = new ContainerBuilder();
 
     for (const component of components.flat()) {
-        if (component) {
-            container.addTextDisplayComponents(component);
+        if (!component) continue;
+
+        if (component instanceof SeparatorBuilder) {
+            output.addSeparatorComponents(component);
+            continue;
+        }
+
+        if (component instanceof TextDisplayBuilder) {
+            output.addTextDisplayComponents(component);
         }
     }
 
-    return container;
+    return output;
 }
 
 // --------------------------------------------------------
@@ -93,16 +120,22 @@ function container(...components) {
 function separated(...components) {
     const output = [];
 
-    components.flat().forEach((component, index) => {
-        if (index > 0) {
-            output.push(separator());
-        }
+    components
+        .flat()
+        .forEach((component, index) => {
+            if (index > 0) {
+                output.push(separator());
+            }
 
-        output.push(component);
-    });
+            output.push(component);
+        });
 
     return output;
 }
+
+// --------------------------------------------------------
+// EXPORTS
+// --------------------------------------------------------
 
 module.exports = {
     text,
