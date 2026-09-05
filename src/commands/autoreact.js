@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     ContainerBuilder,
     TextDisplayBuilder,
     MessageFlags,
@@ -38,12 +39,80 @@ function ui(title, content, mentions = {}) {
 module.exports = {
     name: "autoreact",
 
+    data: new SlashCommandBuilder()
+        .setName("autoreact")
+        .setDescription("Configure automatic reactions.")
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName("enable")
+                .setDescription("Enable an automatic reaction.")
+                .addStringOption(option =>
+                    option
+                        .setName("emoji")
+                        .setDescription("The emoji ASTER should react with.")
+                        .setRequired(true)
+                )
+                .addUserOption(option =>
+                    option
+                        .setName("user")
+                        .setDescription("User to configure. Admin only.")
+                        .setRequired(false)
+                )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName("disable")
+                .setDescription("Disable an automatic reaction.")
+                .addUserOption(option =>
+                    option
+                        .setName("user")
+                        .setDescription("User to configure. Admin only.")
+                        .setRequired(false)
+                )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName("list")
+                .setDescription("List configured automatic reactions.")
+        ),
+
     async execute(message, args) {
         const isAdmin = message.member.permissions.has(
             PermissionFlagsBits.Administrator
         );
 
         const isBooster = Boolean(message.member.premiumSince);
+
+        // ====================================================
+        // SLASH ARGUMENT ADAPTER
+        // ====================================================
+
+        if (message.options?.getSubcommand) {
+            const subcommand = message.options.getSubcommand();
+
+            const slashUser = message.options.getUser("user");
+            const slashEmoji = message.options.getString("emoji");
+
+            if (subcommand === "list") {
+                args = ["list"];
+            } else if (subcommand === "enable") {
+                args = ["enable"];
+
+                if (slashUser) {
+                    args.push(slashUser.id);
+                    args.push(slashEmoji);
+                } else {
+                    args.push(slashEmoji);
+                }
+            } else if (subcommand === "disable") {
+                args = ["disable"];
+
+                if (slashUser) {
+                    args.push(slashUser.id);
+                }
+            }
+        }
+
         const action = args[0]?.toLowerCase();
 
         const mentionedUser = message.mentions.users.first();
@@ -108,12 +177,13 @@ module.exports = {
                 ui(
                     "📋 Configured Reactions",
                     `${list}\n\n` +
-                    `-# ${existingMembers.length} configured`
-                , {
-                    allowedMentions: {
-                        parse: []
+                    `-# ${existingMembers.length} configured`,
+                    {
+                        allowedMentions: {
+                            parse: []
+                        }
                     }
-                })
+                )
             );
         }
 

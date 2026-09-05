@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     MessageFlags,
     ContainerBuilder
 } = require("discord.js");
@@ -13,7 +14,6 @@ const {
     header,
     section,
     stat,
-    status,
     separator
 } = require("../utils/asterUI");
 
@@ -151,7 +151,55 @@ module.exports = {
     name: "rep",
     aliases: ["reputation"],
 
+    data: new SlashCommandBuilder()
+        .setName("rep")
+        .setDescription("View or give reputation.")
+        .addUserOption(option =>
+            option
+                .setName("user")
+                .setDescription("The member to give reputation to.")
+                .setRequired(false)
+        )
+        .addStringOption(option =>
+            option
+                .setName("type")
+                .setDescription("The type of reputation to give.")
+                .setRequired(false)
+                .addChoices(
+                    {
+                        name: "Positive",
+                        value: "positive"
+                    },
+                    {
+                        name: "Negative",
+                        value: "negative"
+                    }
+                )
+        ),
+
     async execute(message, args) {
+
+        // ====================================================
+        // SLASH ARGUMENT ADAPTER
+        // ====================================================
+
+        const slashTarget =
+            message.options?.getUser("user");
+
+        const slashType =
+            message.options?.getString("type");
+
+        if (slashTarget) {
+            message.mentions.users.first = () => slashTarget;
+        }
+
+        if (slashType) {
+            args = [
+                slashType === "negative"
+                    ? "negative"
+                    : "positive"
+            ];
+        }
 
         // ====================================================
         // VIEW OWN REP
