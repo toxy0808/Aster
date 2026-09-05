@@ -258,6 +258,21 @@ module.exports = async (interaction) => {
 
 
         // ========================================================
+        // SLASH COMMANDS
+        // ========================================================
+
+if (interaction.isChatInputCommand()) {
+    const command = interaction.client.commands.get(
+        interaction.commandName
+    );
+
+    if (!command) return;
+
+    return command.execute(interaction);
+}
+
+
+        // ========================================================
         // LEADERBOARD CONFIG
         // ========================================================
 

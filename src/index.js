@@ -9,6 +9,7 @@ const {
 } = require("discord.js");
 
 const asterLogger = require("./utils/asterLogger");
+const { registerCommands } = require("./utils/registerCommands");
 
 const client = new Client({
     intents: [
@@ -57,71 +58,7 @@ for (const row of rows) {
 }
 
 // ========================================================
-// MESSAGE CREATE
-// ========================================================
-
-const messageCreate =
-    require("./events/messageCreate");
-
-client.on("messageCreate", (message) => {
-    messageCreate(client, message);
-});
-
-// ========================================================
-// INTERACTION CREATE
-// ========================================================
-
-const interactionCreate =
-    require("./events/interactionCreate");
-
-client.on("interactionCreate", (interaction) => {
-
-    console.log(
-        "INTERACTION FIRED:",
-        interaction.customId
-    );
-
-    interactionCreate(interaction);
-});
-
-// ========================================================
-// READY
-// ========================================================
-
-client.once("clientReady", () => {
-
-    console.log(
-        `${client.user.tag} is online!`
-    );
-
-    // ----------------------------------------------------
-    // Voice
-    // ----------------------------------------------------
-
-    require("./events/voiceStateUpdate");
-
-    require("./events/voiceRecovery")(
-        client
-    );
-
-    // ----------------------------------------------------
-    // Leaderboards
-    // ----------------------------------------------------
-
-    require("./events/leaderboardUpdater")(
-        client
-    );
-
-    // ----------------------------------------------------
-    // ASTER Pulse
-    // ----------------------------------------------------
-
-    require("./utils/asterPulse")
-        .startPulse(client);
-});
-
-// ========================================================
-// COMMAND REGISTRATION
+// COMMANDS
 // ========================================================
 
 client.commands.set(
@@ -200,6 +137,81 @@ client.commands.set(
 );
 
 // ========================================================
+// MESSAGE CREATE
+// ========================================================
+
+const messageCreate =
+    require("./events/messageCreate");
+
+client.on("messageCreate", (message) => {
+    messageCreate(client, message);
+});
+
+// ========================================================
+// INTERACTION CREATE
+// ========================================================
+
+const interactionCreate =
+    require("./events/interactionCreate");
+
+client.on("interactionCreate", (interaction) => {
+
+    if (interaction.isChatInputCommand()) {
+        console.log(
+            `SLASH COMMAND: /${interaction.commandName}`
+        );
+    } else if (interaction.customId) {
+        console.log(
+            `INTERACTION: ${interaction.customId}`
+        );
+    }
+
+    interactionCreate(interaction);
+});
+
+// ========================================================
+// READY
+// ========================================================
+
+client.once("clientReady", async () => {
+
+    console.log(
+        `${client.user.tag} is online!`
+    );
+
+    // ----------------------------------------------------
+    // Slash Commands
+    // ----------------------------------------------------
+
+    await registerCommands(client);
+
+    // ----------------------------------------------------
+    // Voice
+    // ----------------------------------------------------
+
+    require("./events/voiceStateUpdate");
+
+    require("./events/voiceRecovery")(
+        client
+    );
+
+    // ----------------------------------------------------
+    // Leaderboards
+    // ----------------------------------------------------
+
+    require("./events/leaderboardUpdater")(
+        client
+    );
+
+    // ----------------------------------------------------
+    // ASTER Pulse
+    // ----------------------------------------------------
+
+    require("./utils/asterPulse")
+        .startPulse(client);
+});
+
+// ========================================================
 // VOICE STATE UPDATE
 // ========================================================
 
@@ -230,5 +242,9 @@ client.login(
 console.log(
     client.commands
 );
+
+// ========================================================
+// DASHBOARD
+// ========================================================
 
 require("../dashboard/server");

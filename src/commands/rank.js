@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     ContainerBuilder,
     TextDisplayBuilder,
     SeparatorBuilder,
@@ -27,6 +28,16 @@ module.exports = {
         "profile"
     ],
 
+    data: new SlashCommandBuilder()
+        .setName("rank")
+        .setDescription("View a member's activity profile.")
+        .addUserOption(option =>
+            option
+                .setName("user")
+                .setDescription("The member to view.")
+                .setRequired(false)
+        ),
+
     async execute(message, args) {
 
         // ========================================================
@@ -34,7 +45,8 @@ module.exports = {
         // ========================================================
 
         const target =
-            message.mentions.users.first() ||
+            message.options?.getUser("user") ||
+            message.mentions?.users?.first() ||
             message.author;
 
         // ========================================================
@@ -334,7 +346,6 @@ module.exports = {
             ],
             flags: MessageFlags.IsComponentsV2,
 
-            // Keep mentions clickable without pinging.
             allowedMentions: {
                 parse: []
             }
