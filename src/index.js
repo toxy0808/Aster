@@ -85,7 +85,12 @@ for (const file of commandFiles) {
         );
 
         console.log(
-            `ASTER: Loaded command: ${command.name}`
+            `ASTER: Loaded command: ${command.name}` +
+            (
+                command.data
+                    ? ` → /${command.data.name}`
+                    : " → legacy"
+            )
         );
 
     } catch (error) {
@@ -122,8 +127,24 @@ for (const row of rows) {
 const messageCreate =
     require("./events/messageCreate");
 
-client.on("messageCreate", (message) => {
-    messageCreate(client, message);
+client.on("messageCreate", async (message) => {
+
+    try {
+
+        await messageCreate(
+            client,
+            message
+        );
+
+    } catch (error) {
+
+        console.error(
+            "ASTER messageCreate error:",
+            error
+        );
+
+    }
+
 });
 
 // ========================================================
@@ -133,23 +154,56 @@ client.on("messageCreate", (message) => {
 const interactionCreate =
     require("./events/interactionCreate");
 
-client.on("interactionCreate", (interaction) => {
+client.on("interactionCreate", async (interaction) => {
 
-    if (interaction.isChatInputCommand()) {
+    try {
 
-        console.log(
-            `SLASH COMMAND: /${interaction.commandName}`
+        if (interaction.isChatInputCommand()) {
+
+            console.log(
+                `SLASH COMMAND: /${interaction.commandName}`
+            );
+
+        } else if (interaction.customId) {
+
+            console.log(
+                `INTERACTION: ${interaction.customId}`
+            );
+
+        }
+
+        await interactionCreate(
+            interaction
         );
 
-    } else if (interaction.customId) {
+    } catch (error) {
 
-        console.log(
-            `INTERACTION: ${interaction.customId}`
+        console.error(
+            "ASTER interactionCreate event error:",
+            error
         );
+
+        if (
+            !interaction.replied &&
+            !interaction.deferred
+        ) {
+
+            await interaction.reply({
+                content:
+                    "❌ ASTER encountered an unexpected error.",
+                ephemeral: true
+            }).catch(replyError => {
+
+                console.error(
+                    "ASTER failed to send interaction error:",
+                    replyError
+                );
+
+            });
+
+        }
 
     }
-
-    interactionCreate(interaction);
 
 });
 
@@ -167,7 +221,24 @@ client.once("clientReady", async () => {
     // Slash Commands
     // ----------------------------------------------------
 
-    await registerCommands(client);
+    try {
+
+        await registerCommands(
+            client
+        );
+
+        console.log(
+            "ASTER: Slash commands registered."
+        );
+
+    } catch (error) {
+
+        console.error(
+            "ASTER: Failed to register slash commands:",
+            error
+        );
+
+    }
 
     // ----------------------------------------------------
     // Voice
@@ -204,10 +275,21 @@ client.on(
     "voiceStateUpdate",
     (oldState, newState) => {
 
-        require("./events/voiceStateUpdate")(
-            oldState,
-            newState
-        );
+        try {
+
+            require("./events/voiceStateUpdate")(
+                oldState,
+                newState
+            );
+
+        } catch (error) {
+
+            console.error(
+                "ASTER voiceStateUpdate error:",
+                error
+            );
+
+        }
 
     }
 );
@@ -218,7 +300,14 @@ client.on(
 
 client.login(
     process.env.TOKEN
-);
+).catch(error => {
+
+    console.error(
+        "ASTER login failed:",
+        error
+    );
+
+});
 
 // ========================================================
 // DASHBOARD

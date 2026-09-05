@@ -73,7 +73,6 @@ function buildAutoresponderManager(guildId, page = 0) {
 
     const container = new ContainerBuilder()
         .setAccentColor(0xFF4DA6)
-
         .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `# ${symbols.brand} ASTER / AUTORESPONDER\n` +
@@ -82,7 +81,6 @@ function buildAutoresponderManager(guildId, page = 0) {
                 `**${entries.length} / ${MAX_AUTORESPONDERS_PER_GUILD}** autoresponders configured.`
             )
         )
-
         .addSeparatorComponents(
             new SeparatorBuilder()
         );
@@ -103,7 +101,6 @@ function buildAutoresponderManager(guildId, page = 0) {
             .map(([trigger, response], index) => {
 
                 const number = start + index + 1;
-
                 const type = response?.type || "text";
 
                 const preview = String(
@@ -117,7 +114,6 @@ function buildAutoresponderManager(guildId, page = 0) {
                     `Type: **${type}**\n` +
                     `${preview || "No response content."}`
                 );
-
             })
             .join("\n\n");
 
@@ -265,17 +261,82 @@ module.exports = async (interaction) => {
         // SLASH COMMANDS
         // ========================================================
 
-if (interaction.isChatInputCommand()) {
-    const command = interaction.client.commands.get(
-        interaction.commandName
-    );
+        if (interaction.isChatInputCommand()) {
 
-    if (!command) return;
+            const command =
+                interaction.client.commands.get(
+                    interaction.commandName
+                );
 
-    const message = createCommandMessage(interaction);
+            if (!command) {
 
-    return command.execute(message, []);
-}
+                console.error(
+                    `ASTER: Slash command not found: /${interaction.commandName}`
+                );
+
+                if (
+                    !interaction.replied &&
+                    !interaction.deferred
+                ) {
+                    await interaction.reply({
+                        content:
+                            "❌ ASTER could not find that command.",
+                        ephemeral: true
+                    }).catch(console.error);
+                }
+
+                return;
+            }
+
+            try {
+
+                console.log(
+                    `ASTER: Executing slash command /${interaction.commandName}`
+                );
+
+                const message =
+                    createCommandMessage(
+                        interaction
+                    );
+
+                // IMPORTANT:
+                // Await the migrated command so errors are caught.
+                await command.execute(
+                    message,
+                    []
+                );
+
+                console.log(
+                    `ASTER: Finished slash command /${interaction.commandName}`
+                );
+
+            } catch (error) {
+
+                console.error(
+                    `ASTER: Slash command /${interaction.commandName} failed:`,
+                    error
+                );
+
+                if (
+                    !interaction.replied &&
+                    !interaction.deferred
+                ) {
+
+                    await interaction.reply({
+                        content:
+                            "❌ ASTER encountered an error while executing that command.",
+                        ephemeral: true
+                    }).catch(replyError => {
+                        console.error(
+                            "ASTER: Failed to send slash command error response:",
+                            replyError
+                        );
+                    });
+                }
+            }
+
+            return;
+        }
 
 
         // ========================================================
@@ -2406,6 +2467,11 @@ if (interaction.isChatInputCommand()) {
             content:
                 "❌ ASTER encountered an error while processing that interaction.",
             ephemeral: true
+        }).catch(replyError => {
+            console.error(
+                "ASTER failed to send interaction error:",
+                replyError
+            );
         });
     }
 };
