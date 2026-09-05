@@ -11,8 +11,7 @@ const {
     styles,
     header,
     section,
-    stat,
-    separator
+    stat
 } = require("../utils/asterUI");
 
 // ========================================================
@@ -69,9 +68,7 @@ module.exports = {
             header(
                 "ASTER / REP HISTORY",
                 styles.sections.reputation
-            ),
-
-            separator()
+            )
         ];
 
         // ====================================================
@@ -86,26 +83,16 @@ module.exports = {
                     styles.status.info
                 ),
 
-                separator(),
-
                 stat(
                     "Info",
-                    "Your reputation history will appear here.",
+                    "Your REP history will appear here.",
                     symbols.info
                 ),
-
-                separator(),
 
                 stat(
                     "Checked",
                     timestamps.now(),
                     symbols.time
-                ),
-
-                stat(
-                    "System",
-                    `${styles.brand.name} • Reputation System`,
-                    styles.brand.symbol
                 )
             );
 
@@ -137,20 +124,10 @@ module.exports = {
             const positive =
                 log.type === "positive";
 
-            // From the user's perspective:
-            // received positive = +1
-            // received negative = -1
-            // gave positive = -1
-            // gave negative = +1
             const amount =
-                received
-                    ? (positive ? "+1" : "−1")
-                    : (positive ? "−1" : "+1");
-
-            const direction =
-                received
-                    ? "↑"
-                    : "↓";
+                positive
+                    ? "+1"
+                    : "-1";
 
             const symbol =
                 positive
@@ -173,9 +150,14 @@ module.exports = {
                     ? timestamps.relative(timestamp)
                     : "unknown time";
 
+            const action =
+                received
+                    ? "Received"
+                    : "Gave";
+
             return (
-                `${direction} ${symbol} **${amount} REP**  ` +
-                `<@${otherUser}>  ·  ${time}`
+                `${symbol} **${amount} REP** · ${action} ` +
+                `<@${otherUser}> · ${time}`
             );
         });
 
@@ -184,9 +166,7 @@ module.exports = {
                 "Recent Activity",
                 lines.join("\n"),
                 styles.sections.reputation
-            ),
-
-            separator()
+            )
         );
 
         // ====================================================
@@ -221,23 +201,15 @@ module.exports = {
         components.push(
             section(
                 "REP Statistics",
-                `${symbols.positive} **Given**  ·  **${totals.given || 0}**\n` +
-                `${symbols.positive} **Received**  ·  **${totals.received || 0}**`,
+                `${symbols.positive} **Given** ${totals.given || 0}  ·  ` +
+                `${symbols.positive} **Received** ${totals.received || 0}`,
                 styles.sections.reputation
             ),
-
-            separator(),
 
             stat(
                 "Updated",
                 timestamps.now(),
                 symbols.time
-            ),
-
-            stat(
-                "System",
-                `${styles.brand.name} • Reputation System`,
-                styles.brand.symbol
             )
         );
 
