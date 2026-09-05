@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     MessageFlags,
     ContainerBuilder
 } = require("discord.js");
@@ -15,7 +16,12 @@ const EMOJI = {
 
 module.exports = {
     name: "ping",
+
     aliases: ["p"],
+
+    data: new SlashCommandBuilder()
+        .setName("ping")
+        .setDescription("Check ASTER's system latency."),
 
     async execute(message) {
 
@@ -32,10 +38,6 @@ module.exports = {
             new ContainerBuilder()
                 .setAccentColor(0xFF4FA3)
 
-                // =================================================
-                // HEADER
-                // =================================================
-
                 .addTextDisplayComponents(
                     component =>
                         component.setContent(
@@ -44,10 +46,6 @@ module.exports = {
                 )
 
                 .addSeparatorComponents()
-
-                // =================================================
-                // PING
-                // =================================================
 
                 .addTextDisplayComponents(
                     component =>
@@ -59,10 +57,6 @@ module.exports = {
 
                 .addSeparatorComponents()
 
-                // =================================================
-                // STATUS
-                // =================================================
-
                 .addTextDisplayComponents(
                     component =>
                         component.setContent(
@@ -73,20 +67,12 @@ module.exports = {
 
                 .addSeparatorComponents()
 
-                // =================================================
-                // UPDATED
-                // =================================================
-
                 .addTextDisplayComponents(
                     component =>
                         component.setContent(
                             `${symbols.time} Updated ${timestamps.now()}`
                         )
                 )
-
-                // =================================================
-                // FOOTER
-                // =================================================
 
                 .addTextDisplayComponents(
                     component =>

@@ -1,9 +1,8 @@
 const {
+    SlashCommandBuilder,
     ContainerBuilder,
     TextDisplayBuilder,
     SeparatorBuilder,
-    SectionBuilder,
-    ThumbnailBuilder,
     MessageFlags
 } = require("discord.js");
 
@@ -18,11 +17,11 @@ module.exports = {
         "activityleaderboard"
     ],
 
-    async execute(message) {
+    data: new SlashCommandBuilder()
+        .setName("activitylb")
+        .setDescription("View the live 24-hour activity leaderboard."),
 
-        // ========================================================
-        // DATA
-        // ========================================================
+    async execute(message) {
 
         function getChatTop24h() {
             const since =
@@ -96,10 +95,6 @@ module.exports = {
                 getVoiceTop24h()
             );
 
-        // ========================================================
-        // HELPERS
-        // ========================================================
-
         function formatVoice(minutes) {
 
             minutes = Number(minutes) || 0;
@@ -125,17 +120,9 @@ module.exports = {
             "⑤"
         ];
 
-        // ========================================================
-        // CONTAINER
-        // ========================================================
-
         const container =
             new ContainerBuilder()
                 .setAccentColor(0xFF4FA3);
-
-        // ========================================================
-        // HEADER
-        // ========================================================
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
@@ -147,10 +134,6 @@ module.exports = {
         container.addSeparatorComponents(
             new SeparatorBuilder()
         );
-
-        // ========================================================
-        // CHAT
-        // ========================================================
 
         let chatText;
 
@@ -180,10 +163,6 @@ module.exports = {
             new SeparatorBuilder()
         );
 
-        // ========================================================
-        // VOICE
-        // ========================================================
-
         let voiceText;
 
         if (!voice.length) {
@@ -212,20 +191,12 @@ module.exports = {
             new SeparatorBuilder()
         );
 
-        // ========================================================
-        // FOOTER
-        // ========================================================
-
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `-# ${symbols.time} Updated ${timestamps.now()}\n` +
                 `-# ${symbols.brand} ASTER • Activity System`
             )
         );
-
-        // ========================================================
-        // SEND
-        // ========================================================
 
         return message.reply({
             components: [

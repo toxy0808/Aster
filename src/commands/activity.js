@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     ContainerBuilder,
     TextDisplayBuilder,
     SeparatorBuilder,
@@ -18,11 +19,11 @@ module.exports = {
         "stats"
     ],
 
-    async execute(message, args) {
+    data: new SlashCommandBuilder()
+        .setName("activity")
+        .setDescription("View your activity statistics."),
 
-        // ========================================================
-        // USER DATA
-        // ========================================================
+    async execute(message, args) {
 
         const user = db.prepare(
             "SELECT * FROM users WHERE user_id = ?"
@@ -48,10 +49,6 @@ module.exports = {
             );
         }
 
-        // ========================================================
-        // ACTIVITY RANK
-        // ========================================================
-
         const rank = db.prepare(`
             SELECT COUNT(*) + 1 AS rank
             FROM (
@@ -63,16 +60,8 @@ module.exports = {
             WHERE messages > ?
         `).get(messages).rank;
 
-        // ========================================================
-        // ASTER ACTIVITY
-        // ========================================================
-
         const container = new ContainerBuilder()
             .setAccentColor(0xFF4FA3);
-
-        // ========================================================
-        // HEADER
-        // ========================================================
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
@@ -84,10 +73,6 @@ module.exports = {
         container.addSeparatorComponents(
             new SeparatorBuilder()
         );
-
-        // ========================================================
-        // USER
-        // ========================================================
 
         container.addSectionComponents(
             new SectionBuilder()
@@ -113,10 +98,6 @@ module.exports = {
             new SeparatorBuilder()
         );
 
-        // ========================================================
-        // CHAT
-        // ========================================================
-
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `### ${symbols.chat} Chat Activity\n` +
@@ -128,10 +109,6 @@ module.exports = {
         container.addSeparatorComponents(
             new SeparatorBuilder()
         );
-
-        // ========================================================
-        // VOICE
-        // ========================================================
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
@@ -145,10 +122,6 @@ module.exports = {
             new SeparatorBuilder()
         );
 
-        // ========================================================
-        // LEVEL
-        // ========================================================
-
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `### ${symbols.level} Progression\n` +
@@ -160,10 +133,6 @@ module.exports = {
         container.addSeparatorComponents(
             new SeparatorBuilder()
         );
-
-        // ========================================================
-        // FOOTER
-        // ========================================================
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(

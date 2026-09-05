@@ -1,4 +1,5 @@
 const {
+    SlashCommandBuilder,
     ContainerBuilder,
     TextDisplayBuilder,
     SeparatorBuilder,
@@ -17,17 +18,40 @@ module.exports = {
         "top"
     ],
 
+    data: new SlashCommandBuilder()
+        .setName("leaderboard")
+        .setDescription("View the activity leaderboard.")
+        .addStringOption(option =>
+            option
+                .setName("type")
+                .setDescription("The leaderboard to view.")
+                .setRequired(false)
+                .addChoices(
+                    {
+                        name: "Chat",
+                        value: "chat"
+                    },
+                    {
+                        name: "Voice",
+                        value: "voice"
+                    },
+                    {
+                        name: "Overall",
+                        value: "overall"
+                    }
+                )
+        ),
+
     async execute(message, args) {
 
         console.log("LB ARGS:", args);
 
-        const type = args[0]?.toLowerCase() || "chat";
+        const type =
+            message.options?.getString("type")?.toLowerCase() ||
+            args[0]?.toLowerCase() ||
+            "chat";
 
         let users;
-
-        // ========================================================
-        // CHAT
-        // ========================================================
 
         if (type === "chat") {
 
@@ -39,10 +63,6 @@ module.exports = {
             `).all();
 
         }
-
-        // ========================================================
-        // VOICE
-        // ========================================================
 
         else if (type === "voice") {
 
@@ -56,10 +76,6 @@ module.exports = {
 
         }
 
-        // ========================================================
-        // OVERALL
-        // ========================================================
-
         else if (type === "overall") {
 
             users = db.prepare(`
@@ -72,10 +88,6 @@ module.exports = {
 
         }
 
-        // ========================================================
-        // INVALID TYPE
-        // ========================================================
-
         else {
 
             return message.reply(
@@ -85,10 +97,6 @@ module.exports = {
 
         }
 
-        // ========================================================
-        // EMPTY
-        // ========================================================
-
         if (!users.length) {
 
             return message.reply(
@@ -96,10 +104,6 @@ module.exports = {
             );
 
         }
-
-        // ========================================================
-        // CONFIG
-        // ========================================================
 
         const mode = {
             chat: {
@@ -127,16 +131,8 @@ module.exports = {
             }
         }[type];
 
-        // ========================================================
-        // CONTAINER
-        // ========================================================
-
         const container = new ContainerBuilder()
             .setAccentColor(0xFF4FA3);
-
-        // ========================================================
-        // HEADER
-        // ========================================================
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
@@ -148,10 +144,6 @@ module.exports = {
         container.addSeparatorComponents(
             new SeparatorBuilder()
         );
-
-        // ========================================================
-        // LEADERBOARD
-        // ========================================================
 
         const lines = [];
 
@@ -194,10 +186,6 @@ module.exports = {
                 lines.join("\n\n")
             )
         );
-
-        // ========================================================
-        // FOOTER
-        // ========================================================
 
         container.addSeparatorComponents(
             new SeparatorBuilder()
