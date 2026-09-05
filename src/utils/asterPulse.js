@@ -2,15 +2,15 @@ const db = require("../database/database");
 
 let pulseInterval = null;
 
-function getPulseData(guild) {
+// ========================================================
+// PULSE DATA
+// ========================================================
 
+function getPulseData(guild) {
     const now = Date.now();
     const fiveMinutesAgo = now - (5 * 60 * 1000);
 
-    // =========================
     // CHAT ACTIVITY
-    // =========================
-
     const chat = db.prepare(`
         SELECT COALESCE(SUM(amount), 0) AS total
         FROM activity_logs
@@ -19,26 +19,15 @@ function getPulseData(guild) {
     `).get(fiveMinutesAgo);
 
     const messages = Number(chat?.total || 0);
+    const messagesPerMinute = Math.round(messages / 5);
 
-    const messagesPerMinute =
-        Math.round(messages / 5);
-
-
-    // =========================
     // VOICE ACTIVITY
-    // =========================
-
     let voiceUsers = 0;
 
     for (const channel of guild.channels.cache.values()) {
-
-        if (!channel.isVoiceBased()) {
-            continue;
-        }
+        if (!channel.isVoiceBased()) continue;
 
         for (const member of channel.members.values()) {
-
-            // Only count members with an active microphone
             if (
                 member.user.bot ||
                 member.voice.selfMute ||
@@ -51,20 +40,10 @@ function getPulseData(guild) {
         }
     }
 
-
-    // =========================
     // ACTIVITY SCORE
-    // =========================
+    const score = messagesPerMinute + (voiceUsers * 2);
 
-    const score =
-        messagesPerMinute +
-        (voiceUsers * 2);
-
-
-    // =========================
     // STATE
-    // =========================
-
     let state;
 
     if (score >= 40) {
@@ -85,21 +64,20 @@ function getPulseData(guild) {
     };
 }
 
+// ========================================================
+// PRESENCE
+// ========================================================
 
 function updatePresence(client) {
-
     const guild = client.guilds.cache.first();
 
-    if (!guild) {
-        return;
-    }
+    if (!guild) return;
 
     const pulse = getPulseData(guild);
 
     let activity;
 
     switch (pulse.state) {
-
         case "PEAK":
             activity = "PEAK ACTIVITY";
             break;
@@ -130,24 +108,23 @@ function updatePresence(client) {
     return pulse;
 }
 
+// ========================================================
+// START PULSE
+// ========================================================
 
 function startPulse(client) {
-
     if (pulseInterval) {
         clearInterval(pulseInterval);
     }
 
-    // Initial update
     updatePresence(client);
 
-    // Update once per minute
     pulseInterval = setInterval(() => {
         updatePresence(client);
     }, 60 * 1000);
 
     console.log("ASTER PULSE SYSTEM LOADED");
 }
-
 
 module.exports = {
     getPulseData,

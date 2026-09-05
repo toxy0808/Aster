@@ -7,24 +7,45 @@ const {
 
 const db = require("../database/database");
 
+const ACCENT = 0xFF4FA3;
+
+// ========================================================
+// UI
+// ========================================================
+
+function ui(title, content, mentions = {}) {
+    return {
+        components: [
+            new ContainerBuilder()
+                .setAccentColor(ACCENT)
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        `# ✦ ASTER / AUTO REACT\n` +
+                        `### ${title}\n` +
+                        content
+                    )
+                )
+        ],
+        flags: MessageFlags.IsComponentsV2,
+        ...mentions
+    };
+}
+
+// ========================================================
+// COMMAND
+// ========================================================
+
 module.exports = {
     name: "autoreact",
 
     async execute(message, args) {
-
-        // ========================================================
-        // HELPERS
-        // ========================================================
-
         const isAdmin = message.member.permissions.has(
             PermissionFlagsBits.Administrator
         );
 
         const isBooster = Boolean(message.member.premiumSince);
-
         const action = args[0]?.toLowerCase();
 
-        // Mention OR raw Discord user ID
         const mentionedUser = message.mentions.users.first();
 
         const rawUserId =
@@ -34,31 +55,26 @@ module.exports = {
 
         const targetUser =
             mentionedUser ||
-            (rawUserId
-                ? await message.client.users.fetch(rawUserId).catch(() => null)
-                : null);
+            (
+                rawUserId
+                    ? await message.client.users
+                        .fetch(rawUserId)
+                        .catch(() => null)
+                    : null
+            );
 
-        // ========================================================
+        // ====================================================
         // LIST
-        // ========================================================
+        // ====================================================
 
         if (action === "list") {
-
             if (!isAdmin) {
-                return message.reply({
-                    components: [
-                        new ContainerBuilder()
-                            .setAccentColor(0xFF4FA3)
-                            .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(
-                                    "# ✦ ASTER / AUTO REACT\n" +
-                                    "### 🔒 Access Denied\n" +
-                                    "Administrator permission is required to view configured Auto Reactions."
-                                )
-                            )
-                    ],
-                    flags: MessageFlags.IsComponentsV2
-                });
+                return message.reply(
+                    ui(
+                        "🔒 Access Denied",
+                        `Administrator permission is required to view configured Auto Reactions.`
+                    )
+                );
             }
 
             const autoreacts = db.prepare(`
@@ -68,27 +84,18 @@ module.exports = {
                 ORDER BY user_id ASC
             `).all();
 
-            // Only keep users who are currently in this server
             const existingMembers = autoreacts.filter(entry =>
                 message.guild.members.cache.has(entry.user_id)
             );
 
             if (!existingMembers.length) {
-                return message.reply({
-                    components: [
-                        new ContainerBuilder()
-                            .setAccentColor(0xFF4FA3)
-                            .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(
-                                    "# ✦ ASTER / AUTO REACT\n" +
-                                    "### 📋 Auto Reactions\n\n" +
-                                    "No auto reactions are currently configured for members of this server.\n\n" +
-                                    "-# Boosters can use `,autoreact enable <:emoji>` to configure their own reaction."
-                                )
-                            )
-                    ],
-                    flags: MessageFlags.IsComponentsV2
-                });
+                return message.reply(
+                    ui(
+                        "📋 Auto Reactions",
+                        `No auto reactions are currently configured.\n\n` +
+                        `-# Boosters can use \`,autoreact enable <:emoji>\` to configure their own.`
+                    )
+                );
             }
 
             const list = existingMembers
@@ -97,132 +104,77 @@ module.exports = {
                 )
                 .join("\n");
 
-            return message.reply({
-                components: [
-                    new ContainerBuilder()
-                        .setAccentColor(0xFF4FA3)
-                        .addTextDisplayComponents(
-                            new TextDisplayBuilder().setContent(
-                                "# ✦ ASTER / AUTO REACT\n" +
-                                "### 📋 Configured Reactions\n\n" +
-                                list +
-                                `\n\n-# ${existingMembers.length} auto reaction${existingMembers.length === 1 ? "" : "s"} configured.`
-                            )
-                        )
-                ],
-                flags: MessageFlags.IsComponentsV2,
-                allowedMentions: {
-                    parse: []
-                }
-            });
+            return message.reply(
+                ui(
+                    "📋 Configured Reactions",
+                    `${list}\n\n` +
+                    `-# ${existingMembers.length} configured`
+                , {
+                    allowedMentions: {
+                        parse: []
+                    }
+                })
+            );
         }
 
-        // ========================================================
+        // ====================================================
         // INVALID ACTION
-        // ========================================================
+        // ====================================================
 
-        if (
-            action !== "enable" &&
-            action !== "disable"
-        ) {
-            return message.reply({
-                components: [
-                    new ContainerBuilder()
-                        .setAccentColor(0xFF4FA3)
-                        .addTextDisplayComponents(
-                            new TextDisplayBuilder().setContent(
-                                "# ✦ ASTER / AUTO REACT\n" +
-                                "### ⚙ Usage\n\n" +
+        if (action !== "enable" && action !== "disable") {
+            return message.reply(
+                ui(
+                    "⚙ Usage",
+                    `**Booster**\n` +
+                    `\`,autoreact enable <:emoji>\`\n` +
+                    `\`,autoreact disable\`\n\n` +
 
-                                "**Server Booster**\n" +
-                                "`,autoreact enable <:emoji>`\n" +
-                                "`,autoreact disable`\n\n" +
-
-                                "**Administrator**\n" +
-                                "`,autoreact enable @user <:emoji>`\n" +
-                                "`,autoreact enable USER_ID <:emoji>`\n" +
-                                "`,autoreact disable @user`\n" +
-                                "`,autoreact disable USER_ID`\n" +
-                                "`,autoreact list`"
-                            )
-                        )
-                ],
-                flags: MessageFlags.IsComponentsV2
-            });
+                    `**Administrator**\n` +
+                    `\`,autoreact enable @user <:emoji>\`\n` +
+                    `\`,autoreact enable USER_ID <:emoji>\`\n` +
+                    `\`,autoreact disable @user\`\n` +
+                    `\`,autoreact disable USER_ID\`\n` +
+                    `\`,autoreact list\``
+                )
+            );
         }
 
-        // ========================================================
+        // ====================================================
         // DETERMINE MODE
-        // ========================================================
-
-        /*
-         * BOOSTER SELF MODE
-         *
-         * ,autoreact enable <:emoji>
-         * ,autoreact disable
-         *
-         * ADMIN TARGET MODE
-         *
-         * ,autoreact enable @user <:emoji>
-         * ,autoreact enable USER_ID <:emoji>
-         * ,autoreact disable @user
-         * ,autoreact disable USER_ID
-         */
+        // ====================================================
 
         const isSelfMode =
             action === "disable"
                 ? !args[1]
                 : !targetUser;
 
-        // ========================================================
+        // ====================================================
         // BOOSTER SELF MODE
-        // ========================================================
+        // ====================================================
 
         if (isSelfMode) {
-
-            // Only boosters can configure themselves
             if (!isBooster) {
-                return message.reply({
-                    components: [
-                        new ContainerBuilder()
-                            .setAccentColor(0xFF4FA3)
-                            .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(
-                                    "# ✦ ASTER / AUTO REACT\n" +
-                                    "### 🚀 Booster Perk Required\n\n" +
-                                    "You need to be **actively boosting this server** to configure your own Auto Reaction.\n\n" +
-                                    "-# Boost the server and you'll be able to assign your own reaction."
-                                )
-                            )
-                    ],
-                    flags: MessageFlags.IsComponentsV2
-                });
+                return message.reply(
+                    ui(
+                        "🚀 Booster Perk Required",
+                        `You need to be **actively boosting this server** to configure your own Auto Reaction.\n\n` +
+                        `-# Boost the server to unlock this perk.`
+                    )
+                );
             }
 
-            // ----------------------------------------------------
             // BOOSTER ENABLE
-            // ----------------------------------------------------
-
             if (action === "enable") {
-
                 const emoji = args[1];
 
                 if (!emoji) {
-                    return message.reply({
-                        components: [
-                            new ContainerBuilder()
-                                .setAccentColor(0xFF4FA3)
-                                .addTextDisplayComponents(
-                                    new TextDisplayBuilder().setContent(
-                                        "# ✦ ASTER / AUTO REACT\n" +
-                                        "### ⚠ Missing Emoji\n\n" +
-                                        "Please provide the emoji ASTER should react with.\n\n" +
-                                        "-# Example: `,autoreact enable <:emoji>`"
-                                    )
-                                )
-                        ],
-                        flags: MessageFlags.IsComponentsV2
-                    });
+                    return message.reply(
+                        ui(
+                            "⚠ Missing Emoji",
+                            `Please provide the emoji ASTER should react with.\n\n` +
+                            `-# Example: \`,autoreact enable <:emoji>\``
+                        )
+                    );
                 }
 
                 db.prepare(`
@@ -242,7 +194,6 @@ module.exports = {
                     emoji
                 );
 
-                // Update in-memory cache if it exists
                 if (message.client.autoreacts) {
                     message.client.autoreacts.set(
                         message.author.id,
@@ -250,34 +201,24 @@ module.exports = {
                     );
                 }
 
-                return message.reply({
-                    components: [
-                        new ContainerBuilder()
-                            .setAccentColor(0xFF4FA3)
-                            .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(
-                                    "# ✦ ASTER / AUTO REACT\n" +
-                                    "### 🟢 Booster Auto Reaction Enabled\n\n" +
-                                    `**Target**  <@${message.author.id}>\n` +
-                                    `**Reaction**  ${emoji}\n\n` +
-                                    "-# ASTER will automatically react to your messages while you are boosting the server.\n" +
-                                    "-# Run this command again with another emoji to change it."
-                                )
-                            )
-                    ],
-                    flags: MessageFlags.IsComponentsV2,
-                    allowedMentions: {
-                        parse: []
-                    }
-                });
+                return message.reply(
+                    ui(
+                        "🟢 Booster Auto Reaction Enabled",
+                        `**Target** <@${message.author.id}>\n` +
+                        `**Reaction** ${emoji}\n\n` +
+                        `-# Active while you are boosting.\n` +
+                        `-# Run again with another emoji to change it.`,
+                        {
+                            allowedMentions: {
+                                parse: []
+                            }
+                        }
+                    )
+                );
             }
 
-            // ----------------------------------------------------
             // BOOSTER DISABLE
-            // ----------------------------------------------------
-
             if (action === "disable") {
-
                 db.prepare(`
                     DELETE FROM autoreacts
                     WHERE user_id = ?
@@ -289,87 +230,54 @@ module.exports = {
                     );
                 }
 
-                return message.reply({
-                    components: [
-                        new ContainerBuilder()
-                            .setAccentColor(0xFF4FA3)
-                            .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(
-                                    "# ✦ ASTER / AUTO REACT\n" +
-                                    "### 🔴 Auto Reaction Disabled\n\n" +
-                                    "**Your Auto Reaction has been removed.**\n\n" +
-                                    "-# You can configure another reaction at any time while boosting."
-                                )
-                            )
-                    ],
-                    flags: MessageFlags.IsComponentsV2
-                });
+                return message.reply(
+                    ui(
+                        "🔴 Auto Reaction Disabled",
+                        `**Your Auto Reaction has been removed.**\n\n` +
+                        `-# You can configure another reaction while boosting.`
+                    )
+                );
             }
         }
 
-        // ========================================================
+        // ====================================================
         // ADMIN TARGET MODE
-        // ========================================================
+        // ====================================================
 
         if (!isAdmin) {
-            return message.reply({
-                components: [
-                    new ContainerBuilder()
-                        .setAccentColor(0xFF4FA3)
-                        .addTextDisplayComponents(
-                            new TextDisplayBuilder().setContent(
-                                "# ✦ ASTER / AUTO REACT\n" +
-                                "### 🔒 Access Denied\n\n" +
-                                "You can only configure your **own** Auto Reaction if you are a server booster.\n\n" +
-                                "-# Administrators can configure Auto Reactions for other members."
-                            )
-                        )
-                ],
-                flags: MessageFlags.IsComponentsV2
-            });
+            return message.reply(
+                ui(
+                    "🔒 Access Denied",
+                    `You can only configure your **own** Auto Reaction if you are a server booster.\n\n` +
+                    `-# Administrators can configure reactions for other members.`
+                )
+            );
         }
 
         if (!targetUser) {
-            return message.reply({
-                components: [
-                    new ContainerBuilder()
-                        .setAccentColor(0xFF4FA3)
-                        .addTextDisplayComponents(
-                            new TextDisplayBuilder().setContent(
-                                "# ✦ ASTER / AUTO REACT\n" +
-                                "### ⚠ Invalid User\n\n" +
-                                "Please provide a valid user mention or Discord user ID."
-                            )
-                        )
-                ],
-                flags: MessageFlags.IsComponentsV2
-            });
+            return message.reply(
+                ui(
+                    "⚠ Invalid User",
+                    `Please provide a valid user mention or Discord user ID.`
+                )
+            );
         }
 
-        // ========================================================
+        // ====================================================
         // ADMIN ENABLE
-        // ========================================================
+        // ====================================================
 
         if (action === "enable") {
-
             const emoji = args[2];
 
             if (!emoji) {
-                return message.reply({
-                    components: [
-                        new ContainerBuilder()
-                            .setAccentColor(0xFF4FA3)
-                            .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(
-                                    "# ✦ ASTER / AUTO REACT\n" +
-                                    "### ⚠ Missing Emoji\n\n" +
-                                    "Please provide the emoji ASTER should react with.\n\n" +
-                                    "-# Example: `,autoreact enable @user <:emoji>`"
-                                )
-                            )
-                    ],
-                    flags: MessageFlags.IsComponentsV2
-                });
+                return message.reply(
+                    ui(
+                        "⚠ Missing Emoji",
+                        `Please provide the emoji ASTER should react with.\n\n` +
+                        `-# Example: \`,autoreact enable @user <:emoji>\``
+                    )
+                );
             }
 
             db.prepare(`
@@ -396,34 +304,27 @@ module.exports = {
                 );
             }
 
-            return message.reply({
-                components: [
-                    new ContainerBuilder()
-                        .setAccentColor(0xFF4FA3)
-                        .addTextDisplayComponents(
-                            new TextDisplayBuilder().setContent(
-                                "# ✦ ASTER / AUTO REACT\n" +
-                                "### 🟢 Enabled\n\n" +
-                                `**Target**  <@${targetUser.id}>\n` +
-                                `**Reaction**  ${emoji}\n\n` +
-                                "-# Auto Reaction has been configured successfully.\n" +
-                                "-# The reaction is active while the target is boosting the server."
-                            )
-                        )
-                ],
-                flags: MessageFlags.IsComponentsV2,
-                allowedMentions: {
-                    parse: []
-                }
-            });
+            return message.reply(
+                ui(
+                    "🟢 Enabled",
+                    `**Target** <@${targetUser.id}>\n` +
+                    `**Reaction** ${emoji}\n\n` +
+                    `-# Auto Reaction configured successfully.\n` +
+                    `-# Active while the target is boosting.`,
+                    {
+                        allowedMentions: {
+                            parse: []
+                        }
+                    }
+                )
+            );
         }
 
-        // ========================================================
+        // ====================================================
         // ADMIN DISABLE
-        // ========================================================
+        // ====================================================
 
         if (action === "disable") {
-
             db.prepare(`
                 DELETE FROM autoreacts
                 WHERE user_id = ?
@@ -435,24 +336,18 @@ module.exports = {
                 );
             }
 
-            return message.reply({
-                components: [
-                    new ContainerBuilder()
-                        .setAccentColor(0xFF4FA3)
-                        .addTextDisplayComponents(
-                            new TextDisplayBuilder().setContent(
-                                "# ✦ ASTER / AUTO REACT\n" +
-                                "### 🔴 Disabled\n\n" +
-                                `**Target**  <@${targetUser.id}>\n\n` +
-                                "-# Automatic reactions have been removed for this user."
-                            )
-                        )
-                ],
-                flags: MessageFlags.IsComponentsV2,
-                allowedMentions: {
-                    parse: []
-                }
-            });
+            return message.reply(
+                ui(
+                    "🔴 Disabled",
+                    `**Target** <@${targetUser.id}>\n\n` +
+                    `-# Automatic reactions removed for this user.`,
+                    {
+                        allowedMentions: {
+                            parse: []
+                        }
+                    }
+                )
+            );
         }
     }
 };

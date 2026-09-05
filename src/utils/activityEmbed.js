@@ -1,6 +1,4 @@
-const {
-    ContainerBuilder
-} = require("discord.js");
+const { ContainerBuilder } = require("discord.js");
 
 const symbols = require("./asterUI/symbols");
 const styles = require("./asterUI/styles");
@@ -11,7 +9,6 @@ const sections = require("./asterUI/sections");
 // ========================================================
 
 function formatTime(minutes) {
-
     minutes = Number(minutes) || 0;
 
     const days = Math.floor(minutes / 1440);
@@ -20,21 +17,11 @@ function formatTime(minutes) {
 
     const parts = [];
 
-    if (days > 0) {
-        parts.push(`${days}d`);
-    }
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (mins > 0) parts.push(`${mins}m`);
 
-    if (hours > 0) {
-        parts.push(`${hours}h`);
-    }
-
-    if (mins > 0) {
-        parts.push(`${mins}m`);
-    }
-
-    return parts.length
-        ? parts.join(" ")
-        : "0m";
+    return parts.length ? parts.join(" ") : "0m";
 }
 
 // ========================================================
@@ -42,10 +29,7 @@ function formatTime(minutes) {
 // ========================================================
 
 function userTag(user) {
-
-    const username =
-        user.username || "Unknown";
-
+    const username = user.username || "Unknown";
     return `[${username}](https://discord.com/users/${user.user_id})`;
 }
 
@@ -71,82 +55,54 @@ function createActivityEmbed(
     period,
     resetTimestamp = null
 ) {
+    const safeChatUsers = Array.isArray(chatUsers) ? chatUsers : [];
+    const safeVoiceUsers = Array.isArray(voiceUsers) ? voiceUsers : [];
+    const is24h = period === "24h";
 
-    const safeChatUsers =
-        Array.isArray(chatUsers)
-            ? chatUsers
-            : [];
-
-    const safeVoiceUsers =
-        Array.isArray(voiceUsers)
-            ? voiceUsers
-            : [];
-
-    const is24h =
-        period === "24h";
-
-    // ====================================================
-    // PERIOD
-    // ====================================================
-
-    const periodLabel =
-        is24h
-            ? "24 HOURS"
-            : "7 DAYS";
-
-    const periodDescription =
-        is24h
-            ? "Daily activity rankings"
-            : "Weekly activity rankings";
+    const periodLabel = is24h ? "24 HOURS" : "7 DAYS";
+    const periodDescription = is24h
+        ? "Daily activity rankings"
+        : "Weekly activity rankings";
 
     // ====================================================
     // CHAT LEADERBOARD
     // ====================================================
 
-    const chatText =
-        safeChatUsers.length
-            ? safeChatUsers
-                .slice(0, 5)
-                .map((user, index) => {
+    const chatText = safeChatUsers.length
+        ? safeChatUsers
+            .slice(0, 5)
+            .map((user, index) => {
+                const messages =
+                    (Number(user.messages) || 0).toLocaleString();
 
-                    const messages =
-                        (
-                            Number(user.messages) || 0
-                        ).toLocaleString();
-
-                    return (
-                        `${ranks[index]} **${userTag(user)}**\n` +
-                        `-# ${symbols.chat} **${messages}** messages`
-                    );
-                })
-                .join("\n\n")
-            : `${symbols.info} *No chat activity recorded yet.*`;
+                return (
+                    `${ranks[index]} **${userTag(user)}**\n` +
+                    `-# ${symbols.chat} **${messages}** messages`
+                );
+            })
+            .join("\n\n")
+        : `${symbols.info} *No chat activity recorded yet.*`;
 
     // ====================================================
     // VOICE LEADERBOARD
     // ====================================================
 
-    const voiceText =
-        safeVoiceUsers.length
-            ? safeVoiceUsers
-                .slice(0, 5)
-                .map((user, index) => {
-
-                    return (
-                        `${ranks[index]} **${userTag(user)}**\n` +
-                        `-# ${symbols.voice} **${formatTime(user.voice_time)}**`
-                    );
-                })
-                .join("\n\n")
-            : `${symbols.info} *No voice activity recorded yet.*`;
+    const voiceText = safeVoiceUsers.length
+        ? safeVoiceUsers
+            .slice(0, 5)
+            .map((user, index) => (
+                `${ranks[index]} **${userTag(user)}**\n` +
+                `-# ${symbols.voice} **${formatTime(user.voice_time)}**`
+            ))
+            .join("\n\n")
+        : `${symbols.info} *No voice activity recorded yet.*`;
 
     // ====================================================
     // CONTAINER
     // ====================================================
 
-    const container =
-        new ContainerBuilder()
-            .setAccentColor(0xFF4DA6);
+    const container = new ContainerBuilder()
+        .setAccentColor(0xFF4DA6);
 
     // ====================================================
     // HEADER
@@ -166,26 +122,17 @@ function createActivityEmbed(
         )
     );
 
-    container.addSeparatorComponents(
-        sections.separator()
-    );
-
     // ====================================================
     // RESET
     // ====================================================
 
     if (resetTimestamp) {
-
         container.addTextDisplayComponents(
             sections.text(
-                `-# ${symbols.time} NEXT RESET\n` +
+                `-# ${symbols.time} Next reset ` +
                 `**<t:${resetTimestamp}:R>** ${styles.text.bullet} ` +
                 `<t:${resetTimestamp}:F>`
             )
-        );
-
-        container.addSeparatorComponents(
-            sections.separator()
         );
     }
 
@@ -202,13 +149,8 @@ function createActivityEmbed(
 
     container.addTextDisplayComponents(
         sections.text(
-            `-# Most active members by messages\n\n` +
-            chatText
+            `-# Most active by messages\n${chatText}`
         )
-    );
-
-    container.addSeparatorComponents(
-        sections.separator()
     );
 
     // ====================================================
@@ -224,28 +166,19 @@ function createActivityEmbed(
 
     container.addTextDisplayComponents(
         sections.text(
-            `-# Most active members by voice time\n\n` +
-            voiceText
+            `-# Most active by voice time\n${voiceText}`
         )
-    );
-
-    container.addSeparatorComponents(
-        sections.separator()
     );
 
     // ====================================================
     // FOOTER
     // ====================================================
 
-    const updateText =
-        is24h
-            ? "Resets daily at midnight"
-            : "Resets every Monday";
+    const updateText = is24h
+        ? "Resets daily at midnight"
+        : "Resets every Monday";
 
-    // Generate a completely fresh Discord timestamp
-    // every time this leaderboard is rebuilt.
-    const updatedTimestamp =
-        Math.floor(Date.now() / 1000);
+    const updatedTimestamp = Math.floor(Date.now() / 1000);
 
     container.addTextDisplayComponents(
         sections.text(

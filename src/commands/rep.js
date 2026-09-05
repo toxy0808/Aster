@@ -13,8 +13,7 @@ const {
     header,
     section,
     stat,
-    status,
-    separator
+    status
 } = require("../utils/asterUI");
 
 const COOLDOWN = 10 * 60 * 1000;
@@ -166,13 +165,15 @@ module.exports = {
                 WHERE user_id = ?
             `).get(message.author.id);
 
-            const reputation = user?.reputation ?? 0;
+            const reputation =
+                user?.reputation ?? 0;
 
-            const rank = db.prepare(`
-                SELECT COUNT(*) + 1 AS rank
-                FROM reputation
-                WHERE reputation > ?
-            `).get(reputation).rank;
+            const rank =
+                db.prepare(`
+                    SELECT COUNT(*) + 1 AS rank
+                    FROM reputation
+                    WHERE reputation > ?
+                `).get(reputation).rank;
 
             const output = buildContainer(
                 header(
@@ -180,34 +181,22 @@ module.exports = {
                     styles.headers.command
                 ),
 
-                separator(),
-
                 section(
                     "Reputation",
                     `**${symbols.reputation} ${reputation.toLocaleString()} REP**`,
                     styles.sections.reputation
                 ),
 
-                separator(),
-
                 section(
-                    "Server Standing",
+                    "Server Rank",
                     `**#${rank}**`,
                     styles.sections.rank
                 ),
-
-                separator(),
 
                 stat(
                     "Updated",
                     timestamps.now(),
                     symbols.time
-                ),
-
-                stat(
-                    "System",
-                    `${styles.brand.name} • Reputation System`,
-                    styles.brand.symbol
                 )
             );
 
@@ -240,7 +229,8 @@ module.exports = {
         // REP TYPE
         // ====================================================
 
-        const typeArg = args[0]?.toLowerCase();
+        const typeArg =
+            args[0]?.toLowerCase();
 
         const amount =
             typeArg === "-" ||
@@ -253,17 +243,21 @@ module.exports = {
         // CONFIG
         // ====================================================
 
-        const config = getRepConfig(message.guild.id);
+        const config =
+            getRepConfig(
+                message.guild.id
+            );
 
         // ====================================================
         // GIVER PROFILE
         // ====================================================
 
-        let giver = db.prepare(`
-            SELECT *
-            FROM reputation
-            WHERE user_id = ?
-        `).get(message.author.id);
+        let giver =
+            db.prepare(`
+                SELECT *
+                FROM reputation
+                WHERE user_id = ?
+            `).get(message.author.id);
 
         if (!giver) {
             db.prepare(`
@@ -279,11 +273,12 @@ module.exports = {
                 Date.now()
             );
 
-            giver = db.prepare(`
-                SELECT *
-                FROM reputation
-                WHERE user_id = ?
-            `).get(message.author.id);
+            giver =
+                db.prepare(`
+                    SELECT *
+                    FROM reputation
+                    WHERE user_id = ?
+                `).get(message.author.id);
         }
 
         // ====================================================
@@ -292,25 +287,27 @@ module.exports = {
 
         resetDaily(giver);
 
-        giver = db.prepare(`
-            SELECT *
-            FROM reputation
-            WHERE user_id = ?
-        `).get(message.author.id);
+        giver =
+            db.prepare(`
+                SELECT *
+                FROM reputation
+                WHERE user_id = ?
+            `).get(message.author.id);
 
         // ====================================================
         // DAILY LIMIT
         // ====================================================
 
-        const limit = getDailyLimit(
-            message.member,
-            config
-        );
+        const limit =
+            getDailyLimit(
+                message.member,
+                config
+            );
 
         if (giver.daily_given >= limit) {
             return message.reply(
-                `${symbols.warning} Daily reputation limit reached.\n` +
-                `-# Limit: **${limit}** REP actions per day`
+                `${symbols.warning} Daily REP limit reached.\n` +
+                `-# Limit: **${limit}** actions per day`
             );
         }
 
@@ -318,17 +315,18 @@ module.exports = {
         // PAIR-SPECIFIC COOLDOWN
         // ====================================================
 
-        const recent = db.prepare(`
-            SELECT created_at
-            FROM reputation_logs
-            WHERE giver_id = ?
-              AND receiver_id = ?
-            ORDER BY id DESC
-            LIMIT 1
-        `).get(
-            message.author.id,
-            target.id
-        );
+        const recent =
+            db.prepare(`
+                SELECT created_at
+                FROM reputation_logs
+                WHERE giver_id = ?
+                  AND receiver_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+            `).get(
+                message.author.id,
+                target.id
+            );
 
         if (recent) {
             const createdAt =
@@ -347,7 +345,7 @@ module.exports = {
                 Date.now() - createdAt < COOLDOWN
             ) {
                 return message.reply(
-                    `${symbols.pending} Reputation cooldown active.\n` +
+                    `${symbols.pending} REP cooldown active.\n` +
                     `-# You can REP <@${target.id}> again in **10 minutes**.`
                 );
             }
@@ -418,11 +416,12 @@ module.exports = {
         // UPDATED TOTAL
         // ====================================================
 
-        const updated = db.prepare(`
-            SELECT reputation
-            FROM reputation
-            WHERE user_id = ?
-        `).get(target.id);
+        const updated =
+            db.prepare(`
+                SELECT reputation
+                FROM reputation
+                WHERE user_id = ?
+            `).get(target.id);
 
         // ====================================================
         // REWARDS
@@ -444,8 +443,8 @@ module.exports = {
 
         const actionLabel =
             amount > 0
-                ? "Positive Reputation"
-                : "Negative Reputation";
+                ? "Positive REP"
+                : "Negative REP";
 
         const action =
             amount > 0
@@ -458,15 +457,13 @@ module.exports = {
                 styles.headers.command
             ),
 
-            separator(),
-
             status(
                 actionLabel,
                 `<@${target.id}> received **${action}${Math.abs(amount)} REP**`,
-                amount > 0 ? "success" : "warning"
+                amount > 0
+                    ? "success"
+                    : "warning"
             ),
-
-            separator(),
 
             section(
                 "New Total",
@@ -474,18 +471,10 @@ module.exports = {
                 styles.sections.reputation
             ),
 
-            separator(),
-
             stat(
                 "Updated",
                 timestamps.now(),
                 symbols.time
-            ),
-
-            stat(
-                "System",
-                `${styles.brand.name} • Reputation System`,
-                styles.brand.symbol
             )
         );
 
