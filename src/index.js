@@ -160,6 +160,11 @@ client.commands.set(
 );
 
 client.commands.set(
+    "represet",
+    require("./commands/represet")
+);
+
+client.commands.set(
     "help",
     require("./commands/help")
 );
