@@ -55,7 +55,6 @@ module.exports = async (client, message) => {
                 ) + 1
         `).run(userId);
 
-        console.log("✦ ASTER TRACKED:", userId);
 
     } catch (error) {
 
