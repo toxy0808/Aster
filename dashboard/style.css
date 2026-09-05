@@ -3407,4 +3407,452 @@ h4,
     .members-table { overflow-x: auto; }
     .member-row { min-width: 650px; }
     .log-entry { grid-template-columns: 55px 80px minmax(0,1fr); gap: 10px; }
+
+/* =========================================================
+   ASTER SYSTEM MODULES
+   Economy / XP & Levels / Reputation / ASTER CORE
+   ========================================================= */
+
+#economy-view,
+#xp-and-levels-view,
+#reputation-view,
+#aster-core-view {
+    animation: asterViewIn 0.35s ease;
+}
+
+
+/* =========================================================
+   MODULE STATS
+   ========================================================= */
+
+#economy-view .stats-grid,
+#xp-and-levels-view .stats-grid,
+#reputation-view .stats-grid,
+#aster-core-view .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+
+#economy-view .stat-card,
+#xp-and-levels-view .stat-card,
+#reputation-view .stat-card,
+#aster-core-view .stat-card {
+    position: relative;
+    min-height: 145px;
+
+    padding: 18px 20px;
+
+    border: 1px solid rgba(155, 89, 255, 0.14);
+    border-radius: 14px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,0.045),
+            rgba(255,255,255,0.012)
+        );
+
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.035),
+        0 12px 35px rgba(0,0,0,0.18);
+
+    overflow: hidden;
+
+    transition:
+        transform 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+
+#economy-view .stat-card::before,
+#xp-and-levels-view .stat-card::before,
+#reputation-view .stat-card::before,
+#aster-core-view .stat-card::before {
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+    left: 18px;
+    right: 18px;
+
+    height: 1px;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(155, 89, 255, 0.7),
+            transparent
+        );
+
+    opacity: 0.65;
+}
+
+
+#economy-view .stat-card::after,
+#xp-and-levels-view .stat-card::after,
+#reputation-view .stat-card::after,
+#aster-core-view .stat-card::after {
+    content: "";
+
+    position: absolute;
+
+    width: 110px;
+    height: 110px;
+
+    right: -55px;
+    bottom: -55px;
+
+    border-radius: 50%;
+
+    background: rgba(155, 89, 255, 0.08);
+
+    filter: blur(25px);
+
+    pointer-events: none;
+}
+
+
+#economy-view .stat-card:hover,
+#xp-and-levels-view .stat-card:hover,
+#reputation-view .stat-card:hover,
+#aster-core-view .stat-card:hover {
+    transform: translateY(-2px);
+
+    border-color:
+        rgba(155, 89, 255, 0.32);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.05),
+        0 16px 40px rgba(0,0,0,0.25),
+        0 0 25px rgba(155, 89, 255, 0.06);
+}
+
+
+/* =========================================================
+   MODULE LABELS
+   ========================================================= */
+
+#economy-view .stat-label,
+#xp-and-levels-view .stat-label,
+#reputation-view .stat-label,
+#aster-core-view .stat-label {
+    position: relative;
+
+    color: rgba(255,255,255,0.42);
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 10px;
+    font-weight: 700;
+
+    letter-spacing: 0.14em;
+
+    text-transform: uppercase;
+}
+
+
+#economy-view .stat-value,
+#xp-and-levels-view .stat-value,
+#reputation-view .stat-value,
+#aster-core-view .stat-value {
+    position: relative;
+
+    margin-top: 16px;
+
+    color: #ffffff;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 27px;
+    font-weight: 700;
+
+    letter-spacing: -0.035em;
+
+    text-shadow:
+        0 0 22px rgba(155, 89, 255, 0.14);
+}
+
+
+#economy-view .stat-meta,
+#xp-and-levels-view .stat-meta,
+#reputation-view .stat-meta,
+#aster-core-view .stat-meta {
+    position: relative;
+
+    margin-top: 7px;
+
+    color: rgba(255,255,255,0.28);
+
+    font-size: 9px;
+    font-weight: 600;
+
+    letter-spacing: 0.12em;
+
+    text-transform: uppercase;
+}
+
+
+/* =========================================================
+   MODULE PANELS
+   ========================================================= */
+
+#economy-view > .panel,
+#xp-and-levels-view > .panel,
+#reputation-view > .panel,
+#aster-core-view > .panel {
+    position: relative;
+
+    padding: 22px;
+
+    border: 1px solid rgba(155, 89, 255, 0.14);
+    border-radius: 14px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,0.04),
+            rgba(255,255,255,0.012)
+        );
+
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.035),
+        0 15px 40px rgba(0,0,0,0.2);
+
+    overflow: hidden;
+}
+
+
+#economy-view > .panel::before,
+#xp-and-levels-view > .panel::before,
+#reputation-view > .panel::before,
+#aster-core-view > .panel::before {
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+    left: 22px;
+    right: 22px;
+
+    height: 1px;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 77, 166, 0.65),
+            rgba(155, 89, 255, 0.65),
+            transparent
+        );
+}
+
+
+#economy-view > .panel h3,
+#xp-and-levels-view > .panel h3,
+#reputation-view > .panel h3,
+#aster-core-view > .panel h3 {
+    margin-top: 5px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 17px;
+    font-weight: 700;
+
+    letter-spacing: -0.02em;
+
+    color: #ffffff;
+}
+
+
+/* =========================================================
+   MODULE EMPTY / PLACEHOLDER
+   ========================================================= */
+
+#economy-view .member-empty,
+#xp-and-levels-view .member-empty,
+#reputation-view .member-empty,
+#aster-core-view .member-empty {
+    margin-top: 18px;
+
+    min-height: 90px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    border: 1px dashed rgba(155, 89, 255, 0.18);
+    border-radius: 10px;
+
+    background:
+        rgba(0,0,0,0.16);
+
+    color: rgba(255,255,255,0.28);
+
+    font-size: 11px;
+    letter-spacing: 0.05em;
+
+    text-align: center;
+}
+
+
+/* =========================================================
+   ECONOMY
+   ========================================================= */
+
+#economy-view .stat-value {
+    color: #ffffff;
+}
+
+
+#economy-view .stat-card:first-child {
+    border-color:
+        rgba(255, 77, 166, 0.18);
+}
+
+
+#economy-view .stat-card:first-child::before {
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 77, 166, 0.8),
+            transparent
+        );
+}
+
+
+/* =========================================================
+   XP & LEVELS
+   ========================================================= */
+
+#xp-and-levels-view .stat-card:first-child {
+    border-color:
+        rgba(155, 89, 255, 0.24);
+}
+
+
+#xp-and-levels-view .stat-card:nth-child(2) {
+    border-color:
+        rgba(255, 77, 166, 0.18);
+}
+
+
+#xp-and-levels-view .stat-card:nth-child(3) {
+    border-color:
+        rgba(120, 255, 210, 0.12);
+}
+
+
+/* =========================================================
+   REPUTATION
+   ========================================================= */
+
+#reputation-view .stat-card:first-child {
+    border-color:
+        rgba(120, 255, 210, 0.16);
+}
+
+
+#reputation-view .stat-card:nth-child(2) {
+    border-color:
+        rgba(155, 89, 255, 0.18);
+}
+
+
+#reputation-view .stat-card:nth-child(3) {
+    border-color:
+        rgba(255, 77, 166, 0.18);
+}
+
+
+/* =========================================================
+   ASTER CORE
+   ========================================================= */
+
+#aster-core-view .stat-card:first-child {
+    border-color:
+        rgba(120, 255, 210, 0.2);
+}
+
+
+#aster-core-view .stat-card:first-child .stat-value {
+    text-shadow:
+        0 0 24px rgba(120, 255, 210, 0.18);
+}
+
+
+#aster-core-view .stat-card:nth-child(2) {
+    border-color:
+        rgba(155, 89, 255, 0.2);
+}
+
+
+#aster-core-view .stat-card:nth-child(3) {
+    border-color:
+        rgba(255, 77, 166, 0.18);
+}
+
+
+/* =========================================================
+   VIEW ANIMATION
+   ========================================================= */
+
+@keyframes asterViewIn {
+
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+    #economy-view .stats-grid,
+    #xp-and-levels-view .stats-grid,
+    #reputation-view .stats-grid,
+    #aster-core-view .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+
+@media (max-width: 600px) {
+
+    #economy-view .stat-card,
+    #xp-and-levels-view .stat-card,
+    #reputation-view .stat-card,
+    #aster-core-view .stat-card {
+        min-height: 125px;
+        padding: 16px;
+    }
+
+}
+
+
 }
