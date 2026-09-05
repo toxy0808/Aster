@@ -1,5 +1,7 @@
 const { AttachmentBuilder } = require("discord.js");
 const sharp = require("sharp");
+const twemoji = require("twemoji");
+
 const https = require("https");
 const http = require("http");
 const { URL } = require("url");
@@ -20,7 +22,6 @@ const activeUsers = new Set();
 function parseCaption(message) {
     const content = message.content || "";
 
-    // Remove the command itself.
     const match = content.match(/^\s*\S+\s+([\s\S]+?)\s*$/);
 
     if (!match) {
@@ -29,7 +30,6 @@ function parseCaption(message) {
 
     let caption = match[1];
 
-    // Remove matching quotes.
     if (
         caption.length >= 2 &&
         (
@@ -89,7 +89,6 @@ function wrapText(text, maxChars) {
         while (remaining.length > maxChars) {
             let breakAt = remaining.lastIndexOf(" ", maxChars);
 
-            // Long word with no spaces.
             if (breakAt <= 0) {
                 breakAt = maxChars;
             }
@@ -113,38 +112,36 @@ function wrapText(text, maxChars) {
  * ------------------------------------------------------------
  * FONT SIZE
  *
- * Short text  -> BIG
- * Long text   -> SMALLER
+ * Short = BIG
+ * Long  = SMALLER
  * ------------------------------------------------------------
  */
 
 function calculateFontSize(width, caption) {
-    const length = caption.length;
-
-    // Base size scales with image width.
     const base = Math.round(width * 0.065);
 
-    // Keep it in a nice meme-caption range.
-    let size = Math.max(38, Math.min(76, base));
+    let size = Math.max(
+        38,
+        Math.min(76, base)
+    );
 
-    // Longer captions get progressively smaller.
-    if (length > 35) {
+    if (caption.length > 35) {
         size = Math.min(size, 68);
     }
 
-    if (length > 60) {
+    if (caption.length > 60) {
         size = Math.min(size, 60);
     }
 
-    if (length > 90) {
+    if (caption.length > 90) {
         size = Math.min(size, 52);
     }
 
-    if (length > 130) {
+    if (caption.length > 130) {
         size = Math.min(size, 46);
     }
 
-    if (length > 180) {
+    if (caption.length > 180) {
         size = Math.min(size, 40);
     }
 
@@ -153,139 +150,7 @@ function calculateFontSize(width, caption) {
 
 /*
  * ------------------------------------------------------------
- * CAPTION BOX
- *
- * Clean centered white meme caption.
- * ------------------------------------------------------------
- */
-
-function buildCaptionSvg(width, imageHeight, caption) {
-    let fontSize = calculateFontSize(
-        width,
-        caption
-    );
-
-    const horizontalPadding =
-        Math.max(32, Math.round(width * 0.055));
-
-    const verticalPadding =
-        Math.max(26, Math.round(fontSize * 0.55));
-
-    /*
-     * Estimate characters per line.
-     *
-     * Arial is approximately 0.5-0.55em per character.
-     */
-    let maxChars = Math.floor(
-        (width - horizontalPadding * 2) /
-        (fontSize * 0.52)
-    );
-
-    maxChars = Math.max(10, maxChars);
-
-    let lines = wrapText(
-        caption,
-        maxChars
-    );
-
-    /*
-     * If there are too many lines, reduce font size.
-     */
-    while (
-        lines.length > 5 &&
-        fontSize > 30
-    ) {
-        fontSize -= 2;
-
-        maxChars = Math.floor(
-            (width - horizontalPadding * 2) /
-            (fontSize * 0.52)
-        );
-
-        maxChars = Math.max(10, maxChars);
-
-        lines = wrapText(
-            caption,
-            maxChars
-        );
-    }
-
-    /*
-     * Larger line spacing gives the modern meme look.
-     */
-    const lineHeight =
-        Math.round(fontSize * 1.18);
-
-    /*
-     * The white box gets its height from the text.
-     */
-    const captionHeight =
-        verticalPadding * 2 +
-        lineHeight * lines.length;
-
-    /*
-     * SVG text-anchor="middle" means the text is
-     * horizontally centered.
-     */
-    const centerX = width / 2;
-
-    /*
-     * Calculate the entire text block height and
-     * center it vertically.
-     */
-    const textBlockHeight =
-        lineHeight * lines.length;
-
-    const firstBaseline =
-        (captionHeight - textBlockHeight) / 2 +
-        fontSize;
-
-    const textElements = lines
-        .map((line, index) => {
-            return `
-                <text
-                    x="${centerX}"
-                    y="${firstBaseline + index * lineHeight}"
-                    text-anchor="middle"
-                    font-family="Arial, Helvetica, sans-serif"
-                    font-size="${fontSize}px"
-                    font-weight="700"
-                    fill="#000000"
-                    dominant-baseline="alphabetic"
-                    xml:space="preserve"
-                >${escapeXml(line)}</text>
-            `;
-        })
-        .join("");
-
-    const svg = `
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="${width}"
-            height="${captionHeight}"
-            viewBox="0 0 ${width} ${captionHeight}"
-        >
-            <rect
-                x="0"
-                y="0"
-                width="${width}"
-                height="${captionHeight}"
-                fill="white"
-            />
-
-            ${textElements}
-        </svg>
-    `;
-
-    return {
-        svg: Buffer.from(svg),
-        captionHeight
-    };
-}
-
-/*
- * ------------------------------------------------------------
- * DOWNLOAD
+ * DOWNLOAD HELPER
  * ------------------------------------------------------------
  */
 
@@ -303,7 +168,7 @@ function downloadBuffer(urlString, redirectCount = 0) {
             parsed = new URL(urlString);
         } catch {
             return reject(
-                new Error("Invalid media URL.")
+                new Error("Invalid URL.")
             );
         }
 
@@ -312,7 +177,7 @@ function downloadBuffer(urlString, redirectCount = 0) {
             parsed.protocol !== "https:"
         ) {
             return reject(
-                new Error("Unsupported media URL.")
+                new Error("Unsupported URL.")
             );
         }
 
@@ -325,14 +190,10 @@ function downloadBuffer(urlString, redirectCount = 0) {
             parsed,
             {
                 headers: {
-                    "User-Agent":
-                        "ASTER Discord Bot"
+                    "User-Agent": "ASTER Discord Bot"
                 }
             },
             response => {
-                /*
-                 * Handle redirects.
-                 */
                 if (
                     response.statusCode >= 300 &&
                     response.statusCode < 400 &&
@@ -359,7 +220,7 @@ function downloadBuffer(urlString, redirectCount = 0) {
 
                     return reject(
                         new Error(
-                            `Media returned HTTP ${response.statusCode}.`
+                            `Server returned HTTP ${response.statusCode}.`
                         )
                     );
                 }
@@ -370,10 +231,7 @@ function downloadBuffer(urlString, redirectCount = 0) {
                 response.on("data", chunk => {
                     total += chunk.length;
 
-                    if (
-                        total >
-                        MAX_DOWNLOAD_BYTES
-                    ) {
+                    if (total > MAX_DOWNLOAD_BYTES) {
                         request.destroy(
                             new Error(
                                 "Media is larger than 25 MB."
@@ -413,7 +271,366 @@ function downloadBuffer(urlString, redirectCount = 0) {
 
 /*
  * ------------------------------------------------------------
- * FIND REPLIED IMAGE
+ * TWEMOJI
+ *
+ * Converts emojis into actual Twemoji SVG images.
+ *
+ * This means we DON'T need an emoji font installed
+ * on eCloudServ.
+ * ------------------------------------------------------------
+ */
+
+async function getTwemojiSvg(codePoint) {
+    const url =
+        `https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/${codePoint}.svg`;
+
+    return downloadBuffer(url);
+}
+
+async function prepareEmojiData(caption) {
+    const emojis = [];
+
+    twemoji.parse(
+        caption,
+        {
+            callback: (icon) => {
+                emojis.push(icon);
+                return icon;
+            }
+        }
+    );
+
+    const unique = [
+        ...new Set(emojis)
+    ];
+
+    const result = new Map();
+
+    for (const icon of unique) {
+        try {
+            const svgBuffer =
+                await getTwemojiSvg(icon);
+
+            result.set(
+                icon,
+                svgBuffer
+            );
+        } catch (error) {
+            console.error(
+                `[caption] Failed to load emoji ${icon}:`,
+                error.message
+            );
+        }
+    }
+
+    return result;
+}
+
+/*
+ * ------------------------------------------------------------
+ * BUILD CAPTION SVG
+ *
+ * Uses Twemoji images when emojis exist.
+ * ------------------------------------------------------------
+ */
+
+async function buildCaptionSvg(
+    width,
+    caption
+) {
+    let fontSize =
+        calculateFontSize(
+            width,
+            caption
+        );
+
+    const horizontalPadding =
+        Math.max(
+            32,
+            Math.round(width * 0.055)
+        );
+
+    const verticalPadding =
+        Math.max(
+            26,
+            Math.round(fontSize * 0.55)
+        );
+
+    let maxChars =
+        Math.floor(
+            (width - horizontalPadding * 2) /
+            (fontSize * 0.52)
+        );
+
+    maxChars = Math.max(
+        10,
+        maxChars
+    );
+
+    let lines =
+        wrapText(
+            caption,
+            maxChars
+        );
+
+    while (
+        lines.length > 5 &&
+        fontSize > 30
+    ) {
+        fontSize -= 2;
+
+        maxChars =
+            Math.floor(
+                (width - horizontalPadding * 2) /
+                (fontSize * 0.52)
+            );
+
+        maxChars =
+            Math.max(
+                10,
+                maxChars
+            );
+
+        lines =
+            wrapText(
+                caption,
+                maxChars
+            );
+    }
+
+    const lineHeight =
+        Math.round(
+            fontSize * 1.18
+        );
+
+    const captionHeight =
+        verticalPadding * 2 +
+        lineHeight * lines.length;
+
+    const centerX =
+        width / 2;
+
+    const textBlockHeight =
+        lineHeight * lines.length;
+
+    const firstBaseline =
+        (captionHeight - textBlockHeight) / 2 +
+        fontSize;
+
+    /*
+     * Find emoji data.
+     */
+    const emojiData =
+        await prepareEmojiData(
+            caption
+        );
+
+    /*
+     * Turn each line into SVG.
+     *
+     * We use Twemoji images for emojis and
+     * normal text for everything else.
+     */
+    const textElements = [];
+
+    for (
+        let lineIndex = 0;
+        lineIndex < lines.length;
+        lineIndex++
+    ) {
+        const line =
+            lines[lineIndex];
+
+        const baseline =
+            firstBaseline +
+            lineIndex * lineHeight;
+
+        /*
+         * Split the line into emoji/non-emoji pieces.
+         */
+        const parts = [];
+
+        twemoji.parse(
+            line,
+            {
+                callback: (icon) => {
+                    return `@@EMOJI_${icon}@@`;
+                }
+            }
+        );
+
+        const parsed =
+            twemoji.parse(
+                line,
+                {
+                    callback: (icon) => {
+                        return `@@EMOJI_${icon}@@`;
+                    }
+                }
+            );
+
+        /*
+         * Find our emoji placeholders.
+         */
+        const regex =
+            /@@EMOJI_([0-9a-f-]+)@@/gi;
+
+        let lastIndex = 0;
+        let match;
+
+        while (
+            (match = regex.exec(parsed))
+        ) {
+            if (match.index > lastIndex) {
+                parts.push({
+                    type: "text",
+                    value:
+                        parsed.slice(
+                            lastIndex,
+                            match.index
+                        )
+                });
+            }
+
+            parts.push({
+                type: "emoji",
+                codePoint: match[1]
+            });
+
+            lastIndex =
+                regex.lastIndex;
+        }
+
+        if (lastIndex < parsed.length) {
+            parts.push({
+                type: "text",
+                value:
+                    parsed.slice(lastIndex)
+            });
+        }
+
+        /*
+         * If there were no emojis.
+         */
+        if (!parts.length) {
+            parts.push({
+                type: "text",
+                value: line
+            });
+        }
+
+        /*
+         * Estimate total width.
+         */
+        let totalWidth = 0;
+
+        for (const part of parts) {
+            if (part.type === "emoji") {
+                totalWidth += fontSize * 1.05;
+            } else {
+                totalWidth +=
+                    part.value.length *
+                    fontSize *
+                    0.52;
+            }
+        }
+
+        let currentX =
+            centerX -
+            totalWidth / 2;
+
+        /*
+         * Render every part.
+         */
+        for (const part of parts) {
+            if (
+                part.type === "emoji" &&
+                emojiData.has(part.codePoint)
+            ) {
+                const emojiSize =
+                    Math.round(
+                        fontSize * 1.05
+                    );
+
+                const emojiSvg =
+                    emojiData.get(
+                        part.codePoint
+                    );
+
+                const base64 =
+                    emojiSvg.toString(
+                        "base64"
+                    );
+
+                textElements.push(`
+                    <image
+                        href="data:image/svg+xml;base64,${base64}"
+                        x="${currentX}"
+                        y="${baseline - emojiSize + fontSize * 0.12}"
+                        width="${emojiSize}"
+                        height="${emojiSize}"
+                    />
+                `);
+
+                currentX +=
+                    emojiSize;
+            } else {
+                const safeText =
+                    escapeXml(
+                        part.value
+                    );
+
+                const textWidth =
+                    part.value.length *
+                    fontSize *
+                    0.52;
+
+                textElements.push(`
+                    <text
+                        x="${currentX}"
+                        y="${baseline}"
+                        font-family="Arial, Helvetica, sans-serif"
+                        font-size="${fontSize}px"
+                        font-weight="700"
+                        fill="#000000"
+                        xml:space="preserve"
+                    >${safeText}</text>
+                `);
+
+                currentX +=
+                    textWidth;
+            }
+        }
+    }
+
+    const svg = `
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="${width}"
+            height="${captionHeight}"
+            viewBox="0 0 ${width} ${captionHeight}"
+        >
+            <rect
+                x="0"
+                y="0"
+                width="${width}"
+                height="${captionHeight}"
+                fill="#ffffff"
+            />
+
+            ${textElements.join("")}
+        </svg>
+    `;
+
+    return {
+        svg: Buffer.from(svg),
+        captionHeight
+    };
+}
+
+/*
+ * ------------------------------------------------------------
+ * FIND REPLIED ATTACHMENT
  * ------------------------------------------------------------
  */
 
@@ -446,7 +663,11 @@ async function getReferencedAttachment(message) {
     }
 
     const attachments =
-        [...referencedMessage.attachments.values()];
+        [
+            ...referencedMessage
+                .attachments
+                .values()
+        ];
 
     if (!attachments.length) {
         throw new Error(
@@ -455,26 +676,28 @@ async function getReferencedAttachment(message) {
     }
 
     const images =
-        attachments.filter(attachment => {
-            const type =
-                (
-                    attachment.contentType ||
-                    ""
-                ).toLowerCase();
+        attachments.filter(
+            attachment => {
+                const type =
+                    (
+                        attachment.contentType ||
+                        ""
+                    ).toLowerCase();
 
-            const name =
-                (
-                    attachment.name ||
-                    ""
-                ).toLowerCase();
+                const name =
+                    (
+                        attachment.name ||
+                        ""
+                    ).toLowerCase();
 
-            return (
-                type.startsWith("image/") ||
-                /\.(png|jpe?g|gif|webp|avif)$/i.test(
-                    name
-                )
-            );
-        });
+                return (
+                    type.startsWith("image/") ||
+                    /\.(png|jpe?g|gif|webp|avif)$/i.test(
+                        name
+                    )
+                );
+            }
+        );
 
     if (!images.length) {
         throw new Error(
@@ -523,11 +746,11 @@ async function renderStatic(
     const {
         svg,
         captionHeight
-    } = buildCaptionSvg(
-        metadata.width,
-        metadata.height,
-        caption
-    );
+    } =
+        await buildCaptionSvg(
+            metadata.width,
+            caption
+        );
 
     let pipeline =
         image.extend({
@@ -587,7 +810,6 @@ async function renderStatic(
                 extension: "avif"
             };
 
-        case "png":
         default:
             return {
                 buffer:
@@ -603,17 +825,11 @@ async function renderStatic(
  * ------------------------------------------------------------
  * GIF
  *
- * IMPORTANT:
- *
- * We preserve:
- *
+ * Keeps:
  * - every frame
  * - every frame delay
  * - loop count
  * - duplicate frames
- *
- * The GIF itself must be re-encoded because the caption
- * is physically added to every frame.
  * ------------------------------------------------------------
  */
 
@@ -622,11 +838,14 @@ async function renderGif(
     caption
 ) {
     const metadata =
-        await sharp(inputBuffer, {
-            animated: true,
-            limitInputPixels:
-                MAX_PIXELS
-        }).metadata();
+        await sharp(
+            inputBuffer,
+            {
+                animated: true,
+                limitInputPixels:
+                    MAX_PIXELS
+            }
+        ).metadata();
 
     const frameCount =
         metadata.pages;
@@ -640,14 +859,6 @@ async function renderGif(
         );
     }
 
-    /*
-     * ORIGINAL frame delays.
-     *
-     * Example:
-     * [100, 100, 500, 100]
-     *
-     * These are kept exactly.
-     */
     const originalDelays =
         Array.isArray(metadata.delay)
             ? [...metadata.delay]
@@ -662,11 +873,6 @@ async function renderGif(
         );
     }
 
-    /*
-     * ORIGINAL loop count.
-     *
-     * 0 = infinite.
-     */
     const originalLoop =
         Number.isInteger(metadata.loop)
             ? metadata.loop
@@ -674,9 +880,6 @@ async function renderGif(
 
     const frames = [];
 
-    /*
-     * Process every frame separately.
-     */
     for (
         let i = 0;
         i < frameCount;
@@ -696,7 +899,8 @@ async function renderGif(
                 .toBuffer();
 
         const frameMetadata =
-            await sharp(frame).metadata();
+            await sharp(frame)
+                .metadata();
 
         if (
             !frameMetadata.width ||
@@ -710,11 +914,11 @@ async function renderGif(
         const {
             svg,
             captionHeight
-        } = buildCaptionSvg(
-            frameMetadata.width,
-            frameMetadata.height,
-            caption
-        );
+        } =
+            await buildCaptionSvg(
+                frameMetadata.width,
+                caption
+            );
 
         const processed =
             await sharp(frame)
@@ -753,9 +957,6 @@ async function renderGif(
     const frameHeight =
         firstMetadata.height;
 
-    /*
-     * Build one vertical strip containing all frames.
-     */
     const strip =
         await sharp({
             create: {
@@ -786,12 +987,6 @@ async function renderGif(
             .png()
             .toBuffer();
 
-    /*
-     * Re-encode GIF.
-     *
-     * The ORIGINAL timing array and loop value
-     * are explicitly passed back into Sharp.
-     */
     const output =
         await sharp(
             strip,
@@ -808,19 +1003,13 @@ async function renderGif(
             .gif({
                 reuse: true,
 
-                /*
-                 * Keep original frame delays.
-                 */
+                // ORIGINAL frame timing
                 delay: originalDelays,
 
-                /*
-                 * Keep original loop count.
-                 */
+                // ORIGINAL loop count
                 loop: originalLoop,
 
-                /*
-                 * Do NOT remove duplicate frames.
-                 */
+                // Don't remove duplicate frames
                 keepDuplicateFrames: true,
 
                 effort: 3,
@@ -845,11 +1034,14 @@ async function renderCaptionedImage(
     caption
 ) {
     const metadata =
-        await sharp(inputBuffer, {
-            animated: true,
-            limitInputPixels:
-                MAX_PIXELS
-        }).metadata();
+        await sharp(
+            inputBuffer,
+            {
+                animated: true,
+                limitInputPixels:
+                    MAX_PIXELS
+            }
+        ).metadata();
 
     const format =
         (
@@ -865,8 +1057,13 @@ async function renderCaptionedImage(
     }
 
     if (
-        ["png", "jpeg", "jpg", "webp", "avif"]
-            .includes(format)
+        [
+            "png",
+            "jpeg",
+            "jpg",
+            "webp",
+            "avif"
+        ].includes(format)
     ) {
         return renderStatic(
             inputBuffer,
@@ -915,10 +1112,6 @@ module.exports = {
             });
         }
 
-        /*
-         * Don't let the same user start several
-         * expensive image jobs at once.
-         */
         if (
             activeUsers.has(
                 message.author.id
