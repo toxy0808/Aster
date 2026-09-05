@@ -189,6 +189,11 @@ client.commands.set(
     require("./commands/autoresponder")
 );
 
+client.commands.set(
+    "caption",
+    require("./commands/caption")
+);
+
 // ========================================================
 // VOICE STATE UPDATE
 // ========================================================
