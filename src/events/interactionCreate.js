@@ -18,6 +18,10 @@ const asterLogger = require("../utils/asterLogger");
 const symbols = require("../utils/asterUI/symbols");
 
 const {
+    createCommandMessage
+} = require("../utils/commandMessageAdapter");
+
+const {
     getGuild,
     add,
     remove,
@@ -268,7 +272,9 @@ if (interaction.isChatInputCommand()) {
 
     if (!command) return;
 
-    return command.execute(interaction);
+    const message = createCommandMessage(interaction);
+
+    return command.execute(message, []);
 }
 
 

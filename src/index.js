@@ -8,6 +8,9 @@ const {
     Collection
 } = require("discord.js");
 
+const fs = require("fs");
+const path = require("path");
+
 const asterLogger = require("./utils/asterLogger");
 const { registerCommands } = require("./utils/registerCommands");
 
@@ -43,6 +46,59 @@ client.autoreacts = new Map();
 client.autoresponders = require("./utils/autoresponder");
 
 // ========================================================
+// COMMAND LOADER
+// ========================================================
+
+const commandsPath = path.join(
+    __dirname,
+    "commands"
+);
+
+const commandFiles = fs
+    .readdirSync(commandsPath)
+    .filter(file => file.endsWith(".js"));
+
+for (const file of commandFiles) {
+
+    const filePath = path.join(
+        commandsPath,
+        file
+    );
+
+    try {
+
+        const command = require(filePath);
+
+        if (
+            !command?.name ||
+            typeof command.execute !== "function"
+        ) {
+            console.warn(
+                `ASTER: Skipping invalid command: ${file}`
+            );
+            continue;
+        }
+
+        client.commands.set(
+            command.name,
+            command
+        );
+
+        console.log(
+            `ASTER: Loaded command: ${command.name}`
+        );
+
+    } catch (error) {
+
+        console.error(
+            `ASTER: Failed to load command ${file}:`,
+            error
+        );
+
+    }
+}
+
+// ========================================================
 // AUTO REACTS
 // ========================================================
 
@@ -51,90 +107,13 @@ const rows = db.prepare(
 ).all();
 
 for (const row of rows) {
+
     client.autoreacts.set(
         row.user_id,
         row.emoji
     );
+
 }
-
-// ========================================================
-// COMMANDS
-// ========================================================
-
-client.commands.set(
-    "rank",
-    require("./commands/rank")
-);
-
-client.commands.set(
-    "activity",
-    require("./commands/activity")
-);
-
-client.commands.set(
-    "leaderboard",
-    require("./commands/leaderboard")
-);
-
-client.commands.set(
-    "activitylb",
-    require("./commands/activityLeaderboard")
-);
-
-client.commands.set(
-    "config",
-    require("./commands/config")
-);
-
-client.commands.set(
-    "autoreact",
-    require("./commands/autoreact")
-);
-
-client.commands.set(
-    "rep",
-    require("./commands/rep")
-);
-
-client.commands.set(
-    "represet",
-    require("./commands/represet")
-);
-
-client.commands.set(
-    "help",
-    require("./commands/help")
-);
-
-client.commands.set(
-    "ping",
-    require("./commands/ping")
-);
-
-client.commands.set(
-    "repleaderboard",
-    require("./commands/repleaderboard")
-);
-
-client.commands.set(
-    "rephistory",
-    require("./commands/rephistory")
-);
-
-client.commands.set(
-    "pulse",
-    require("./commands/pulse")
-);
-
-client.commands.set(
-    "autoresponder",
-    require("./commands/autoresponder")
-);
-
-client.commands.set(
-    "caption",
-    require("./commands/caption")
-);
 
 // ========================================================
 // MESSAGE CREATE
@@ -157,16 +136,21 @@ const interactionCreate =
 client.on("interactionCreate", (interaction) => {
 
     if (interaction.isChatInputCommand()) {
+
         console.log(
             `SLASH COMMAND: /${interaction.commandName}`
         );
+
     } else if (interaction.customId) {
+
         console.log(
             `INTERACTION: ${interaction.customId}`
         );
+
     }
 
     interactionCreate(interaction);
+
 });
 
 // ========================================================
@@ -209,6 +193,7 @@ client.once("clientReady", async () => {
 
     require("./utils/asterPulse")
         .startPulse(client);
+
 });
 
 // ========================================================
@@ -233,14 +218,6 @@ client.on(
 
 client.login(
     process.env.TOKEN
-);
-
-// ========================================================
-// DEBUG
-// ========================================================
-
-console.log(
-    client.commands
 );
 
 // ========================================================
