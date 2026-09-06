@@ -14,6 +14,44 @@ const introCooldowns = new Set();
 const autoresponderCooldowns = new Map();
 
 // ============================================================
+// DATABASE — PREPARED HOT-PATH STATEMENTS
+// ============================================================
+//
+// These are prepared once when the event module loads instead
+// of compiling the SQL on every single Discord message.
+//
+
+const insertChatActivity = db.prepare(`
+    INSERT INTO activity_logs
+        (user_id, type, amount)
+    VALUES (?, 'chat', 1)
+`);
+
+const upsertMessageUser = db.prepare(`
+    INSERT INTO users
+        (user_id, messages, voice_time, xp, level)
+    VALUES (?, 1, 0, 10, 1)
+
+    ON CONFLICT(user_id) DO UPDATE SET
+        messages = users.messages + 1,
+        xp = users.xp + 10,
+        level = CAST(
+            SQRT((users.xp + 10) / 100.0)
+            AS INTEGER
+        ) + 1
+`);
+
+// Keep the activity log and user counters together.
+// This reduces SQLite transaction/commit overhead.
+const trackMessageActivity = db.transaction((userId) => {
+
+    insertChatActivity.run(userId);
+
+    upsertMessageUser.run(userId);
+
+});
+
+// ============================================================
 // MESSAGE CREATE
 // ============================================================
 
@@ -33,28 +71,7 @@ module.exports = async (client, message) => {
 
     try {
 
-        // Log message activity
-        db.prepare(`
-            INSERT INTO activity_logs
-                (user_id, type, amount)
-            VALUES (?, 'chat', 1)
-        `).run(userId);
-
-        // Create user or update existing user
-        db.prepare(`
-            INSERT INTO users
-                (user_id, messages, voice_time, xp, level)
-            VALUES (?, 1, 0, 10, 1)
-
-            ON CONFLICT(user_id) DO UPDATE SET
-                messages = users.messages + 1,
-                xp = users.xp + 10,
-                level = CAST(
-                    SQRT((users.xp + 10) / 100.0)
-                    AS INTEGER
-                ) + 1
-        `).run(userId);
-
+        trackMessageActivity(userId);
 
     } catch (error) {
 
@@ -62,6 +79,7 @@ module.exports = async (client, message) => {
             "MESSAGE TRACKING ERROR:",
             error.stack || error
         );
+
     }
 
     // ========================================================
@@ -82,6 +100,7 @@ module.exports = async (client, message) => {
                 row.emoji
             ])
         );
+
     }
 
     const emoji =
@@ -96,6 +115,7 @@ module.exports = async (client, message) => {
         message
             .react(emoji)
             .catch(() => {});
+
     }
 
     // ========================================================
@@ -189,6 +209,7 @@ module.exports = async (client, message) => {
                         await message.reply({
                             content: response.content
                         });
+
                     }
 
                     // =================================================
@@ -208,6 +229,7 @@ module.exports = async (client, message) => {
                                 }
                             ]
                         });
+
                     }
 
                     // =================================================
@@ -247,6 +269,7 @@ module.exports = async (client, message) => {
                             flags:
                                 MessageFlags.IsComponentsV2
                         });
+
                     }
 
                 } catch (error) {
@@ -255,12 +278,16 @@ module.exports = async (client, message) => {
                         "AUTO-RESPONDER ERROR:",
                         error
                     );
+
                 }
 
                 // Only one autoresponder per message
                 break;
+
             }
+
         }
+
     }
 
     // ========================================================
@@ -402,10 +429,13 @@ module.exports = async (client, message) => {
                     "INTRO ERROR:",
                     error
                 );
+
             }
 
             return;
+
         }
+
     }
 
     // ========================================================
@@ -466,9 +496,11 @@ module.exports = async (client, message) => {
                 );
 
             } catch {}
+
         }
 
         return;
+
     }
 
     // ========================================================
@@ -480,7 +512,9 @@ module.exports = async (client, message) => {
             prefix
         )
     ) {
+
         return;
+
     }
 
     const args =
@@ -514,6 +548,7 @@ module.exports = async (client, message) => {
                         commandName
                     )
                 );
+
     }
 
     if (!command) return;
@@ -539,5 +574,7 @@ module.exports = async (client, message) => {
             );
 
         } catch {}
+
     }
+
 };

@@ -1915,7 +1915,7 @@ module.exports = async (interaction) => {
             return interaction.reply({
                 components:
                     buildRepLimitsManager(
-                        interaction.guild
+                        interaction.guild.id
                     ),
                 flags:
                     MessageFlags.IsComponentsV2 |

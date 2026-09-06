@@ -17,6 +17,49 @@ const LEADERBOARD_UPDATE_INTERVAL = 5 * 60 * 1000;
 const PERIOD_CHECK_INTERVAL = 60 * 1000;
 
 // ============================================================
+// PREPARED DATABASE STATEMENTS
+// ============================================================
+
+const chatTopStatement = activityDB.prepare(`
+    SELECT
+        user_id,
+        SUM(amount) AS messages
+    FROM activity_logs
+    WHERE type = 'chat'
+      AND created_at >= ?
+    GROUP BY user_id
+    ORDER BY messages DESC
+    LIMIT 5
+`);
+
+const voiceTotalsStatement = activityDB.prepare(`
+    SELECT
+        user_id,
+        SUM(amount) AS voice_time
+    FROM activity_logs
+    WHERE type = 'voice'
+      AND created_at >= ?
+    GROUP BY user_id
+`);
+
+const leaderboardMessageGet = leaderboardDB.prepare(`
+    SELECT *
+    FROM leaderboard_messages
+    WHERE type = ?
+`);
+
+const leaderboardMessageDelete = leaderboardDB.prepare(`
+    DELETE FROM leaderboard_messages
+    WHERE type = ?
+`);
+
+const leaderboardMessageInsert = leaderboardDB.prepare(`
+    INSERT INTO leaderboard_messages
+        (type, message_id)
+    VALUES (?, ?)
+`);
+
+// ============================================================
 // STOCKHOLM TIME
 // ============================================================
 
@@ -61,45 +104,6 @@ function formatStockholmDate(parts) {
 
 function formatStockholmDateTime(parts) {
     return `${formatStockholmDate(parts)} ${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}`;
-}
-
-// ============================================================
-// PERIOD STARTS
-// ============================================================
-
-function getStartOfTodayString() {
-    const now = getStockholmParts();
-
-    return `${now.year}-${pad(now.month)}-${pad(now.day)} 00:00:00`;
-}
-
-function getStartOfWeekString() {
-    const now = getStockholmParts();
-
-    const currentDate = new Date(
-        Date.UTC(
-            now.year,
-            now.month - 1,
-            now.day
-        )
-    );
-
-    const day = currentDate.getUTCDay();
-
-    const daysSinceMonday =
-        day === 0
-            ? 6
-            : day - 1;
-
-    currentDate.setUTCDate(
-        currentDate.getUTCDate() - daysSinceMonday
-    );
-
-    return `${currentDate.getUTCFullYear()}-${pad(
-        currentDate.getUTCMonth() + 1
-    )}-${pad(
-        currentDate.getUTCDate()
-    )} 00:00:00`;
 }
 
 // ============================================================
@@ -158,6 +162,55 @@ function stockholmToUnix({
     }
 
     return Math.floor(timestamp / 1000);
+}
+
+// ============================================================
+// PERIOD START TIMESTAMPS
+// ============================================================
+
+function getStartOfTodayTimestamp() {
+    const now = getStockholmParts();
+
+    return stockholmToUnix({
+        year: now.year,
+        month: now.month,
+        day: now.day,
+        hour: 0,
+        minute: 0,
+        second: 0
+    });
+}
+
+function getStartOfWeekTimestamp() {
+    const now = getStockholmParts();
+
+    const currentDate = new Date(
+        Date.UTC(
+            now.year,
+            now.month - 1,
+            now.day
+        )
+    );
+
+    const day = currentDate.getUTCDay();
+
+    const daysSinceMonday =
+        day === 0
+            ? 6
+            : day - 1;
+
+    currentDate.setUTCDate(
+        currentDate.getUTCDate() - daysSinceMonday
+    );
+
+    return stockholmToUnix({
+        year: currentDate.getUTCFullYear(),
+        month: currentDate.getUTCMonth() + 1,
+        day: currentDate.getUTCDate(),
+        hour: 0,
+        minute: 0,
+        second: 0
+    });
 }
 
 // ============================================================
@@ -222,11 +275,11 @@ function getNextMondayTimestamp() {
 // ============================================================
 
 function getCurrent24hPeriod() {
-    return getStartOfTodayString();
+    return getStartOfTodayTimestamp();
 }
 
 function getCurrent7dPeriod() {
-    return getStartOfWeekString();
+    return getStartOfWeekTimestamp();
 }
 
 // ============================================================
@@ -236,17 +289,7 @@ function getCurrent7dPeriod() {
 function getChatTop24h() {
     const since = getCurrent24hPeriod();
 
-    return activityDB.prepare(`
-        SELECT
-            user_id,
-            SUM(amount) AS messages
-        FROM activity_logs
-        WHERE type = 'chat'
-        AND created_at >= ?
-        GROUP BY user_id
-        ORDER BY messages DESC
-        LIMIT 5
-    `).all(since);
+    return chatTopStatement.all(since);
 }
 
 function getLiveVoiceMinutes() {
@@ -279,15 +322,8 @@ function getLiveVoiceMinutes() {
 function getVoiceTop24h() {
     const since = getCurrent24hPeriod();
 
-    const rows = activityDB.prepare(`
-        SELECT
-            user_id,
-            SUM(amount) AS voice_time
-        FROM activity_logs
-        WHERE type = 'voice'
-        AND created_at >= ?
-        GROUP BY user_id
-    `).all(since);
+    const rows =
+        voiceTotalsStatement.all(since);
 
     const totals = new Map();
 
@@ -321,17 +357,7 @@ function getVoiceTop24h() {
 function getChatTop7d() {
     const since = getCurrent7dPeriod();
 
-    return activityDB.prepare(`
-        SELECT
-            user_id,
-            SUM(amount) AS messages
-        FROM activity_logs
-        WHERE type = 'chat'
-        AND created_at >= ?
-        GROUP BY user_id
-        ORDER BY messages DESC
-        LIMIT 5
-    `).all(since);
+    return chatTopStatement.all(since);
 }
 
 // ============================================================
@@ -341,15 +367,8 @@ function getChatTop7d() {
 function getVoiceTop7d() {
     const since = getCurrent7dPeriod();
 
-    const rows = activityDB.prepare(`
-        SELECT
-            user_id,
-            SUM(amount) AS voice_time
-        FROM activity_logs
-        WHERE type = 'voice'
-        AND created_at >= ?
-        GROUP BY user_id
-    `).all(since);
+    const rows =
+        voiceTotalsStatement.all(since);
 
     const totals = new Map();
 
@@ -383,10 +402,17 @@ function getVoiceTop7d() {
 async function addUserData(channel, users) {
     return Promise.all(
         users.map(async (user) => {
-            const member =
-                await channel.guild.members
-                    .fetch(user.user_id)
-                    .catch(() => null);
+            let member =
+                channel.guild.members.cache.get(
+                    user.user_id
+                );
+
+            if (!member) {
+                member =
+                    await channel.guild.members
+                        .fetch(user.user_id)
+                        .catch(() => null);
+            }
 
             return {
                 ...user,
@@ -412,11 +438,7 @@ async function addUserData(channel, users) {
 
 async function sendOrUpdate(channel, type, embed) {
     const old =
-        leaderboardDB
-            .prepare(
-                "SELECT * FROM leaderboard_messages WHERE type = ?"
-            )
-            .get(type);
+        leaderboardMessageGet.get(type);
 
     if (old) {
         for (let attempt = 1; attempt <= 3; attempt++) {
@@ -426,27 +448,25 @@ async function sendOrUpdate(channel, type, embed) {
                         old.message_id
                     );
 
-                console.log(`✏️ Updating ${type} — message ${message.id}`);
+                console.log(
+                    `✏️ Updating ${type} — message ${message.id}`
+                );
 
-const editedMessage = await message.edit({
-    components: [embed],
-    flags: MessageFlags.IsComponentsV2
-});
+                const editedMessage =
+                    await message.edit({
+                        components: [embed],
+                        flags: MessageFlags.IsComponentsV2
+                    });
 
-console.log(
-    `✅ ${type} EDIT SUCCESS — message ${editedMessage.id}`
-);
+                console.log(
+                    `✅ ${type} EDIT SUCCESS — message ${editedMessage.id}`
+                );
 
-return true;
+                return true;
 
             } catch (error) {
                 if (error.code === 10008) {
-                    leaderboardDB
-                        .prepare(
-                            "DELETE FROM leaderboard_messages WHERE type = ?"
-                        )
-                        .run(type);
-
+                    leaderboardMessageDelete.run(type);
                     break;
                 }
 
@@ -475,16 +495,10 @@ return true;
                 flags: MessageFlags.IsComponentsV2
             });
 
-        leaderboardDB
-            .prepare(`
-                INSERT INTO leaderboard_messages
-                (type, message_id)
-                VALUES (?, ?)
-            `)
-            .run(
-                type,
-                message.id
-            );
+        leaderboardMessageInsert.run(
+            type,
+            message.id
+        );
 
         return true;
 
@@ -503,7 +517,6 @@ return true;
 // ============================================================
 
 module.exports = async (client) => {
-
     const guild =
         client.guilds.cache.get(
             "1434292419788017766"
@@ -565,7 +578,6 @@ module.exports = async (client) => {
     // ========================================================
 
     async function updateLeaderboard() {
-
         if (updating) {
             return;
         }
@@ -737,7 +749,6 @@ module.exports = async (client) => {
     // ========================================================
 
     async function updateWinnerRoles() {
-
         console.log(
             "Updating weekly winner roles..."
         );
@@ -815,10 +826,17 @@ module.exports = async (client) => {
         }
 
         if (chatTop) {
-            const member =
-                await guild.members
-                    .fetch(chatTop.user_id)
-                    .catch(() => null);
+            let member =
+                guild.members.cache.get(
+                    chatTop.user_id
+                );
+
+            if (!member) {
+                member =
+                    await guild.members
+                        .fetch(chatTop.user_id)
+                        .catch(() => null);
+            }
 
             if (member) {
                 await member.roles
@@ -830,10 +848,17 @@ module.exports = async (client) => {
         }
 
         if (voiceTop) {
-            const member =
-                await guild.members
-                    .fetch(voiceTop.user_id)
-                    .catch(() => null);
+            let member =
+                guild.members.cache.get(
+                    voiceTop.user_id
+                );
+
+            if (!member) {
+                member =
+                    await guild.members
+                        .fetch(voiceTop.user_id)
+                        .catch(() => null);
+            }
 
             if (member) {
                 await member.roles
@@ -877,7 +902,6 @@ module.exports = async (client) => {
 
     setInterval(
         async () => {
-
             const new24hPeriod =
                 getCurrent24hPeriod();
 
@@ -911,7 +935,6 @@ module.exports = async (client) => {
                     "✅ Weekly leaderboard and winner roles refreshed."
                 );
             }
-
         },
         PERIOD_CHECK_INTERVAL
     );

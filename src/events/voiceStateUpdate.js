@@ -1,30 +1,60 @@
-
 const db = require("../database/database");
 const activityDB = require("../database/activityLogs");
+
 const activeVoiceUsers =
     global.activeVoiceUsers || new Map();
 
 global.activeVoiceUsers = activeVoiceUsers;
 
+/* =========================================================
+   PREPARED VOICE STATEMENTS
+========================================================= */
+
+const ensureUser = db.prepare(`
+    INSERT INTO users (user_id)
+    VALUES (?)
+    ON CONFLICT(user_id) DO NOTHING
+`);
+
+const updateVoiceTime = db.prepare(`
+    UPDATE users
+    SET voice_time = voice_time + ?
+    WHERE user_id = ?
+`);
+
+const insertVoiceActivity = activityDB.prepare(`
+    INSERT INTO activity_logs
+        (user_id, type, amount)
+    VALUES (?, 'voice', ?)
+`);
+
+/* =========================================================
+   ATOMIC VOICE DATABASE UPDATE
+========================================================= */
+
+const saveVoiceActivity = db.transaction((userId, minutes) => {
+    ensureUser.run(userId);
+    updateVoiceTime.run(minutes, userId);
+    insertVoiceActivity.run(userId, minutes);
+});
+
+/* =========================================================
+   VOICE STATE UPDATE
+========================================================= */
 
 module.exports = async (oldState, newState) => {
-
     const member = newState.member || oldState.member;
 
     if (!member) return;
 
-
     const userId = member.id;
 
+    /* =====================================================
+       USER JOINED VOICE
+    ===================================================== */
 
-
-    // User joined a voice channel
-
-if (!oldState.channelId && newState.channelId) {
-
-    activeVoiceUsers.set(
-        userId,
-        {
+    if (!oldState.channelId && newState.channelId) {
+        activeVoiceUsers.set(userId, {
             lastUnmutedAt: newState.selfMute
                 ? null
                 : Date.now(),
@@ -32,110 +62,75 @@ if (!oldState.channelId && newState.channelId) {
             activeMinutes: 0,
             camera: newState.selfVideo,
             muted: newState.selfMute
-        }
-    );
+        });
 
-    return;
-}
-
-
-
-    // User changed camera/mic status
-
-    if (
-        oldState.channelId &&
-        newState.channelId
-    ) {
-
-        const session =
-            activeVoiceUsers.get(userId);
-
-
-        if (!session) return;
-
-
-        session.camera =
-            newState.selfVideo;
-
-if (newState.selfMute && !session.muted) {
-
-    if (session.lastUnmutedAt) {
-        session.activeMinutes += Math.floor(
-            (Date.now() - session.lastUnmutedAt) / 60000
-        );
-    }
-
-    session.muted = true;
-}
-
-
-if (!newState.selfMute && session.muted) {
-
-    session.lastUnmutedAt = Date.now();
-    session.muted = false;
-
-}
         return;
     }
 
+    /* =====================================================
+       USER CHANGED CAMERA / MIC STATUS
+    ===================================================== */
 
-
-    // User left voice channel
-
-    if (
-        oldState.channelId &&
-        !newState.channelId
-    ) {
-
-
-        const session =
-            activeVoiceUsers.get(userId);
-
+    if (oldState.channelId && newState.channelId) {
+        const session = activeVoiceUsers.get(userId);
 
         if (!session) return;
 
+        session.camera = newState.selfVideo;
 
+        /* User muted */
+        if (newState.selfMute && !session.muted) {
+            if (session.lastUnmutedAt) {
+                session.activeMinutes += Math.floor(
+                    (Date.now() - session.lastUnmutedAt) / 60000
+                );
+            }
 
-      if (!session.muted && session.lastUnmutedAt) {
+            session.muted = true;
+        }
 
-    session.activeMinutes += Math.floor(
-        (Date.now() - session.lastUnmutedAt) / 60000
-    );
+        /* User unmuted */
+        if (!newState.selfMute && session.muted) {
+            session.lastUnmutedAt = Date.now();
+            session.muted = false;
+        }
 
-}
+        return;
+    }
 
-const minutes = session.activeMinutes;
+    /* =====================================================
+       USER LEFT VOICE
+    ===================================================== */
 
+    if (oldState.channelId && !newState.channelId) {
+        const session = activeVoiceUsers.get(userId);
+
+        if (!session) return;
+
+        /* Add final unmuted time */
+        if (!session.muted && session.lastUnmutedAt) {
+            session.activeMinutes += Math.floor(
+                (Date.now() - session.lastUnmutedAt) / 60000
+            );
+        }
+
+        const minutes = session.activeMinutes;
+
+        /* Nothing to record */
         if (minutes <= 0) {
-    activeVoiceUsers.delete(userId);
-    return;
-}
+            activeVoiceUsers.delete(userId);
+            return;
+        }
 
-db.prepare(`
-INSERT INTO users (user_id)
-VALUES (?)
-ON CONFLICT(user_id) DO NOTHING
-`).run(userId);
+        try {
+            saveVoiceActivity(userId, minutes);
+        } catch (error) {
+            console.error(
+                "[ASTER] VOICE ACTIVITY ERROR:",
+                error.stack || error
+            );
+        }
 
-db.prepare(`
-UPDATE users
-SET voice_time = voice_time + ?
-WHERE user_id = ?
-`).run(
-    minutes,
-    userId
-);
-
-activityDB.prepare(
-    "INSERT INTO activity_logs (user_id, type, amount) VALUES (?, ?, ?)"
-).run(
-    userId,
-    "voice",
-    minutes
-);
-
-
-activeVoiceUsers.delete(userId);
-
-} // <-- leave block closes here
+        activeVoiceUsers.delete(userId);
+    }
 };

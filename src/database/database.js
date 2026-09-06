@@ -4,6 +4,13 @@ const path = require("path");
 const db = new Database(path.join(__dirname, "../../aster.db"));
 
 /* =========================================================
+   SQLITE PERFORMANCE
+========================================================= */
+
+db.pragma("journal_mode = WAL");
+db.pragma("busy_timeout = 5000");
+
+/* =========================================================
    SERVER CONFIG
 ========================================================= */
 
@@ -26,22 +33,15 @@ db.prepare(`
     )
 `).run();
 
-/*
- * Backwards-compatible schema upgrades.
- * These are intentionally kept because older Aster databases
- * may already have the server_config table without all of
- * these columns.
- */
+/* backwards-compatible server_config columns */
 const serverConfigColumns = [
     ["leaderboard_channel", "TEXT"],
     ["chat_king_role", "TEXT"],
     ["voice_king_role", "TEXT"],
     ["welcome_channel", "TEXT"],
     ["log_channel", "TEXT"],
-
     ["rep_staff_role", "TEXT"],
     ["rep_funder_role", "TEXT"],
-
     ["rep_member_limit", "INTEGER DEFAULT 3"],
     ["rep_staff_limit", "INTEGER DEFAULT 5"],
     ["rep_funder_limit", "INTEGER DEFAULT 8"],
@@ -62,20 +62,6 @@ for (const [column, definition] of serverConfigColumns) {
    REP ROLE DAILY-LIMIT BONUSES
 ========================================================= */
 
-/*
- * New additive reputation daily-limit system.
- *
- * Each guild can configure one bonus per Discord role.
- *
- * Example:
- *   base = 3
- *   Booster = +2
- *   Staff   = +2
- *   Donor   = +2
- *
- * A member with all three roles gets:
- *   3 + 2 + 2 + 2 = 9
- */
 db.prepare(`
     CREATE TABLE IF NOT EXISTS rep_role_limits (
         guild_id TEXT NOT NULL,
@@ -85,23 +71,10 @@ db.prepare(`
     )
 `).run();
 
-/*
- * One-time migration from the old Staff/Funder tier system.
- *
- * Old defaults:
- *   Member       = 3
- *   Staff        = 5  -> +2
- *   Funder       = 8  -> +5
- *   Staff+Funder = 10
- *
- * Therefore the old default configuration becomes:
- *   Base   = 3
- *   Staff  = +2
- *   Funder = +5
- *
- * INSERT OR IGNORE means an administrator's new-style
- * configuration is never overwritten.
- */
+/* =========================================================
+   LEGACY REP CONFIG MIGRATION
+========================================================= */
+
 try {
     const legacyRepConfigs = db.prepare(`
         SELECT
@@ -129,11 +102,10 @@ try {
                 ? Math.max(0, Number(config.rep_member_limit))
                 : 3;
 
-            /*
-             * Convert the old Staff limit into an additive bonus.
-             */
             if (config.rep_staff_role) {
-                const staffLimit = Number.isInteger(Number(config.rep_staff_limit))
+                const staffLimit = Number.isInteger(
+                    Number(config.rep_staff_limit)
+                )
                     ? Math.max(0, Number(config.rep_staff_limit))
                     : 5;
 
@@ -146,11 +118,10 @@ try {
                 );
             }
 
-            /*
-             * Convert the old Funder limit into an additive bonus.
-             */
             if (config.rep_funder_role) {
-                const funderLimit = Number.isInteger(Number(config.rep_funder_limit))
+                const funderLimit = Number.isInteger(
+                    Number(config.rep_funder_limit)
+                )
                     ? Math.max(0, Number(config.rep_funder_limit))
                     : 8;
 
@@ -182,13 +153,68 @@ db.prepare(`
         user_id TEXT PRIMARY KEY,
         username TEXT,
         messages INTEGER DEFAULT 0,
-        voice_seconds INTEGER DEFAULT 0,
+        voice_time INTEGER DEFAULT 0,
         xp INTEGER DEFAULT 0,
         level INTEGER DEFAULT 0,
         last_message INTEGER DEFAULT 0,
         last_voice INTEGER DEFAULT 0
     )
 `).run();
+
+/* =========================================================
+   USERS VOICE-TIME MIGRATION
+========================================================= */
+
+/*
+ * Older versions of the schema used voice_seconds.
+ *
+ * The rest of ASTER currently uses voice_time in MINUTES,
+ * so migrate the old column into the field used by the bot.
+ */
+try {
+    const userColumns = db.prepare(`
+        PRAGMA table_info(users)
+    `).all();
+
+    const hasVoiceTime = userColumns.some(
+        (column) => column.name === "voice_time"
+    );
+
+    const hasVoiceSeconds = userColumns.some(
+        (column) => column.name === "voice_seconds"
+    );
+
+    if (!hasVoiceTime) {
+        db.prepare(`
+            ALTER TABLE users
+            ADD COLUMN voice_time INTEGER DEFAULT 0
+        `).run();
+    }
+
+    if (hasVoiceSeconds) {
+        db.prepare(`
+            UPDATE users
+            SET voice_time = COALESCE(voice_time, 0)
+                + COALESCE(voice_seconds, 0)
+            WHERE COALESCE(voice_seconds, 0) != 0
+        `).run();
+
+        /*
+         * Prevent the migration from being applied twice if the bot
+         * restarts before the old column is removed.
+         */
+        db.prepare(`
+            UPDATE users
+            SET voice_seconds = 0
+            WHERE COALESCE(voice_seconds, 0) != 0
+        `).run();
+    }
+} catch (error) {
+    console.error(
+        "[ASTER] Failed to migrate users voice-time column:",
+        error
+    );
+}
 
 /* =========================================================
    ACTIVITY LOGS
@@ -205,6 +231,20 @@ db.prepare(`
 `).run();
 
 /* =========================================================
+   ACTIVITY LOG PERFORMANCE INDEXES
+========================================================= */
+
+db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_activity_logs_type_created_at
+    ON activity_logs(type, created_at)
+`).run();
+
+db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_activity_logs_user_type_created_at
+    ON activity_logs(user_id, type, created_at)
+`).run();
+
+/* =========================================================
    REPUTATION
 ========================================================= */
 
@@ -217,13 +257,10 @@ db.prepare(`
     )
 `).run();
 
-/*
- * Legacy compatibility.
- *
- * Older versions of Aster may have stored positive/negative
- * reputation values instead of the current single reputation
- * column. Keep the existing migration behavior intact.
- */
+/* =========================================================
+   LEGACY REPUTATION MIGRATION
+========================================================= */
+
 try {
     db.prepare(`
         ALTER TABLE reputation ADD COLUMN reputation INTEGER DEFAULT 0
