@@ -245,6 +245,281 @@ function autoresponderConfirmation(
 
 
 // ========================================================
+// REP DAILY LIMIT HELPERS
+// ========================================================
+
+const DEFAULT_REP_BASE_LIMIT = 3;
+const MAX_REP_LIMIT = 100;
+
+function getRepBaseLimit(guildId) {
+    ensureServerConfig(guildId);
+
+    const config = db.prepare(`
+        SELECT rep_member_limit
+        FROM server_config
+        WHERE guild_id = ?
+    `).get(guildId);
+
+    const base = Number(config?.rep_member_limit);
+
+    if (
+        !Number.isInteger(base) ||
+        base < 0
+    ) {
+        return DEFAULT_REP_BASE_LIMIT;
+    }
+
+    return base;
+}
+
+function getRepRoleBonuses(guildId) {
+    return db.prepare(`
+        SELECT
+            role_id,
+            bonus
+        FROM rep_role_limits
+        WHERE guild_id = ?
+        ORDER BY bonus DESC, role_id ASC
+    `).all(guildId);
+}
+
+function parseRepLimit(value) {
+    const input = String(value ?? "").trim();
+
+    /*
+     * Strict integer validation.
+     *
+     * parseInt("5abc") would otherwise become 5, which we
+     * explicitly do not want.
+     */
+    if (!/^\d+$/.test(input)) {
+        return null;
+    }
+
+    const number = Number(input);
+
+    if (
+        !Number.isSafeInteger(number) ||
+        number < 0 ||
+        number > MAX_REP_LIMIT
+    ) {
+        return null;
+    }
+
+    return number;
+}
+
+function buildRepLimitsManager(guildId) {
+    ensureServerConfig(guildId);
+
+    const baseLimit =
+        getRepBaseLimit(guildId);
+
+    const bonuses =
+        getRepRoleBonuses(guildId);
+
+    let bonusText;
+
+    if (!bonuses.length) {
+
+        bonusText =
+            "No role bonuses configured yet.\n\n" +
+            "-# Add a Discord role below to give members an additional daily reputation allowance.";
+
+    } else {
+
+        const lines = bonuses.map((entry, index) => {
+
+            const role =
+                interactionSafeRoleLookup(
+                    guildId,
+                    entry.role_id
+                );
+
+            const roleName =
+                role
+                    ? `<@&${entry.role_id}>`
+                    : `Unknown / Deleted Role \`${entry.role_id}\``;
+
+            return (
+                `${index + 1}. ${roleName} → **+${entry.bonus}/day**`
+            );
+        });
+
+        bonusText = lines.join("\n");
+
+        /*
+         * Keep the Components V2 text display safely below
+         * Discord's content limits.
+         */
+        if (bonusText.length > 3500) {
+            bonusText =
+                bonusText.slice(0, 3450) +
+                "\n\n-# Some entries are not shown because the list is too long.";
+        }
+    }
+
+    const container =
+        new ContainerBuilder()
+            .setAccentColor(0xFF006E)
+
+            .addTextDisplayComponents(
+                new TextDisplayBuilder()
+                    .setContent(
+                        "# ✨ ASTER • Reputation Daily Limits\n" +
+                        "-# Configure the base allowance and stackable role bonuses."
+                    )
+            )
+
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            .addTextDisplayComponents(
+                new TextDisplayBuilder()
+                    .setContent(
+                        `### 🎯 Base Daily Limit\n\n` +
+                        `Every member starts with **${baseLimit}/day**.\n\n` +
+                        `Use **Set Base Limit** to change this value.`
+                    )
+            )
+
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            .addTextDisplayComponents(
+                new TextDisplayBuilder()
+                    .setContent(
+                        `### 🏷️ Role Bonuses\n\n` +
+                        `**${bonuses.length}** role bonus${bonuses.length === 1 ? "" : "es"} configured.\n\n` +
+                        bonusText
+                    )
+            )
+
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            .addTextDisplayComponents(
+                new TextDisplayBuilder()
+                    .setContent(
+                        "### 💡 How Stacking Works\n\n" +
+                        "A member's daily limit is calculated from their **current Discord roles** every time they use `,rep`.\n\n" +
+                        "**Base limit + every matching role bonus = current limit**\n\n" +
+                        "Role bonuses stack together. Losing a role immediately removes its bonus."
+                    )
+            );
+
+    const buttons =
+        new ActionRowBuilder()
+            .addComponents(
+
+                new ButtonBuilder()
+                    .setCustomId(
+                        "rep_limits_set_base"
+                    )
+                    .setLabel(
+                        "Set Base Limit"
+                    )
+                    .setStyle(
+                        ButtonStyle.Primary
+                    ),
+
+                new ButtonBuilder()
+                    .setCustomId(
+                        "rep_limits_add_role"
+                    )
+                    .setLabel(
+                        "＋ Add Role Bonus"
+                    )
+                    .setStyle(
+                        ButtonStyle.Success
+                    ),
+
+                new ButtonBuilder()
+                    .setCustomId(
+                        "rep_limits_edit_role"
+                    )
+                    .setLabel(
+                        "Edit Role Bonus"
+                    )
+                    .setStyle(
+                        ButtonStyle.Secondary
+                    ),
+
+                new ButtonBuilder()
+                    .setCustomId(
+                        "rep_limits_remove_role"
+                    )
+                    .setLabel(
+                        "Remove Role Bonus"
+                    )
+                    .setStyle(
+                        ButtonStyle.Danger
+                    )
+            );
+
+    const backRow =
+        new ActionRowBuilder()
+            .addComponents(
+
+                new ButtonBuilder()
+                    .setCustomId(
+                        "config_rep"
+                    )
+                    .setLabel(
+                        "← Back to Reputation"
+                    )
+                    .setStyle(
+                        ButtonStyle.Secondary
+                    )
+            );
+
+    return [
+        container,
+        buttons,
+        backRow
+    ];
+}
+
+/*
+ * Helper used only by the configuration display.
+ *
+ * We cannot use interaction.guild directly from the helper,
+ * so the guild is obtained through the Discord client in the
+ * interaction handlers where needed. This fallback is kept
+ * deliberately safe for deleted roles.
+ */
+function interactionSafeRoleLookup(guildId, roleId) {
+    /*
+     * Role names are rendered from IDs in the manager.
+     * Returning null here causes deleted roles to be displayed
+     * safely instead of crashing.
+     *
+     * The actual Discord role validation happens when adding
+     * or editing a role bonus.
+     */
+    return null;
+}
+
+function getRepRoleBonus(guildId, roleId) {
+    return db.prepare(`
+        SELECT
+            guild_id,
+            role_id,
+            bonus
+        FROM rep_role_limits
+        WHERE guild_id = ?
+          AND role_id = ?
+    `).get(
+        guildId,
+        roleId
+    );
+}
+
+
+// ========================================================
 // MAIN INTERACTION HANDLER
 // ========================================================
 
@@ -299,8 +574,6 @@ module.exports = async (interaction) => {
                         interaction
                     );
 
-                // IMPORTANT:
-                // Await the migrated command so errors are caught.
                 await command.execute(
                     message,
                     []
@@ -1533,34 +1806,77 @@ module.exports = async (interaction) => {
             "config_rep"
         ) {
 
-            const staffRole =
-                new ActionRowBuilder()
-                    .addComponents(
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
 
-                        new RoleSelectMenuBuilder()
-                            .setCustomId(
-                                "set_rep_staff_role"
-                            )
-                            .setPlaceholder(
-                                "🛡️ Select the Staff role"
-                            )
-                            .setMinValues(1)
-                            .setMaxValues(1)
-                    );
+            ensureServerConfig(
+                interaction.guild.id
+            );
 
-            const funderRole =
-                new ActionRowBuilder()
-                    .addComponents(
+            const baseLimit =
+                getRepBaseLimit(
+                    interaction.guild.id
+                );
 
-                        new RoleSelectMenuBuilder()
-                            .setCustomId(
-                                "set_rep_funder_role"
+            const roleBonuses =
+                getRepRoleBonuses(
+                    interaction.guild.id
+                );
+
+            const container =
+                new ContainerBuilder()
+                    .setAccentColor(0xFF006E)
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "# ✨ ASTER • Reputation\n" +
+                                "Configure how reputation works in this server.\n\n" +
+                                "Members can give **+1 reputation** with `+rep` " +
+                                "or remove **1 reputation** with `-rep`."
                             )
-                            .setPlaceholder(
-                                "💎 Select the Funder role"
+                    )
+
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
+                    )
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                `### 🎯 Daily Giving Limits\n\n` +
+                                `**Base:** ${baseLimit}/day\n` +
+                                `**Role bonuses:** ${roleBonuses.length} configured\n\n` +
+                                "Role bonuses stack together. A member's current Discord roles determine their limit every time they use `,rep`."
                             )
-                            .setMinValues(1)
-                            .setMaxValues(1)
+                    )
+
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
+                    )
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "### 🏅 Reputation Rewards\n\n" +
+                                "Configure roles members can unlock based on their reputation score."
+                            )
+                    )
+
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
+                    )
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "💡 **Example:** Base 3 + Booster 2 + Staff 2 + Donor 2 + Level 50 1 = **10 reputation/day**."
+                            )
                     );
 
             const buttons =
@@ -1590,81 +1906,9 @@ module.exports = async (interaction) => {
                             )
                     );
 
-            const container =
-                new ContainerBuilder()
-                    .setAccentColor(0xFF006E)
-
-                    .addTextDisplayComponents(
-                        new TextDisplayBuilder()
-                            .setContent(
-                                "# ✨ ASTER • Reputation\n" +
-                                "Configure how reputation works in this server.\n\n" +
-                                "Members can give **+1 reputation** with `+rep` " +
-                                "or remove **1 reputation** with `-rep`."
-                            )
-                    )
-
-                    .addSeparatorComponents(
-                        new SeparatorBuilder()
-                    )
-
-                    .addTextDisplayComponents(
-                        new TextDisplayBuilder()
-                            .setContent(
-                                "### 🎯 Daily Giving Limits\n\n" +
-                                "👤 **Member** — 3 reputation/day\n" +
-                                "🛡️ **Staff** — 5 reputation/day\n" +
-                                "💎 **Funder** — 8 reputation/day\n" +
-                                "🛡️💎 **Staff + Funder** — 10 reputation/day"
-                            )
-                    )
-
-                    .addSeparatorComponents(
-                        new SeparatorBuilder()
-                    )
-
-                    .addTextDisplayComponents(
-                        new TextDisplayBuilder()
-                            .setContent(
-                                "### 🛡️ Staff Role\n" +
-                                "Select the role that should receive the Staff reputation limit.\n\n" +
-                                "### 💎 Funder Role\n" +
-                                "Select the role that should receive the Funder reputation limit."
-                            )
-                    )
-
-                    .addSeparatorComponents(
-                        new SeparatorBuilder()
-                    )
-
-                    .addTextDisplayComponents(
-                        new TextDisplayBuilder()
-                            .setContent(
-                                "### ⚙️ Configuration\n" +
-                                "Use **Daily Limits** to change how much reputation each member " +
-                                "type can give per day.\n\n" +
-                                "Use **Rewards** to configure roles members can unlock from " +
-                                "their reputation score."
-                            )
-                    )
-
-                    .addSeparatorComponents(
-                        new SeparatorBuilder()
-                    )
-
-                    .addTextDisplayComponents(
-                        new TextDisplayBuilder()
-                            .setContent(
-                                "💡 **Tip:** Staff + Funder members automatically receive the " +
-                                "highest daily limit when they have both roles."
-                            )
-                    );
-
             return interaction.reply({
                 components: [
                     container,
-                    staffRole,
-                    funderRole,
                     buttons
                 ],
                 flags:
@@ -1675,73 +1919,7 @@ module.exports = async (interaction) => {
 
 
         // ========================================================
-        // SAVE REP STAFF ROLE
-        // ========================================================
-
-        if (
-            interaction.customId ===
-            "set_rep_staff_role"
-        ) {
-
-            const roleId =
-                interaction.values[0];
-
-            ensureServerConfig(
-                interaction.guild.id
-            );
-
-            db.prepare(`
-                UPDATE server_config
-                SET rep_staff_role = ?
-                WHERE guild_id = ?
-            `).run(
-                roleId,
-                interaction.guild.id
-            );
-
-            return interaction.reply({
-                content:
-                    `✅ Staff role set to <@&${roleId}>`,
-                ephemeral: true
-            });
-        }
-
-
-        // ========================================================
-        // SAVE REP FUNDER ROLE
-        // ========================================================
-
-        if (
-            interaction.customId ===
-            "set_rep_funder_role"
-        ) {
-
-            const roleId =
-                interaction.values[0];
-
-            ensureServerConfig(
-                interaction.guild.id
-            );
-
-            db.prepare(`
-                UPDATE server_config
-                SET rep_funder_role = ?
-                WHERE guild_id = ?
-            `).run(
-                roleId,
-                interaction.guild.id
-            );
-
-            return interaction.reply({
-                content:
-                    `✅ Funder role set to <@&${roleId}>`,
-                ephemeral: true
-            });
-        }
-
-
-        // ========================================================
-        // OPEN REP LIMIT MODAL
+        // OPEN REP DAILY LIMIT MANAGER
         // ========================================================
 
         if (
@@ -1749,125 +1927,84 @@ module.exports = async (interaction) => {
             "rep_limits"
         ) {
 
-            const config =
-                db.prepare(`
-                    SELECT
-                        rep_member_limit,
-                        rep_staff_limit,
-                        rep_funder_limit,
-                        rep_staff_funder_limit
-                    FROM server_config
-                    WHERE guild_id = ?
-                `).get(
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
+            return interaction.reply({
+                components:
+                    buildRepLimitsManager(
+                        interaction.guild
+                    ),
+                flags:
+                    MessageFlags.IsComponentsV2 |
+                    MessageFlags.Ephemeral
+            });
+        }
+
+
+        // ========================================================
+        // SET BASE LIMIT BUTTON
+        // ========================================================
+
+        if (
+            interaction.customId ===
+            "rep_limits_set_base"
+        ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
+            ensureServerConfig(
+                interaction.guild.id
+            );
+
+            const currentBase =
+                getRepBaseLimit(
                     interaction.guild.id
                 );
 
             const modal =
                 new ModalBuilder()
                     .setCustomId(
-                        "rep_limits_modal"
+                        "rep_limits_base_modal"
                     )
                     .setTitle(
-                        "ASTER • Rep Limits"
+                        "ASTER • Base Daily Limit"
                     );
 
-            const memberInput =
+            const input =
                 new TextInputBuilder()
                     .setCustomId(
-                        "rep_member_limit"
+                        "rep_base_limit"
                     )
                     .setLabel(
-                        "Member daily limit"
+                        "Base daily reputation limit"
+                    )
+                    .setPlaceholder(
+                        "Example: 3"
                     )
                     .setStyle(
                         TextInputStyle.Short
                     )
                     .setValue(
-                        String(
-                            config?.rep_member_limit ??
-                            3
-                        )
+                        String(currentBase)
                     )
-                    .setRequired(true);
-
-            const staffInput =
-                new TextInputBuilder()
-                    .setCustomId(
-                        "rep_staff_limit"
-                    )
-                    .setLabel(
-                        "Staff daily limit"
-                    )
-                    .setStyle(
-                        TextInputStyle.Short
-                    )
-                    .setValue(
-                        String(
-                            config?.rep_staff_limit ??
-                            5
-                        )
-                    )
-                    .setRequired(true);
-
-            const funderInput =
-                new TextInputBuilder()
-                    .setCustomId(
-                        "rep_funder_limit"
-                    )
-                    .setLabel(
-                        "Funder daily limit"
-                    )
-                    .setStyle(
-                        TextInputStyle.Short
-                    )
-                    .setValue(
-                        String(
-                            config?.rep_funder_limit ??
-                            8
-                        )
-                    )
-                    .setRequired(true);
-
-            const combinedInput =
-                new TextInputBuilder()
-                    .setCustomId(
-                        "rep_staff_funder_limit"
-                    )
-                    .setLabel(
-                        "Staff + Funder daily limit"
-                    )
-                    .setStyle(
-                        TextInputStyle.Short
-                    )
-                    .setValue(
-                        String(
-                            config?.rep_staff_funder_limit ??
-                            10
-                        )
-                    )
-                    .setRequired(true);
+                    .setRequired(true)
+                    .setMaxLength(3);
 
             modal.addComponents(
-
                 new ActionRowBuilder()
-                    .addComponents(
-                        memberInput
-                    ),
-
-                new ActionRowBuilder()
-                    .addComponents(
-                        staffInput
-                    ),
-
-                new ActionRowBuilder()
-                    .addComponents(
-                        funderInput
-                    ),
-
-                new ActionRowBuilder()
-                    .addComponents(
-                        combinedInput
-                    )
+                    .addComponents(input)
             );
 
             return interaction.showModal(
@@ -1877,65 +2014,35 @@ module.exports = async (interaction) => {
 
 
         // ========================================================
-        // SAVE REP LIMITS
+        // SAVE BASE LIMIT
         // ========================================================
 
         if (
             interaction.customId ===
-            "rep_limits_modal"
+            "rep_limits_base_modal"
         ) {
 
-            const memberLimit =
-                parseInt(
-                    interaction.fields
-                        .getTextInputValue(
-                            "rep_member_limit"
-                        )
-                );
-
-            const staffLimit =
-                parseInt(
-                    interaction.fields
-                        .getTextInputValue(
-                            "rep_staff_limit"
-                        )
-                );
-
-            const funderLimit =
-                parseInt(
-                    interaction.fields
-                        .getTextInputValue(
-                            "rep_funder_limit"
-                        )
-                );
-
-            const combinedLimit =
-                parseInt(
-                    interaction.fields
-                        .getTextInputValue(
-                            "rep_staff_funder_limit"
-                        )
-                );
-
-            const limits = [
-                memberLimit,
-                staffLimit,
-                funderLimit,
-                combinedLimit
-            ];
-
-            if (
-                limits.some(
-                    limit =>
-                        !Number.isInteger(limit) ||
-                        limit < 0 ||
-                        limit > 100
-                )
-            ) {
-
+            if (!isAdministrator(interaction)) {
                 return interaction.reply({
                     content:
-                        "❌ All limits must be whole numbers between **0 and 100**.",
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
+            const value =
+                interaction.fields
+                    .getTextInputValue(
+                        "rep_base_limit"
+                    );
+
+            const baseLimit =
+                parseRepLimit(value);
+
+            if (baseLimit === null) {
+                return interaction.reply({
+                    content:
+                        "❌ The base daily limit must be a whole number between **0 and 100**.",
                     ephemeral: true
                 });
             }
@@ -1946,27 +2053,637 @@ module.exports = async (interaction) => {
 
             db.prepare(`
                 UPDATE server_config
-                SET
-                    rep_member_limit = ?,
-                    rep_staff_limit = ?,
-                    rep_funder_limit = ?,
-                    rep_staff_funder_limit = ?
+                SET rep_member_limit = ?
                 WHERE guild_id = ?
             `).run(
-                memberLimit,
-                staffLimit,
-                funderLimit,
-                combinedLimit,
+                baseLimit,
                 interaction.guild.id
             );
 
             return interaction.reply({
                 content:
-                    "✅ **Rep limits updated!**\n\n" +
-                    `👤 Member: **${memberLimit}/day**\n` +
-                    `🛡️ Staff: **${staffLimit}/day**\n` +
-                    `💎 Funder: **${funderLimit}/day**\n` +
-                    `🛡️💎 Staff + Funder: **${combinedLimit}/day**`,
+                    `✅ Base reputation daily limit set to **${baseLimit}/day**.\n\n` +
+                    `All members now start with **${baseLimit}** daily reputation actions before role bonuses are applied.`,
+                ephemeral: true
+            });
+        }
+
+
+        // ========================================================
+        // ADD ROLE BONUS BUTTON
+        // ========================================================
+
+        if (
+            interaction.customId ===
+            "rep_limits_add_role"
+        ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
+            const roleMenu =
+                new ActionRowBuilder()
+                    .addComponents(
+
+                        new RoleSelectMenuBuilder()
+                            .setCustomId(
+                                "rep_limits_add_role_select"
+                            )
+                            .setPlaceholder(
+                                "Select a Discord role"
+                            )
+                            .setMinValues(1)
+                            .setMaxValues(1)
+                    );
+
+            const container =
+                new ContainerBuilder()
+                    .setAccentColor(0xFF006E)
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "# ✨ ASTER • Add Role Bonus\n" +
+                                "-# Select the Discord role that should receive an additional daily reputation allowance.\n\n" +
+                                "The role must exist in this server.\n\n" +
+                                "-# If the role already has a bonus, ASTER will ask you to use **Edit Role Bonus** instead."
+                            )
+                    );
+
+            return interaction.reply({
+                components: [
+                    container,
+                    roleMenu
+                ],
+                flags:
+                    MessageFlags.IsComponentsV2 |
+                    MessageFlags.Ephemeral
+            });
+        }
+
+
+        // ========================================================
+        // ADD ROLE BONUS — ROLE SELECT
+        // ========================================================
+
+        if (
+            interaction.customId ===
+            "rep_limits_add_role_select"
+        ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
+            const roleId =
+                interaction.values[0];
+
+            const role =
+                interaction.guild.roles.cache.get(
+                    roleId
+                );
+
+            if (!role) {
+                return interaction.reply({
+                    content:
+                        "❌ That Discord role no longer exists.",
+                    ephemeral: true
+                });
+            }
+
+            /*
+             * Do not allow @everyone to become a bonus role.
+             */
+            if (
+                role.id ===
+                interaction.guild.id
+            ) {
+                return interaction.reply({
+                    content:
+                        "❌ The @everyone role cannot be configured as a reputation bonus.",
+                    ephemeral: true
+                });
+            }
+
+            const existing =
+                getRepRoleBonus(
+                    interaction.guild.id,
+                    roleId
+                );
+
+            if (existing) {
+                return interaction.reply({
+                    content:
+                        `❌ **${role.name}** already has a **+${existing.bonus}/day** bonus.\n\n` +
+                        `Use **Edit Role Bonus** to change it.`,
+                    ephemeral: true
+                });
+            }
+
+            const modal =
+                new ModalBuilder()
+                    .setCustomId(
+                        `rep_limits_add_bonus_modal_${roleId}`
+                    )
+                    .setTitle(
+                        "ASTER • Add Role Bonus"
+                    );
+
+            const bonusInput =
+                new TextInputBuilder()
+                    .setCustomId(
+                        "rep_role_bonus"
+                    )
+                    .setLabel(
+                        "Daily reputation bonus"
+                    )
+                    .setPlaceholder(
+                        "Example: 2"
+                    )
+                    .setStyle(
+                        TextInputStyle.Short
+                    )
+                    .setRequired(true)
+                    .setMaxLength(3);
+
+            modal.addComponents(
+                new ActionRowBuilder()
+                    .addComponents(
+                        bonusInput
+                    )
+            );
+
+            return interaction.showModal(
+                modal
+            );
+        }
+
+
+        // ========================================================
+        // SAVE NEW ROLE BONUS
+        // ========================================================
+
+        if (
+            interaction.customId.startsWith(
+                "rep_limits_add_bonus_modal_"
+            )
+        ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
+            const roleId =
+                interaction.customId.replace(
+                    "rep_limits_add_bonus_modal_",
+                    ""
+                );
+
+            const role =
+                interaction.guild.roles.cache.get(
+                    roleId
+                );
+
+            if (!role) {
+                return interaction.reply({
+                    content:
+                        "❌ That Discord role no longer exists.",
+                    ephemeral: true
+                });
+            }
+
+            if (
+                role.id ===
+                interaction.guild.id
+            ) {
+                return interaction.reply({
+                    content:
+                        "❌ The @everyone role cannot be configured as a reputation bonus.",
+                    ephemeral: true
+                });
+            }
+
+            const value =
+                interaction.fields
+                    .getTextInputValue(
+                        "rep_role_bonus"
+                    );
+
+            const bonus =
+                parseRepLimit(value);
+
+            if (bonus === null) {
+                return interaction.reply({
+                    content:
+                        "❌ The role bonus must be a whole number between **0 and 100**.",
+                    ephemeral: true
+                });
+            }
+
+            const existing =
+                getRepRoleBonus(
+                    interaction.guild.id,
+                    roleId
+                );
+
+            if (existing) {
+                return interaction.reply({
+                    content:
+                        `❌ **${role.name}** already has a **+${existing.bonus}/day** bonus.\n\n` +
+                        `Use **Edit Role Bonus** instead.`,
+                    ephemeral: true
+                });
+            }
+
+            db.prepare(`
+                INSERT INTO rep_role_limits (
+                    guild_id,
+                    role_id,
+                    bonus
+                )
+                VALUES (?, ?, ?)
+            `).run(
+                interaction.guild.id,
+                roleId,
+                bonus
+            );
+
+            return interaction.reply({
+                content:
+                    `✅ Role bonus added.\n\n` +
+                    `**Role:** <@&${roleId}>\n` +
+                    `**Bonus:** +${bonus}/day`,
+                ephemeral: true
+            });
+        }
+
+
+        // ========================================================
+        // EDIT ROLE BONUS BUTTON
+        // ========================================================
+
+        if (
+            interaction.customId ===
+            "rep_limits_edit_role"
+        ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
+            const bonuses =
+                getRepRoleBonuses(
+                    interaction.guild.id
+                );
+
+            if (!bonuses.length) {
+                return interaction.reply({
+                    content:
+                        "ℹ️ There are no role bonuses configured yet.",
+                    ephemeral: true
+                });
+            }
+
+            const roleMenu =
+                new ActionRowBuilder()
+                    .addComponents(
+
+                        new RoleSelectMenuBuilder()
+                            .setCustomId(
+                                "rep_limits_edit_role_select"
+                            )
+                            .setPlaceholder(
+                                "Select a configured role"
+                            )
+                            .setMinValues(1)
+                            .setMaxValues(1)
+                    );
+
+            const container =
+                new ContainerBuilder()
+                    .setAccentColor(0xFF006E)
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "# ✨ ASTER • Edit Role Bonus\n" +
+                                "-# Select a configured Discord role and change its existing bonus.\n\n" +
+                                "Editing updates the existing configuration. It will **not** create a duplicate."
+                            )
+                    );
+
+            return interaction.reply({
+                components: [
+                    container,
+                    roleMenu
+                ],
+                flags:
+                    MessageFlags.IsComponentsV2 |
+                    MessageFlags.Ephemeral
+            });
+        }
+
+
+        // ========================================================
+        // EDIT ROLE BONUS — ROLE SELECT
+        // ========================================================
+
+        if (
+            interaction.customId ===
+            "rep_limits_edit_role_select"
+        ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
+            const roleId =
+                interaction.values[0];
+
+            const role =
+                interaction.guild.roles.cache.get(
+                    roleId
+                );
+
+            const existing =
+                getRepRoleBonus(
+                    interaction.guild.id,
+                    roleId
+                );
+
+            if (!existing) {
+                return interaction.reply({
+                    content:
+                        "❌ That role does not have a configured reputation bonus.",
+                    ephemeral: true
+                });
+            }
+
+            const modal =
+                new ModalBuilder()
+                    .setCustomId(
+                        `rep_limits_edit_bonus_modal_${roleId}`
+                    )
+                    .setTitle(
+                        "ASTER • Edit Role Bonus"
+                    );
+
+            const bonusInput =
+                new TextInputBuilder()
+                    .setCustomId(
+                        "rep_role_bonus"
+                    )
+                    .setLabel(
+                        "Daily reputation bonus"
+                    )
+                    .setPlaceholder(
+                        "Example: 2"
+                    )
+                    .setStyle(
+                        TextInputStyle.Short
+                    )
+                    .setValue(
+                        String(existing.bonus)
+                    )
+                    .setRequired(true)
+                    .setMaxLength(3);
+
+            modal.addComponents(
+                new ActionRowBuilder()
+                    .addComponents(
+                        bonusInput
+                    )
+            );
+
+            return interaction.showModal(
+                modal
+            );
+        }
+
+
+        // ========================================================
+        // SAVE EDITED ROLE BONUS
+        // ========================================================
+
+        if (
+            interaction.customId.startsWith(
+                "rep_limits_edit_bonus_modal_"
+            )
+        ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
+            const roleId =
+                interaction.customId.replace(
+                    "rep_limits_edit_bonus_modal_",
+                    ""
+                );
+
+            const role =
+                interaction.guild.roles.cache.get(
+                    roleId
+                );
+
+            const existing =
+                getRepRoleBonus(
+                    interaction.guild.id,
+                    roleId
+                );
+
+            if (!existing) {
+                return interaction.reply({
+                    content:
+                        "❌ That role bonus no longer exists.",
+                    ephemeral: true
+                });
+            }
+
+            const value =
+                interaction.fields
+                    .getTextInputValue(
+                        "rep_role_bonus"
+                    );
+
+            const bonus =
+                parseRepLimit(value);
+
+            if (bonus === null) {
+                return interaction.reply({
+                    content:
+                        "❌ The role bonus must be a whole number between **0 and 100**.",
+                    ephemeral: true
+                });
+            }
+
+            db.prepare(`
+                UPDATE rep_role_limits
+                SET bonus = ?
+                WHERE guild_id = ?
+                  AND role_id = ?
+            `).run(
+                bonus,
+                interaction.guild.id,
+                roleId
+            );
+
+            return interaction.reply({
+                content:
+                    `✅ Role bonus updated.\n\n` +
+                    `**Role:** ${role ? `<@&${roleId}>` : `\`${roleId}\``}\n` +
+                    `**Previous:** +${existing.bonus}/day\n` +
+                    `**New:** +${bonus}/day`,
+                ephemeral: true
+            });
+        }
+
+
+        // ========================================================
+        // REMOVE ROLE BONUS BUTTON
+        // ========================================================
+
+        if (
+            interaction.customId ===
+            "rep_limits_remove_role"
+        ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
+            const bonuses =
+                getRepRoleBonuses(
+                    interaction.guild.id
+                );
+
+            if (!bonuses.length) {
+                return interaction.reply({
+                    content:
+                        "ℹ️ There are no role bonuses configured yet.",
+                    ephemeral: true
+                });
+            }
+
+            const roleMenu =
+                new ActionRowBuilder()
+                    .addComponents(
+
+                        new RoleSelectMenuBuilder()
+                            .setCustomId(
+                                "rep_limits_remove_role_select"
+                            )
+                            .setPlaceholder(
+                                "Select a configured role"
+                            )
+                            .setMinValues(1)
+                            .setMaxValues(1)
+                    );
+
+            const container =
+                new ContainerBuilder()
+                    .setAccentColor(0xFF006E)
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                "# ✨ ASTER • Remove Role Bonus\n" +
+                                "-# Select the Discord role whose reputation bonus should be removed.\n\n" +
+                                "Removing the bonus does not remove the Discord role itself."
+                            )
+                    );
+
+            return interaction.reply({
+                components: [
+                    container,
+                    roleMenu
+                ],
+                flags:
+                    MessageFlags.IsComponentsV2 |
+                    MessageFlags.Ephemeral
+            });
+        }
+
+
+        // ========================================================
+        // REMOVE ROLE BONUS — ROLE SELECT
+        // ========================================================
+
+        if (
+            interaction.customId ===
+            "rep_limits_remove_role_select"
+        ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
+            const roleId =
+                interaction.values[0];
+
+            const existing =
+                getRepRoleBonus(
+                    interaction.guild.id,
+                    roleId
+                );
+
+            if (!existing) {
+                return interaction.reply({
+                    content:
+                        "❌ That role does not have a configured reputation bonus.",
+                    ephemeral: true
+                });
+            }
+
+            const role =
+                interaction.guild.roles.cache.get(
+                    roleId
+                );
+
+            db.prepare(`
+                DELETE FROM rep_role_limits
+                WHERE guild_id = ?
+                  AND role_id = ?
+            `).run(
+                interaction.guild.id,
+                roleId
+            );
+
+            return interaction.reply({
+                content:
+                    `🗑️ Role bonus removed.\n\n` +
+                    `**Role:** ${role ? `<@&${roleId}>` : `\`${roleId}\``}\n` +
+                    `**Removed bonus:** +${existing.bonus}/day`,
                 ephemeral: true
             });
         }
@@ -1980,6 +2697,14 @@ module.exports = async (interaction) => {
             interaction.customId ===
             "rep_reward_add"
         ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
 
             const modal =
                 new ModalBuilder()
@@ -2049,6 +2774,14 @@ module.exports = async (interaction) => {
             interaction.customId ===
             "rep_reward_add_modal"
         ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
 
             const roleId =
                 interaction.fields
@@ -2127,6 +2860,14 @@ module.exports = async (interaction) => {
             interaction.customId ===
             "rep_reward_manage"
         ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
 
             const rewards =
                 db.prepare(`
@@ -2228,6 +2969,14 @@ module.exports = async (interaction) => {
             )
         ) {
 
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
             const rewardId =
                 parseInt(
                     interaction.customId.replace(
@@ -2298,6 +3047,14 @@ module.exports = async (interaction) => {
             )
         ) {
 
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
+
             const rewardId =
                 parseInt(
                     interaction.customId.replace(
@@ -2362,6 +3119,14 @@ module.exports = async (interaction) => {
             interaction.customId ===
             "rep_rewards"
         ) {
+
+            if (!isAdministrator(interaction)) {
+                return interaction.reply({
+                    content:
+                        "❌ You need Administrator permission to manage reputation settings.",
+                    ephemeral: true
+                });
+            }
 
             const rewards =
                 db.prepare(`
