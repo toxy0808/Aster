@@ -33,7 +33,7 @@ function ensureServerConfig(guildId) {
     db.prepare(`
         INSERT OR IGNORE INTO server_config (guild_id)
         VALUES (?)
-    `).run(guildId);
+    `).run(String(guildId));
 }
 
 
@@ -258,7 +258,7 @@ function getRepBaseLimit(guildId) {
         SELECT rep_member_limit
         FROM server_config
         WHERE guild_id = ?
-    `).get(guildId);
+    `).get(String(guildId));
 
     const base = Number(config?.rep_member_limit);
 
@@ -280,18 +280,12 @@ function getRepRoleBonuses(guildId) {
         FROM rep_role_limits
         WHERE guild_id = ?
         ORDER BY bonus DESC, role_id ASC
-    `).all(guildId);
+    `).all(String(guildId));
 }
 
 function parseRepLimit(value) {
     const input = String(value ?? "").trim();
 
-    /*
-     * Strict integer validation.
-     *
-     * parseInt("5abc") would otherwise become 5, which we
-     * explicitly do not want.
-     */
     if (!/^\d+$/.test(input)) {
         return null;
     }
@@ -309,7 +303,25 @@ function parseRepLimit(value) {
     return number;
 }
 
-function buildRepLimitsManager(guildId) {
+
+/*
+ * FIXED:
+ *
+ * This function receives the Discord Guild object.
+ * Previously it was named guildId but interaction.guild
+ * was being passed into it, causing SQLite to receive a
+ * Guild object instead of a string.
+ */
+function buildRepLimitsManager(guild) {
+
+    if (!guild?.id) {
+        throw new Error(
+            "buildRepLimitsManager requires a Discord Guild."
+        );
+    }
+
+    const guildId = String(guild.id);
+
     ensureServerConfig(guildId);
 
     const baseLimit =
@@ -331,9 +343,8 @@ function buildRepLimitsManager(guildId) {
         const lines = bonuses.map((entry, index) => {
 
             const role =
-                interactionSafeRoleLookup(
-                    guildId,
-                    entry.role_id
+                guild.roles.cache.get(
+                    String(entry.role_id)
                 );
 
             const roleName =
@@ -341,17 +352,18 @@ function buildRepLimitsManager(guildId) {
                     ? `<@&${entry.role_id}>`
                     : `Unknown / Deleted Role \`${entry.role_id}\``;
 
+            const bonus =
+                Number.isInteger(Number(entry.bonus))
+                    ? Math.max(0, Number(entry.bonus))
+                    : 0;
+
             return (
-                `${index + 1}. ${roleName} → **+${entry.bonus}/day**`
+                `${index + 1}. ${roleName} → **+${bonus}/day**`
             );
         });
 
         bonusText = lines.join("\n");
 
-        /*
-         * Keep the Components V2 text display safely below
-         * Discord's content limits.
-         */
         if (bonusText.length > 3500) {
             bonusText =
                 bonusText.slice(0, 3450) +
@@ -483,26 +495,6 @@ function buildRepLimitsManager(guildId) {
     ];
 }
 
-/*
- * Helper used only by the configuration display.
- *
- * We cannot use interaction.guild directly from the helper,
- * so the guild is obtained through the Discord client in the
- * interaction handlers where needed. This fallback is kept
- * deliberately safe for deleted roles.
- */
-function interactionSafeRoleLookup(guildId, roleId) {
-    /*
-     * Role names are rendered from IDs in the manager.
-     * Returning null here causes deleted roles to be displayed
-     * safely instead of crashing.
-     *
-     * The actual Discord role validation happens when adding
-     * or editing a role bonus.
-     */
-    return null;
-}
-
 function getRepRoleBonus(guildId, roleId) {
     return db.prepare(`
         SELECT
@@ -513,8 +505,8 @@ function getRepRoleBonus(guildId, roleId) {
         WHERE guild_id = ?
           AND role_id = ?
     `).get(
-        guildId,
-        roleId
+        String(guildId),
+        String(roleId)
     );
 }
 
@@ -2159,9 +2151,6 @@ module.exports = async (interaction) => {
                 });
             }
 
-            /*
-             * Do not allow @everyone to become a bonus role.
-             */
             if (
                 role.id ===
                 interaction.guild.id
