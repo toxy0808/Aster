@@ -424,53 +424,37 @@ function buildRepLimitsManager(guild) {
             );
 
     const buttons =
-        new ActionRowBuilder()
-            .addComponents(
+    new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId("rep_limits_set_base")
+                .setLabel("Set Base Limit")
+                .setStyle(ButtonStyle.Primary),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        "rep_limits_set_base"
-                    )
-                    .setLabel(
-                        "Set Base Limit"
-                    )
-                    .setStyle(
-                        ButtonStyle.Primary
-                    ),
+            new ButtonBuilder()
+                .setCustomId("rep_limits_add_role")
+                .setLabel("＋ Add Role Bonus")
+                .setStyle(ButtonStyle.Success),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        "rep_limits_add_role"
-                    )
-                    .setLabel(
-                        "＋ Add Role Bonus"
-                    )
-                    .setStyle(
-                        ButtonStyle.Success
-                    ),
+            new ButtonBuilder()
+                .setCustomId("rep_limits_edit_role")
+                .setLabel("Edit Role Bonus")
+                .setStyle(ButtonStyle.Secondary),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        "rep_limits_edit_role"
-                    )
-                    .setLabel(
-                        "Edit Role Bonus"
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    ),
+            new ButtonBuilder()
+                .setCustomId("rep_limits_remove_role")
+                .setLabel("Remove Role Bonus")
+                .setStyle(ButtonStyle.Danger)
+        );
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        "rep_limits_remove_role"
-                    )
-                    .setLabel(
-                        "Remove Role Bonus"
-                    )
-                    .setStyle(
-                        ButtonStyle.Danger
-                    )
-            );
+const viewButtons =
+    new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId("rep_limits_view_roles")
+                .setLabel("📋 View Role Bonuses")
+                .setStyle(ButtonStyle.Secondary)
+        );
 
     const backRow =
         new ActionRowBuilder()
@@ -491,6 +475,7 @@ function buildRepLimitsManager(guild) {
     return [
         container,
         buttons,
+        viewButtons,
         backRow
     ];
 }
@@ -1937,6 +1922,144 @@ module.exports = async (interaction) => {
                     MessageFlags.Ephemeral
             });
         }
+
+
+
+        if (
+    interaction.customId ===
+    "rep_limits_view_roles"
+) {
+    if (!isAdministrator(interaction)) {
+        return interaction.reply({
+            content:
+                "❌ You need Administrator permission to manage reputation settings.",
+            ephemeral: true
+        });
+    }
+
+    const guild = interaction.guild;
+    const guildId = guild.id;
+
+    ensureServerConfig(guildId);
+
+    const baseLimit =
+        getRepBaseLimit(guildId);
+
+    const bonuses =
+        getRepRoleBonuses(guildId);
+
+    let roleText;
+
+    if (!bonuses.length) {
+        roleText =
+            "No role bonuses are configured yet.\n\n" +
+            "-# Use **＋ Add Role Bonus** to configure one.";
+    } else {
+        const lines = bonuses.map((entry, index) => {
+            const role =
+                guild.roles.cache.get(String(entry.role_id));
+
+            const bonus =
+                Number(entry.bonus);
+
+            if (!role) {
+                return (
+                    `${index + 1}. Unknown / Deleted Role \`${entry.role_id}\`\n` +
+                    `   Bonus: **+${bonus}/day**\n` +
+                    `   Rep limit: **${baseLimit + bonus}/day**`
+                );
+            }
+
+            return (
+                `${index + 1}. <@&${role.id}>\n` +
+                `   Bonus: **+${bonus}/day**\n` +
+                `   Rep limit: **${baseLimit + bonus}/day**`
+            );
+        });
+
+        roleText = lines.join("\n\n");
+
+        if (roleText.length > 3500) {
+            roleText =
+                roleText.slice(0, 3450) +
+                "\n\n-# Some entries are not shown because the list is too long.";
+        }
+    }
+
+    const totalBonus =
+        bonuses.reduce(
+            (total, entry) =>
+                total + Math.max(0, Number(entry.bonus) || 0),
+            0
+        );
+
+    const maximumLimit =
+        baseLimit + totalBonus;
+
+    const container =
+        new ContainerBuilder()
+            .setAccentColor(0xFF006E)
+            .addTextDisplayComponents(
+                new TextDisplayBuilder()
+                    .setContent(
+                        "# 📋 ASTER • Configured Role Bonuses\n" +
+                        "-# View every configured reputation role bonus and its individual daily limit."
+                    )
+            )
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+            .addTextDisplayComponents(
+                new TextDisplayBuilder()
+                    .setContent(
+                        `### 🎯 Base Daily Limit\n\n` +
+                        `**${baseLimit}/day**`
+                    )
+            )
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+            .addTextDisplayComponents(
+                new TextDisplayBuilder()
+                    .setContent(
+                        `### 🏷️ Configured Roles\n\n` +
+                        `**${bonuses.length}** role bonus${bonuses.length === 1 ? "" : "es"} configured.\n\n` +
+                        roleText
+                    )
+            )
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+            .addTextDisplayComponents(
+                new TextDisplayBuilder()
+                    .setContent(
+                        `### 📊 Maximum Configured Limit\n\n` +
+                        `Base: **${baseLimit}/day**\n` +
+                        `All role bonuses combined: **+${totalBonus}/day**\n` +
+                        `Maximum: **${maximumLimit}/day**\n\n` +
+                        "-# Role bonuses stack when a member has multiple configured roles."
+                    )
+            );
+
+    const backRow =
+        new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId("rep_limits")
+                    .setLabel("← Back to Daily Limits")
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+    return interaction.reply({
+        components: [
+            container,
+            backRow
+        ],
+        flags:
+            MessageFlags.IsComponentsV2 |
+            MessageFlags.Ephemeral
+    });
+}
 
 
         // ========================================================
