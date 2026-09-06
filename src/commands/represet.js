@@ -6,7 +6,7 @@ const {
 } = require("discord.js");
 
 const db = require("../database/database");
-const { syncRepRewards } = require("../utils/repRewards");
+const { syncRepRewards } = require("../systems/repRewards");
 
 const {
     symbols,
