@@ -8,22 +8,12 @@ const db = require("../database/database");
 const { syncRepRewards } = require("../systems/repRewards");
 
 const COOLDOWN = 10 * 60 * 1000;
+const DEFAULT_BASE_LIMIT = 3;
 
 /* =========================================================
    REP CONFIG
 ========================================================= */
 
-/*
- * The old Staff/Funder limit fields remain in the database
- * for backwards compatibility, but they are no longer used
- * to calculate a member's daily reputation limit.
- *
- * The new system uses:
- *
- *   base limit
- *   +
- *   all matching role bonuses
- */
 function getRepConfig(guildId) {
     let config = db.prepare(`
         SELECT
@@ -38,8 +28,8 @@ function getRepConfig(guildId) {
                 guild_id,
                 rep_member_limit
             )
-            VALUES (?, 3)
-        `).run(guildId);
+            VALUES (?, ?)
+        `).run(guildId, DEFAULT_BASE_LIMIT);
 
         config = db.prepare(`
             SELECT
@@ -56,36 +46,19 @@ function getRepConfig(guildId) {
    DAILY LIMIT
 ========================================================= */
 
-/**
- * Calculates the member's current reputation daily limit.
- *
- * Every member starts with the configured base limit.
- * Every configured role the member currently has contributes
- * its configured bonus.
- *
- * Example:
- *
- * Base = 3
- *
- * Booster = +2
- * Staff   = +2
- * Donor   = +2
- * Level50 = +1
- *
- * Member has all four:
- *
- * 3 + 2 + 2 + 2 + 1 = 10
- *
- * This is calculated from the member's CURRENT roles every
- * time the command runs. Nothing is stored per-user.
- */
-function getDailyLimit(member, config) {
-    const configuredBase = Number(config?.rep_member_limit);
+function getDailyLimit(member, config = null) {
+    const currentConfig =
+        config || getRepConfig(member.guild.id);
+
+    const configuredBase = Number(
+        currentConfig?.rep_member_limit
+    );
 
     const baseLimit =
-        Number.isInteger(configuredBase) && configuredBase >= 0
+        Number.isInteger(configuredBase) &&
+        configuredBase >= 0
             ? configuredBase
-            : 3;
+            : DEFAULT_BASE_LIMIT;
 
     let limit = baseLimit;
 
@@ -100,19 +73,18 @@ function getDailyLimit(member, config) {
     for (const roleBonus of roleBonuses) {
         const bonus = Number(roleBonus.bonus);
 
-        /*
-         * Ignore malformed legacy/database values rather than
-         * allowing them to break the reputation command.
-         */
-        if (!Number.isInteger(bonus) || bonus < 0) {
+        if (
+            !Number.isInteger(bonus) ||
+            bonus < 0
+        ) {
             continue;
         }
 
         /*
-         * Current Discord roles determine the limit.
+         * Only the member's CURRENT Discord roles matter.
          *
-         * If a role was deleted, the member will simply not
-         * have that role ID and the bonus will not apply.
+         * Deleted roles simply won't exist in the member's
+         * role cache, so their bonus is ignored safely.
          */
         if (member.roles.cache.has(roleBonus.role_id)) {
             limit += bonus;
@@ -129,11 +101,6 @@ function getDailyLimit(member, config) {
 function resetDaily(user) {
     const now = Date.now();
 
-    /*
-     * Preserve Aster's existing rolling 24-hour reset behavior.
-     * This change intentionally does not switch the system to
-     * a calendar-day reset.
-     */
     if (
         !user.daily_reset ||
         now - user.daily_reset >= 24 * 60 * 60 * 1000
@@ -144,7 +111,10 @@ function resetDaily(user) {
                 daily_given = 0,
                 daily_reset = ?
             WHERE user_id = ?
-        `).run(now, user.user_id);
+        `).run(
+            now,
+            user.user_id
+        );
 
         return true;
     }
@@ -184,38 +154,33 @@ module.exports = {
         ),
 
     async execute(message, args = []) {
-        /*
-         * Support both the normal prefix command adapter and
-         * the existing slash-command adapter used by Aster.
-         */
         const guild = message.guild;
         const member = message.member;
 
         if (!guild || !member) {
             return message.reply({
-                content: "This command can only be used inside a server."
+                content:
+                    "This command can only be used inside a server."
             });
         }
 
         let target = null;
         let type = null;
 
-        /*
-         * Existing command adapter compatibility.
-         */
+        /* =====================================================
+           ARGUMENT COMPATIBILITY
+        ===================================================== */
+
         if (message.options) {
             target = message.options.getUser("user");
             type = message.options.getString("type");
         } else {
-            /*
-             * Prefix-command compatibility.
-             *
-             * Keep this intentionally tolerant because the existing
-             * command loader may pass arguments differently.
-             */
             if (args[0]) {
+                const userId = String(args[0])
+                    .replace(/[<@!>]/g, "");
+
                 target = await message.client.users
-                    .fetch(args[0].replace(/[<@!>]/g, ""))
+                    .fetch(userId)
                     .catch(() => null);
             }
 
@@ -224,9 +189,10 @@ module.exports = {
             }
         }
 
-        /*
-         * No target = view own reputation.
-         */
+        /* =====================================================
+           VIEW OWN REP
+        ===================================================== */
+
         if (!target) {
             const profile = db.prepare(`
                 SELECT
@@ -237,12 +203,17 @@ module.exports = {
                 WHERE user_id = ?
             `).get(member.id);
 
-            const reputation = profile?.reputation ?? 0;
+            const reputation =
+                profile?.reputation ?? 0;
 
-            const config = getRepConfig(guild.id);
-            const limit = getDailyLimit(member, config);
+            const config =
+                getRepConfig(guild.id);
 
-            const dailyGiven = profile?.daily_given ?? 0;
+            const limit =
+                getDailyLimit(member, config);
+
+            const dailyGiven =
+                profile?.daily_given ?? 0;
 
             return message.reply({
                 flags: MessageFlags.IsComponentsV2,
@@ -265,13 +236,15 @@ module.exports = {
 
         if (target.id === member.id) {
             return message.reply({
-                content: "You cannot give reputation to yourself."
+                content:
+                    "You cannot give reputation to yourself."
             });
         }
 
         if (target.bot) {
             return message.reply({
-                content: "You cannot give reputation to bots."
+                content:
+                    "You cannot give reputation to bots."
             });
         }
 
@@ -279,9 +252,12 @@ module.exports = {
             type = "positive";
         }
 
-        if (!["positive", "negative"].includes(type)) {
+        if (
+            !["positive", "negative"].includes(type)
+        ) {
             return message.reply({
-                content: "Invalid reputation type."
+                content:
+                    "Invalid reputation type."
             });
         }
 
@@ -289,7 +265,8 @@ module.exports = {
            CONFIG
         ===================================================== */
 
-        const config = getRepConfig(guild.id);
+        const config =
+            getRepConfig(guild.id);
 
         /* =====================================================
            GIVER PROFILE
@@ -314,7 +291,10 @@ module.exports = {
                     daily_reset
                 )
                 VALUES (?, 0, 0, ?)
-            `).run(member.id, Date.now());
+            `).run(
+                member.id,
+                Date.now()
+            );
 
             giver = db.prepare(`
                 SELECT
@@ -334,8 +314,7 @@ module.exports = {
         resetDaily(giver);
 
         /*
-         * Re-read the profile after reset so the current
-         * daily_given value is always used.
+         * Re-read after reset.
          */
         giver = db.prepare(`
             SELECT
@@ -351,15 +330,8 @@ module.exports = {
            CURRENT DYNAMIC DAILY LIMIT
         ===================================================== */
 
-        /*
-         * IMPORTANT:
-         *
-         * The limit is calculated from the member's current
-         * Discord roles on every command.
-         *
-         * No per-user daily limit is stored.
-         */
-        const limit = getDailyLimit(member, config);
+        const limit =
+            getDailyLimit(member, config);
 
         if (giver.daily_given >= limit) {
             return message.reply({
@@ -389,7 +361,10 @@ module.exports = {
               AND receiver_id = ?
             ORDER BY id DESC
             LIMIT 1
-        `).get(member.id, target.id);
+        `).get(
+            member.id,
+            target.id
+        );
 
         if (lastRep?.created_at) {
             const lastTimestamp =
@@ -400,7 +375,10 @@ module.exports = {
                 Date.now() - lastTimestamp < COOLDOWN
             ) {
                 const remaining = Math.ceil(
-                    (COOLDOWN - (Date.now() - lastTimestamp)) / 60000
+                    (
+                        COOLDOWN -
+                        (Date.now() - lastTimestamp)
+                    ) / 60000
                 );
 
                 return message.reply({
@@ -431,7 +409,10 @@ module.exports = {
                     daily_reset
                 )
                 VALUES (?, 0, 0, ?)
-            `).run(target.id, Date.now());
+            `).run(
+                target.id,
+                Date.now()
+            );
 
             receiver = db.prepare(`
                 SELECT
@@ -446,18 +427,23 @@ module.exports = {
            UPDATE REPUTATION
         ===================================================== */
 
-        const amount = type === "positive" ? 1 : -1;
+        const amount =
+            type === "positive"
+                ? 1
+                : -1;
 
         db.prepare(`
             UPDATE reputation
             SET reputation = reputation + ?
             WHERE user_id = ?
-        `).run(amount, target.id);
+        `).run(
+            amount,
+            target.id
+        );
 
         /*
-         * Giving either positive OR negative reputation counts
-         * as one daily reputation action, preserving the
-         * existing behavior.
+         * Both positive and negative reputation count as one
+         * daily action.
          */
         db.prepare(`
             UPDATE reputation
@@ -487,7 +473,15 @@ module.exports = {
         ===================================================== */
 
         try {
-            await syncRepRewards(guild);
+            /*
+             * IMPORTANT:
+             * syncRepRewards requires both the guild and the
+             * receiving user's ID.
+             */
+            await syncRepRewards(
+                guild,
+                target.id
+            );
         } catch (error) {
             console.error(
                 "[ASTER] Failed to sync reputation rewards:",
@@ -500,18 +494,23 @@ module.exports = {
         ===================================================== */
 
         const updatedReceiver = db.prepare(`
-            SELECT reputation
+            SELECT
+                reputation
             FROM reputation
             WHERE user_id = ?
         `).get(target.id);
 
         const updatedGiver = db.prepare(`
-            SELECT daily_given
+            SELECT
+                daily_given
             FROM reputation
             WHERE user_id = ?
         `).get(member.id);
 
-        const symbol = type === "positive" ? "+" : "-";
+        const symbol =
+            type === "positive"
+                ? "+"
+                : "-";
 
         return message.reply({
             flags: MessageFlags.IsComponentsV2,
@@ -529,9 +528,5 @@ module.exports = {
         });
     },
 
-    /*
-     * Exported so the new configuration UI can reuse the same
-     * calculation if needed without duplicating the logic.
-     */
     getDailyLimit
 };

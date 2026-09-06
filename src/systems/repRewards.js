@@ -1,10 +1,13 @@
 const db = require("../database/database");
 
 async function syncRepRewards(guild, userId) {
+    if (!guild || !userId) return;
 
-    const user = db.prepare(
-        "SELECT reputation FROM reputation WHERE user_id = ?"
-    ).get(userId);
+    const user = db.prepare(`
+        SELECT reputation
+        FROM reputation
+        WHERE user_id = ?
+    `).get(userId);
 
     if (!user) return;
 
@@ -18,29 +21,33 @@ async function syncRepRewards(guild, userId) {
     if (!me) return;
 
     const rewards = db.prepare(`
-        SELECT role_id, threshold, enabled
+        SELECT
+            role_id,
+            threshold,
+            enabled
         FROM reputation_rewards
         WHERE guild_id = ?
     `).all(guild.id);
 
     for (const reward of rewards) {
-
         const role = guild.roles.cache.get(reward.role_id);
 
         if (!role) continue;
 
-        // Don't manage @everyone
+        // Never manage @everyone.
         if (role.id === guild.id) continue;
 
-        // ASTER must be able to manage the role
-        if (role.position >= me.roles.highest.position)
-            continue;
+        // ASTER cannot manage roles at or above its highest role.
+        if (role.position >= me.roles.highest.position) continue;
 
         const hasRole = member.roles.cache.has(role.id);
 
+        const threshold = Number(reward.threshold);
+
         const shouldHave =
             reward.enabled === 1 &&
-            user.reputation >= reward.threshold;
+            Number.isFinite(threshold) &&
+            user.reputation >= threshold;
 
         if (shouldHave && !hasRole) {
             await member.roles.add(role).catch(() => {});
