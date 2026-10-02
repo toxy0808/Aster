@@ -1,4 +1,5 @@
 require("dotenv").config();
+
 require("./database/database");
 require("./database/activityLogs");
 
@@ -13,13 +14,30 @@ const path = require("path");
 
 const asterLogger = require("./utils/asterLogger");
 const { registerCommands } = require("./utils/registerCommands");
-const startServer = require("./web/server");
+
+// ========================================================
+// DISCORD CLIENT
+// TEMPORARY REDUCED-INTENT MODE
+// ========================================================
+//
+// Only Guilds is enabled for now.
+//
+// This allows Aster to:
+// - Connect to Discord
+// - Appear online
+// - Register slash commands
+// - Receive slash-command interactions
+// - Receive button/select/modal interactions
+//
+// Temporarily unavailable until privileged intents are restored:
+// - Message-based features
+// - Voice-state features
+//
+// ========================================================
 
 const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildVoiceStates
+        GatewayIntentBits.Guilds
     ]
 });
 
@@ -52,9 +70,18 @@ const commandsPath = path.join(
     "commands"
 );
 
-const commandFiles = fs
-    .readdirSync(commandsPath)
-    .filter(file => file.endsWith(".js"));
+let commandFiles = [];
+
+try {
+    commandFiles = fs
+        .readdirSync(commandsPath)
+        .filter(file => file.endsWith(".js"));
+} catch (error) {
+    console.error(
+        "ASTER: Failed to read commands directory:",
+        error
+    );
+}
 
 for (const file of commandFiles) {
 
@@ -104,191 +131,134 @@ for (const file of commandFiles) {
 // ========================================================
 // AUTO REACTS
 // ========================================================
+//
+// Database loading is kept because it is safe to initialize.
+// Message events themselves are unavailable while reduced
+// intents are active.
+//
 
-const rows = db.prepare(
-    "SELECT user_id, emoji FROM autoreacts WHERE enabled = 1"
-).all();
+try {
 
-for (const row of rows) {
+    const rows = db.prepare(
+        "SELECT user_id, emoji FROM autoreacts WHERE enabled = 1"
+    ).all();
 
-    client.autoreacts.set(
-        row.user_id,
-        row.emoji
+    for (const row of rows) {
+
+        client.autoreacts.set(
+            row.user_id,
+            row.emoji
+        );
+
+    }
+
+    console.log(
+        `ASTER: Loaded ${client.autoreacts.size} autoreact configuration(s).`
+    );
+
+} catch (error) {
+
+    console.error(
+        "ASTER: Failed to load autoreacts:",
+        error
     );
 
 }
 
 // ========================================================
 // MESSAGE CREATE
+// TEMPORARILY DISABLED
 // ========================================================
+//
+// GuildMessages / MessageContent are not enabled.
+//
+// Do NOT register messageCreate until the required
+// Discord intents have been approved.
+//
 
-const messageCreate =
-    require("./events/messageCreate");
+// const messageCreate = require("./events/messageCreate");
 
-client.on("messageCreate", async (message) => {
+// client.on("messageCreate", async (message) => {
 
-    try {
+//     try {
 
-        await messageCreate(
-            client,
-            message
-        );
+//         await messageCreate(
+//             client,
+//             message
+//         );
 
-    } catch (error) {
+//     } catch (error) {
 
-        console.error(
-            "ASTER messageCreate error:",
-            error
-        );
+//         console.error(
+//             "ASTER messageCreate error:",
+//             error
+//         );
 
-    }
+//     }
 
-});
+// });
 
 // ========================================================
 // INTERACTION CREATE
 // ========================================================
+//
+// This remains enabled because slash commands and other
+// interactions are the main functionality we want online.
+//
 
 const interactionCreate =
     require("./events/interactionCreate");
 
-client.on("interactionCreate", async (interaction) => {
-
-    try {
-
-        if (interaction.isChatInputCommand()) {
-
-            console.log(
-                `SLASH COMMAND: /${interaction.commandName}`
-            );
-
-        } else if (interaction.customId) {
-
-            console.log(
-                `INTERACTION: ${interaction.customId}`
-            );
-
-        }
-
-        await interactionCreate(
-            interaction
-        );
-
-    } catch (error) {
-
-        console.error(
-            "ASTER interactionCreate event error:",
-            error
-        );
-
-        if (
-            !interaction.replied &&
-            !interaction.deferred
-        ) {
-
-            await interaction.reply({
-                content:
-                    "❌ ASTER encountered an unexpected error.",
-                ephemeral: true
-            }).catch(replyError => {
-
-                console.error(
-                    "ASTER failed to send interaction error:",
-                    replyError
-                );
-
-            });
-
-        }
-
-    }
-
-});
-
-// ========================================================
-// READY
-// ========================================================
-
-client.once("ready", async () => {
-
-    console.log(
-        `${client.user.tag} is online!`
-    );
-
-    // ----------------------------------------------------
-    // Stripe Webhook Server
-    // ----------------------------------------------------
-
-    try {
-        startServer(client);
-    } catch (error) {
-        console.error("ASTER: Failed to initialize Express Webhook server:", error);
-    }
-
-    // ----------------------------------------------------
-    // Slash Commands
-    // ----------------------------------------------------
-
-    try {
-
-        await registerCommands(
-            client
-        );
-
-        console.log(
-            "ASTER: Slash commands registered."
-        );
-
-    } catch (error) {
-
-        console.error(
-            "ASTER: Failed to register slash commands:",
-            error
-        );
-
-    }
-
-    // ----------------------------------------------------
-    // Voice
-    // ----------------------------------------------------
-
-    require("./events/voiceStateUpdate");
-
-    require("./events/voiceRecovery")(
-        client
-    );
-
-    // ----------------------------------------------------
-    // Leaderboards
-    // ----------------------------------------------------
-
-    require("./events/leaderboardUpdater")(
-        client
-    );
-
-});
-
-// ========================================================
-// VOICE STATE UPDATE
-// ========================================================
-
 client.on(
-    "voiceStateUpdate",
-    (oldState, newState) => {
+    "interactionCreate",
+    async (interaction) => {
 
         try {
 
-            require("./events/voiceStateUpdate")(
-                oldState,
-                newState
+            if (interaction.isChatInputCommand()) {
+
+                console.log(
+                    `SLASH COMMAND: /${interaction.commandName}`
+                );
+
+            } else if (interaction.customId) {
+
+                console.log(
+                    `INTERACTION: ${interaction.customId}`
+                );
+
+            }
+
+            await interactionCreate(
+                interaction
             );
 
         } catch (error) {
 
             console.error(
-                "ASTER voiceStateUpdate error:",
+                "ASTER interactionCreate event error:",
                 error
             );
+
+            if (
+                !interaction.replied &&
+                !interaction.deferred
+            ) {
+
+                await interaction.reply({
+                    content:
+                        "❌ ASTER encountered an unexpected error.",
+                    ephemeral: true
+                }).catch(replyError => {
+
+                    console.error(
+                        "ASTER failed to send interaction error:",
+                        replyError
+                    );
+
+                });
+
+            }
 
         }
 
@@ -296,8 +266,121 @@ client.on(
 );
 
 // ========================================================
+// READY
+// ========================================================
+
+client.once(
+    "ready",
+    async () => {
+
+        console.log(
+            "================================================"
+        );
+
+        console.log(
+            `ASTER: ${client.user.tag} is online!`
+        );
+
+        console.log(
+            "ASTER: Temporary reduced-intent mode enabled."
+        );
+
+        console.log(
+            "ASTER: Gateway intents: Guilds only."
+        );
+
+        console.log(
+            "================================================"
+        );
+
+        // ------------------------------------------------
+        // SLASH COMMANDS
+        // ------------------------------------------------
+
+        try {
+
+            await registerCommands(
+                client
+            );
+
+            console.log(
+                "ASTER: Slash commands registered."
+            );
+
+        } catch (error) {
+
+            console.error(
+                "ASTER: Failed to register slash commands:",
+                error
+            );
+
+        }
+
+        // ------------------------------------------------
+        // VOICE
+        // TEMPORARILY DISABLED
+        // ------------------------------------------------
+
+        console.log(
+            "ASTER: Voice features temporarily disabled."
+        );
+
+        // ------------------------------------------------
+        // LEADERBOARDS
+        // TEMPORARILY DISABLED
+        // ------------------------------------------------
+
+        console.log(
+            "ASTER: Voice/leaderboard background systems temporarily disabled."
+        );
+
+    }
+);
+
+// ========================================================
+// VOICE STATE UPDATE
+// TEMPORARILY DISABLED
+// ========================================================
+//
+// GuildVoiceStates is intentionally not requested yet.
+//
+
+// client.on(
+//     "voiceStateUpdate",
+//     (oldState, newState) => {
+
+//         try {
+
+//             require("./events/voiceStateUpdate")(
+//                 oldState,
+//                 newState
+//             );
+
+//         } catch (error) {
+
+//             console.error(
+//                 "ASTER voiceStateUpdate error:",
+//                 error
+//             );
+
+//         }
+
+//     }
+// );
+
+// ========================================================
 // LOGIN
 // ========================================================
+
+if (!process.env.TOKEN) {
+
+    console.error(
+        "ASTER: TOKEN is missing from environment variables."
+    );
+
+    process.exit(1);
+
+}
 
 client.login(
     process.env.TOKEN
@@ -309,9 +392,3 @@ client.login(
     );
 
 });
-
-// ========================================================
-// DASHBOARD
-// ========================================================
-
-require("../dashboard/server");
