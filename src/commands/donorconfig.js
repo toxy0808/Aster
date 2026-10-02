@@ -12,6 +12,9 @@ const {
 
 const db = require("../database/database");
 
+// Initialize donor database tables
+require("../database/donor");
+
 function isAdmin(interaction) {
     return interaction.member?.permissions?.has(
         PermissionFlagsBits.Administrator
