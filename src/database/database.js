@@ -72,6 +72,31 @@ db.prepare(`
 `).run();
 
 /* =========================================================
+   DONOR SYSTEM TABLES
+========================================================= */
+
+db.prepare(`
+    CREATE TABLE IF NOT EXISTS donor_tiers (
+        guild_id TEXT NOT NULL,
+        tier_id TEXT NOT NULL,
+        role_id TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        PRIMARY KEY (guild_id, tier_id)
+    )
+`).run();
+
+db.prepare(`
+    CREATE TABLE IF NOT EXISTS donor_transactions (
+        session_id TEXT PRIMARY KEY,
+        guild_id TEXT NOT NULL,
+        discord_user_id TEXT NOT NULL,
+        tier_id TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        created_at INTEGER DEFAULT (strftime('%s', 'now'))
+    )
+`).run();
+
+/* =========================================================
    LEGACY REP CONFIG MIGRATION
 ========================================================= */
 
@@ -165,12 +190,6 @@ db.prepare(`
    USERS VOICE-TIME MIGRATION
 ========================================================= */
 
-/*
- * Older versions of the schema used voice_seconds.
- *
- * The rest of ASTER currently uses voice_time in MINUTES,
- * so migrate the old column into the field used by the bot.
- */
 try {
     const userColumns = db.prepare(`
         PRAGMA table_info(users)
@@ -199,10 +218,6 @@ try {
             WHERE COALESCE(voice_seconds, 0) != 0
         `).run();
 
-        /*
-         * Prevent the migration from being applied twice if the bot
-         * restarts before the old column is removed.
-         */
         db.prepare(`
             UPDATE users
             SET voice_seconds = 0
@@ -309,5 +324,43 @@ db.prepare(`
         enabled INTEGER DEFAULT 1
     )
 `).run();
+
+/* =========================================================
+   DONOR SYSTEM HELPER QUERIES
+========================================================= */
+
+db.donor = {
+    setTier: (guildId, tierId, roleId, amount) => {
+        return db.prepare(`
+            INSERT OR REPLACE INTO donor_tiers (guild_id, tier_id, role_id, amount)
+            VALUES (?, ?, ?, ?)
+        `).run(guildId, tierId, roleId, amount);
+    },
+
+    getTier: (guildId, tierId) => {
+        return db.prepare(`
+            SELECT * FROM donor_tiers WHERE guild_id = ? AND tier_id = ?
+        `).get(guildId, tierId);
+    },
+
+    removeTier: (guildId, tierId) => {
+        return db.prepare(`
+            DELETE FROM donor_tiers WHERE guild_id = ? AND tier_id = ?
+        `).run(guildId, tierId);
+    },
+
+    listTiers: (guildId) => {
+        return db.prepare(`
+            SELECT * FROM donor_tiers WHERE guild_id = ?
+        `).all(guildId);
+    },
+
+    recordTransaction: (sessionId, guildId, userId, tierId, amount) => {
+        return db.prepare(`
+            INSERT OR IGNORE INTO donor_transactions (session_id, guild_id, discord_user_id, tier_id, amount)
+            VALUES (?, ?, ?, ?, ?)
+        `).run(sessionId, guildId, userId, tierId, amount);
+    }
+};
 
 module.exports = db;

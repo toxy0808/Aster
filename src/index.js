@@ -13,13 +13,12 @@ const path = require("path");
 
 const asterLogger = require("./utils/asterLogger");
 const { registerCommands } = require("./utils/registerCommands");
+const startServer = require("./web/server");
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildVoiceStates
     ]
 });
@@ -210,11 +209,21 @@ client.on("interactionCreate", async (interaction) => {
 // READY
 // ========================================================
 
-client.once("clientReady", async () => {
+client.once("ready", async () => {
 
     console.log(
         `${client.user.tag} is online!`
     );
+
+    // ----------------------------------------------------
+    // Stripe Webhook Server
+    // ----------------------------------------------------
+
+    try {
+        startServer(client);
+    } catch (error) {
+        console.error("ASTER: Failed to initialize Express Webhook server:", error);
+    }
 
     // ----------------------------------------------------
     // Slash Commands
