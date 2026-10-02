@@ -1,114 +1,42 @@
-function replaceDonorVariables(template, context = {}) {
+const {
+    SlashCommandBuilder,
+    PermissionFlagsBits,
+    MessageFlags
+} = require("discord.js");
 
-    const guild =
-        context.guild || null;
+const donorDb = require("../database/donor");
+const donorUI = require("../utils/asterUI/donor");
 
-    const user =
-        context.user ||
-        context.member?.user ||
-        null;
-
-    const member =
-        context.member ||
-        null;
-
-    const channel =
-        context.channel ||
-        null;
-
-    const role =
-        context.role ||
-        null;
-
-    const settings =
-        context.settings ||
-        {};
-
-    const amount =
-        context.amount;
-
-    const currency =
-        context.currency ||
-        "USD";
-
-    const tier =
-        context.tier ||
-        "";
-
-    const values = {
-
-        user:
-            user
-                ? `<@${user.id}>`
-                : "",
-
-        username:
-            user?.username ||
-            "",
-
-        member:
-            member
-                ? `<@${member.id}>`
-                : user
-                    ? `<@${user.id}>`
-                    : "",
-
-        guild:
-            guild?.name ||
-            "",
-
-        channel:
-            channel
-                ? `<#${channel.id}>`
-                : "",
-
-        link:
-            settings.kofi_url ||
-            "",
-
-        role:
-            role
-                ? `<@&${role.id}>`
-                : "",
-
-        tier:
-            tier,
-
-        amount:
-            amount !== undefined &&
-            amount !== null &&
-            amount !== ""
-                ? `$${Number(amount).toFixed(2)}`
-                : "",
-
-        currency:
-            currency
-    };
-
-    return String(template || "")
-        .replace(
-            /\{([a-zA-Z0-9_]+)\}/g,
-            (match, key) => {
-
-                const normalized =
-                    key.toLowerCase();
-
-                if (
-                    Object.prototype.hasOwnProperty.call(
-                        values,
-                        normalized
-                    )
-                ) {
-                    return String(
-                        values[normalized]
-                    );
-                }
-
-                return match;
-            }
-        );
+function isAdmin(message) {
+    return message.member?.permissions?.has(
+        PermissionFlagsBits.Administrator
+    );
 }
 
 module.exports = {
-    replaceDonorVariables
+    data: new SlashCommandBuilder()
+        .setName("donorconfig")
+        .setDescription("Configure the ASTER donor system")
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.Administrator.toString()
+        ),
+
+    async execute(message) {
+        if (!isAdmin(message)) {
+            return message.reply({
+                content:
+                    "❌ **Administrator permission required.**\n" +
+                    "Only server administrators can configure the donor system.",
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
+        const settings = donorDb.getSettings(message.guild.id);
+        const tiers = donorDb.listTiers(message.guild.id);
+
+        return message.reply({
+            components: donorUI.buildPanel(settings, tiers),
+            flags: MessageFlags.IsComponentsV2
+        });
+    }
 };
