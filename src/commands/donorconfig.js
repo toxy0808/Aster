@@ -15,7 +15,7 @@ const donorDb = require("../database/donor");
 
 function isAdmin(interaction) {
     return interaction.memberPermissions?.has(
-        PermissionFlagsBits.ManageGuild
+        PermissionFlagsBits.Administrator
     );
 }
 
@@ -252,7 +252,7 @@ module.exports = {
         .setName("donorconfig")
         .setDescription("Configure the ASTER donor system")
         .setDefaultMemberPermissions(
-            PermissionFlagsBits.ManageGuild.toString()
+            PermissionFlagsBits.Administrator.toString()
         ),
 
     async execute(message) {
