@@ -17,6 +17,9 @@ const db = require("../database/database");
 const asterLogger = require("../utils/asterLogger");
 const symbols = require("../utils/asterUI/symbols");
 
+const handleDonorConfigInteraction =
+    require("../handlers/donorConfigInteractions");
+
 const {
     createCommandMessage
 } = require("../utils/commandMessageAdapter");
@@ -506,6 +509,25 @@ module.exports = async (interaction) => {
 
         if (!interaction.guild) {
             return;
+        }
+
+
+        // ========================================================
+        // DONOR CONFIG INTERACTIONS
+        // ========================================================
+
+        if (
+            (
+                interaction.isButton() ||
+                interaction.isStringSelectMenu() ||
+                interaction.isRoleSelectMenu() ||
+                interaction.isChannelSelectMenu() ||
+                interaction.isModalSubmit()
+            ) &&
+            typeof interaction.customId === "string" &&
+            interaction.customId.startsWith("donor_")
+        ) {
+            return handleDonorConfigInteraction(interaction);
         }
 
 
