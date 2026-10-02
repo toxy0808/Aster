@@ -260,7 +260,7 @@ module.exports = {
 
         if (!isAdmin(interaction)) {
             return interaction.reply({
-                content: "❌ You need **Manage Server** permission to use this.",
+                content: "❌ You need **Administrator permissions** permission to use this.",
                 flags: MessageFlags.Ephemeral
             });
         }
