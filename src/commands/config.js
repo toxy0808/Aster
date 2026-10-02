@@ -17,7 +17,6 @@ const { getConfig } = require("../utils/serverConfig");
 // ========================================================
 
 const symbols = require("../utils/asterUI/symbols");
-const styles = require("../utils/asterUI/styles");
 const timestamps = require("../utils/asterUI/timestamps");
 
 // ========================================================
@@ -38,21 +37,40 @@ module.exports = {
     async execute(message) {
 
         // ====================================================
+        // SAFETY CHECK
+        // ====================================================
+
+        if (!message.guild) {
+            return message.reply({
+                content:
+                    `${symbols.error} This command can only be used inside a server.`,
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
+        // ====================================================
         // PERMISSIONS
         // ====================================================
 
         if (
-            !message.member.permissions.has(
+            !message.member?.permissions?.has(
                 PermissionFlagsBits.Administrator
             )
         ) {
-            return message.reply(
-                `${symbols.error} You need **Administrator** permission.`
-            );
+            return message.reply({
+                content:
+                    `${symbols.error} You need **Administrator** permission.`,
+                flags: MessageFlags.Ephemeral
+            });
         }
 
-        // Make sure config exists
-        const config = getConfig(message.guild.id);
+        // ====================================================
+        // LOAD SERVER CONFIG
+        // ====================================================
+
+        const config = getConfig(
+            String(message.guild.id)
+        );
 
         // ====================================================
         // LOGGING STATUS
@@ -75,7 +93,7 @@ module.exports = {
 
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    `# ${styles.brand.symbol} ASTER / SERVER CONFIGURATION\n` +
+                    `# ${symbols.brand} ASTER / SERVER CONFIGURATION\n` +
                     `-# Configure how ASTER operates in this server.\n\n` +
                     `ASTER uses this panel to manage activity tracking, ` +
                     `leaderboards, reputation, automation and system logging.`
