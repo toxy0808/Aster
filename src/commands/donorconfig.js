@@ -26,28 +26,31 @@ function getSettings(guildId) {
         SELECT *
         FROM donor_settings
         WHERE guild_id = ?
-    `).get(guildId);
+    `).get(String(guildId));
 
     if (!settings) {
         db.prepare(`
             INSERT INTO donor_settings (
                 guild_id,
                 enabled,
+                kofi_url,
+                announcement_channel_id,
+                log_channel_id,
                 announcements_enabled,
                 logging_enabled,
                 announcement_message
             )
-            VALUES (?, 0, 1, 1, ?)
+            VALUES (?, 1, '', NULL, NULL, 1, 1, ?)
         `).run(
-            guildId,
-            "☕ **{donor}** just supported **{amount}** — thank you for helping keep ASTER running!"
+            String(guildId),
+            "Thank you {user} for supporting ASTER! 💜"
         );
 
         settings = db.prepare(`
             SELECT *
             FROM donor_settings
             WHERE guild_id = ?
-        `).get(guildId);
+        `).get(String(guildId));
     }
 
     return settings;
