@@ -1,619 +1,492 @@
-// ========================================================
-// ASTER DONOR SYSTEM — DATABASE LAYER
-// Ko-fi / provider agnostic
-// ========================================================
-
-const crypto = require("crypto");
 const db = require("./database");
 
-// --------------------------------------------------------
-// SCHEMA
-// --------------------------------------------------------
+// ============================================================
+// DONOR DATABASE
+// ============================================================
 
-function ensureDonorSchema() {
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS donor_settings (
-            guild_id TEXT PRIMARY KEY,
-            enabled INTEGER NOT NULL DEFAULT 0,
-            provider TEXT NOT NULL DEFAULT 'kofi',
-            provider_url TEXT,
-            announcement_channel_id TEXT,
-            log_channel_id TEXT,
-            announcements_enabled INTEGER NOT NULL DEFAULT 1,
-            logging_enabled INTEGER NOT NULL DEFAULT 1,
-            announcement_message TEXT,
-            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
-        );
+// ------------------------------------------------------------
+// Helpers
+// ------------------------------------------------------------
 
-        CREATE TABLE IF NOT EXISTS donor_tiers (
-            guild_id TEXT NOT NULL,
-            tier_id TEXT NOT NULL,
-            role_id TEXT NOT NULL,
-            amount INTEGER NOT NULL,
-            enabled INTEGER NOT NULL DEFAULT 1,
-            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-            PRIMARY KEY (guild_id, tier_id)
-        );
+function addColumnIfMissing(table, column, definition) {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all();
 
-        CREATE TABLE IF NOT EXISTS donations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            guild_id TEXT NOT NULL,
-            provider TEXT NOT NULL DEFAULT 'kofi',
-            provider_transaction_id TEXT NOT NULL,
-            donor_name TEXT,
-            donor_email_hash TEXT,
-            amount INTEGER NOT NULL,
-            currency TEXT NOT NULL DEFAULT 'USD',
-            message TEXT,
-            tier_id TEXT,
-            discord_user_id TEXT,
-            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-            UNIQUE(provider, provider_transaction_id)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_donations_guild_created
-            ON donations(guild_id, created_at DESC);
-
-        CREATE INDEX IF NOT EXISTS idx_donations_guild_user
-            ON donations(guild_id, discord_user_id);
-
-        CREATE INDEX IF NOT EXISTS idx_donations_guild_tier
-            ON donations(guild_id, tier_id);
-    `);
-
-    const columns = db
-        .prepare(`PRAGMA table_info(donor_tiers)`)
-        .all();
-
-    const names = new Set(
-        columns.map(column => column.name)
-    );
-
-    const migrations = [
-        ["enabled", "INTEGER NOT NULL DEFAULT 1"],
-        ["created_at", "INTEGER DEFAULT (strftime('%s', 'now'))"],
-        ["updated_at", "INTEGER DEFAULT (strftime('%s', 'now'))"]
-    ];
-
-    for (const [name, definition] of migrations) {
-        if (names.has(name)) continue;
-
-        try {
-            db.prepare(
-                `ALTER TABLE donor_tiers ADD COLUMN ${name} ${definition}`
-            ).run();
-        } catch (error) {
-            if (
-                !String(error?.message || "")
-                    .toLowerCase()
-                    .includes("duplicate column")
-            ) {
-                throw error;
-            }
-        }
+    if (!columns.some((col) => col.name === column)) {
+        db.prepare(
+            `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`
+        ).run();
     }
 }
 
-ensureDonorSchema();
+// ------------------------------------------------------------
+// Tables
+// ------------------------------------------------------------
 
-// --------------------------------------------------------
-// HELPERS
-// --------------------------------------------------------
+db.prepare(`
+    CREATE TABLE IF NOT EXISTS donor_settings (
+        guild_id TEXT PRIMARY KEY,
+        enabled INTEGER DEFAULT 1,
+        kofi_url TEXT DEFAULT '',
+        announcement_channel_id TEXT,
+        log_channel_id TEXT,
+        announcements_enabled INTEGER DEFAULT 1,
+        logging_enabled INTEGER DEFAULT 1,
+        announcement_message TEXT DEFAULT 'Thank you {user} for supporting ASTER! 💜',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+`).run();
 
-function normalizeTierId(value) {
-    return String(value || "")
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .slice(0, 32);
-}
+db.prepare(`
+    CREATE TABLE IF NOT EXISTS donor_tiers (
+        guild_id TEXT NOT NULL,
+        tier_id TEXT NOT NULL,
+        role_id TEXT,
+        amount INTEGER DEFAULT 0,
+        enabled INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (guild_id, tier_id)
+    )
+`).run();
 
-function centsFromAmount(value) {
-    const number = Number(value);
+db.prepare(`
+    CREATE TABLE IF NOT EXISTS donations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT,
+        donor_id TEXT,
+        donor_name TEXT,
+        amount INTEGER DEFAULT 0,
+        currency TEXT DEFAULT 'USD',
+        tier_id TEXT,
+        kofi_transaction_id TEXT,
+        message TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+`).run();
 
-    if (!Number.isFinite(number) || number < 0) {
-        throw new TypeError(
-            "Donation amount must be a non-negative number."
-        );
-    }
+// ------------------------------------------------------------
+// Migrations for existing databases
+// ------------------------------------------------------------
 
-    return Math.round(number * 100);
-}
+addColumnIfMissing(
+    "donor_settings",
+    "enabled",
+    "INTEGER DEFAULT 1"
+);
 
-function amountFromCents(value) {
-    return (Number(value || 0) / 100).toFixed(2);
-}
+addColumnIfMissing(
+    "donor_settings",
+    "kofi_url",
+    "TEXT DEFAULT ''"
+);
 
-function hashEmail(email) {
-    if (!email) return null;
+addColumnIfMissing(
+    "donor_settings",
+    "announcement_channel_id",
+    "TEXT"
+);
 
-    return crypto
-        .createHash("sha256")
-        .update(
-            String(email)
-                .trim()
-                .toLowerCase()
-        )
-        .digest("hex");
-}
+addColumnIfMissing(
+    "donor_settings",
+    "log_channel_id",
+    "TEXT"
+);
 
-// --------------------------------------------------------
-// SETTINGS
-// --------------------------------------------------------
+addColumnIfMissing(
+    "donor_settings",
+    "announcements_enabled",
+    "INTEGER DEFAULT 1"
+);
 
-function ensureSettings(guildId) {
-    if (!guildId) {
-        throw new TypeError("guildId is required.");
-    }
+addColumnIfMissing(
+    "donor_settings",
+    "logging_enabled",
+    "INTEGER DEFAULT 1"
+);
 
-    db.prepare(`
-        INSERT OR IGNORE INTO donor_settings (guild_id)
-        VALUES (?)
-    `).run(String(guildId));
+addColumnIfMissing(
+    "donor_settings",
+    "announcement_message",
+    "TEXT DEFAULT 'Thank you {user} for supporting ASTER! 💜'"
+);
 
-    return getSettings(guildId);
-}
+addColumnIfMissing(
+    "donor_settings",
+    "created_at",
+    "TEXT"
+);
+
+addColumnIfMissing(
+    "donor_settings",
+    "updated_at",
+    "TEXT"
+);
+
+addColumnIfMissing(
+    "donor_tiers",
+    "enabled",
+    "INTEGER DEFAULT 1"
+);
+
+addColumnIfMissing(
+    "donor_tiers",
+    "created_at",
+    "TEXT"
+);
+
+addColumnIfMissing(
+    "donor_tiers",
+    "updated_at",
+    "TEXT"
+);
+
+// ------------------------------------------------------------
+// Settings
+// ------------------------------------------------------------
 
 function getSettings(guildId) {
-    return (
+    guildId = String(guildId);
+
+    let settings = db.prepare(`
+        SELECT *
+        FROM donor_settings
+        WHERE guild_id = ?
+    `).get(guildId);
+
+    if (!settings) {
         db.prepare(`
+            INSERT INTO donor_settings (
+                guild_id,
+                enabled,
+                kofi_url,
+                announcement_channel_id,
+                log_channel_id,
+                announcements_enabled,
+                logging_enabled,
+                announcement_message,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                ?,
+                1,
+                '',
+                NULL,
+                NULL,
+                1,
+                1,
+                ?,
+                CURRENT_TIMESTAMP,
+                CURRENT_TIMESTAMP
+            )
+        `).run(
+            guildId,
+            "Thank you {user} for supporting ASTER! 💜"
+        );
+
+        settings = db.prepare(`
             SELECT *
             FROM donor_settings
             WHERE guild_id = ?
-        `).get(String(guildId)) || null
-    );
+        `).get(guildId);
+    }
+
+    return settings;
 }
 
-function updateSettings(guildId, patch = {}) {
-    ensureSettings(guildId);
+function updateSettings(guildId, updates = {}) {
+    guildId = String(guildId);
 
-    const allowed = new Set([
+    getSettings(guildId);
+
+    const allowed = [
         "enabled",
-        "provider",
-        "provider_url",
+        "kofi_url",
         "announcement_channel_id",
         "log_channel_id",
         "announcements_enabled",
         "logging_enabled",
         "announcement_message"
-    ]);
+    ];
 
-    const entries = Object.entries(patch)
-        .filter(([key]) => allowed.has(key));
+    const entries = Object.entries(updates).filter(
+        ([key]) => allowed.includes(key)
+    );
 
     if (!entries.length) {
         return getSettings(guildId);
     }
 
-    const assignments = entries.map(
-        ([key]) => `${key} = ?`
-    );
+    const setClause = entries
+        .map(([key]) => `${key} = ?`)
+        .join(", ");
 
-    const values = entries.map(([key, value]) => {
-        if (
-            [
-                "enabled",
-                "announcements_enabled",
-                "logging_enabled"
-            ].includes(key)
-        ) {
-            return value ? 1 : 0;
-        }
-
-        return value ?? null;
-    });
+    const values = entries.map(([, value]) => value);
 
     db.prepare(`
         UPDATE donor_settings
-        SET ${assignments.join(", ")},
-            updated_at = strftime('%s', 'now')
+        SET ${setClause},
+            updated_at = CURRENT_TIMESTAMP
         WHERE guild_id = ?
-    `).run(
-        ...values,
-        String(guildId)
-    );
+    `).run(...values, guildId);
 
     return getSettings(guildId);
 }
 
-// --------------------------------------------------------
-// TIERS
-// IMPORTANT: legacy donor tiers use whole USD values.
-// Example: 5 = $5, NOT 500 cents.
-// --------------------------------------------------------
+function resetSettings(guildId) {
+    guildId = String(guildId);
 
-function setTier(
-    guildId,
-    tierId,
-    roleId,
-    amount
-) {
-    const normalized = normalizeTierId(tierId);
+    db.prepare(`
+        DELETE FROM donor_settings
+        WHERE guild_id = ?
+    `).run(guildId);
 
-    if (!normalized) {
-        throw new TypeError("tierId is required.");
-    }
+    return getSettings(guildId);
+}
 
-    if (!roleId) {
-        throw new TypeError("roleId is required.");
-    }
+// ------------------------------------------------------------
+// Tiers
+// ------------------------------------------------------------
 
-    const dollars = Number(amount);
-
-    if (
-        !Number.isSafeInteger(dollars) ||
-        dollars < 0
-    ) {
-        throw new TypeError(
-            "Tier amount must be a whole USD amount."
-        );
-    }
+function setTier(guildId, tierId, roleId, amount) {
+    guildId = String(guildId);
+    tierId = String(tierId);
+    roleId = roleId ? String(roleId) : null;
+    amount = Number(amount) || 0;
 
     const existing = db.prepare(`
-        SELECT guild_id
+        SELECT *
         FROM donor_tiers
         WHERE guild_id = ?
-          AND tier_id = ?
-    `).get(
-        String(guildId),
-        normalized
-    );
+        AND tier_id = ?
+    `).get(guildId, tierId);
 
     if (existing) {
-        return db.prepare(`
+        db.prepare(`
             UPDATE donor_tiers
-            SET role_id = ?,
+            SET
+                role_id = ?,
                 amount = ?,
                 enabled = 1,
-                updated_at = strftime('%s', 'now')
+                updated_at = CURRENT_TIMESTAMP
             WHERE guild_id = ?
-              AND tier_id = ?
+            AND tier_id = ?
         `).run(
-            String(roleId),
-            dollars,
-            String(guildId),
-            normalized
+            roleId,
+            amount,
+            guildId,
+            tierId
+        );
+    } else {
+        db.prepare(`
+            INSERT INTO donor_tiers (
+                guild_id,
+                tier_id,
+                role_id,
+                amount,
+                enabled,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                ?,
+                ?,
+                ?,
+                ?,
+                1,
+                CURRENT_TIMESTAMP,
+                CURRENT_TIMESTAMP
+            )
+        `).run(
+            guildId,
+            tierId,
+            roleId,
+            amount
         );
     }
 
-    return db.prepare(`
-        INSERT INTO donor_tiers (
-            guild_id,
-            tier_id,
-            role_id,
-            amount,
-            enabled,
-            created_at,
-            updated_at
-        )
-        VALUES (
-            ?,
-            ?,
-            ?,
-            ?,
-            1,
-            strftime('%s', 'now'),
-            strftime('%s', 'now')
-        )
-    `).run(
-        String(guildId),
-        normalized,
-        String(roleId),
-        dollars
-    );
-}
-
-function getTier(guildId, tierId) {
-    return (
-        db.prepare(`
-            SELECT *
-            FROM donor_tiers
-            WHERE guild_id = ?
-              AND tier_id = ?
-        `).get(
-            String(guildId),
-            normalizeTierId(tierId)
-        ) || null
-    );
-}
-
-function removeTier(guildId, tierId) {
-    return db.prepare(`
-        DELETE FROM donor_tiers
-        WHERE guild_id = ?
-          AND tier_id = ?
-    `).run(
-        String(guildId),
-        normalizeTierId(tierId)
-    );
-}
-
-function listTiers(
-    guildId,
-    enabledOnly = false
-) {
     return db.prepare(`
         SELECT *
         FROM donor_tiers
         WHERE guild_id = ?
-        ${enabledOnly ? "AND enabled = 1" : ""}
+        AND tier_id = ?
+    `).get(guildId, tierId);
+}
+
+function removeTier(guildId, tierId) {
+    guildId = String(guildId);
+    tierId = String(tierId);
+
+    return db.prepare(`
+        DELETE FROM donor_tiers
+        WHERE guild_id = ?
+        AND tier_id = ?
+    `).run(guildId, tierId);
+}
+
+function getTier(guildId, tierId) {
+    return db.prepare(`
+        SELECT *
+        FROM donor_tiers
+        WHERE guild_id = ?
+        AND tier_id = ?
+    `).get(
+        String(guildId),
+        String(tierId)
+    );
+}
+
+function listTiers(guildId) {
+    return db.prepare(`
+        SELECT *
+        FROM donor_tiers
+        WHERE guild_id = ?
         ORDER BY amount ASC, tier_id ASC
     `).all(String(guildId));
 }
 
-function getTierForAmount(
+function toggleTier(guildId, tierId) {
+    guildId = String(guildId);
+    tierId = String(tierId);
+
+    db.prepare(`
+        UPDATE donor_tiers
+        SET
+            enabled = CASE
+                WHEN enabled = 1 THEN 0
+                ELSE 1
+            END,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE guild_id = ?
+        AND tier_id = ?
+    `).run(guildId, tierId);
+
+    return getTier(guildId, tierId);
+}
+
+// ------------------------------------------------------------
+// Donations
+// ------------------------------------------------------------
+
+function addDonation({
     guildId,
-    amount
-) {
-    const dollars = Number(amount);
-
-    if (!Number.isFinite(dollars)) {
-        return null;
-    }
-
-    return (
-        db.prepare(`
-            SELECT *
-            FROM donor_tiers
-            WHERE guild_id = ?
-              AND enabled = 1
-              AND amount <= ?
-            ORDER BY amount DESC
-            LIMIT 1
-        `).get(
-            String(guildId),
-            dollars
-        ) || null
-    );
-}
-
-// --------------------------------------------------------
-// DONATIONS
-// Donation amounts are stored as cents.
-// --------------------------------------------------------
-
-function hasDonation(
-    provider,
-    transactionId
-) {
-    return !!db.prepare(`
-        SELECT 1
-        FROM donations
-        WHERE provider = ?
-          AND provider_transaction_id = ?
-        LIMIT 1
-    `).get(
-        String(provider),
-        String(transactionId)
-    );
-}
-
-function recordDonation(data = {}) {
-    const provider = String(
-        data.provider || "kofi"
-    );
-
-    const transactionId = String(
-        data.providerTransactionId || ""
-    ).trim();
-
-    if (!transactionId) {
-        throw new TypeError(
-            "providerTransactionId is required."
-        );
-    }
-
-    const guildId = String(
-        data.guildId || ""
-    ).trim();
-
-    if (!guildId) {
-        throw new TypeError(
-            "guildId is required."
-        );
-    }
-
-    const amount = centsFromAmount(
-        data.amount
-    );
-
+    donorId = null,
+    donorName = null,
+    amount = 0,
+    currency = "USD",
+    tierId = null,
+    kofiTransactionId = null,
+    message = null
+}) {
     const result = db.prepare(`
-        INSERT OR IGNORE INTO donations (
+        INSERT INTO donations (
             guild_id,
-            provider,
-            provider_transaction_id,
+            donor_id,
             donor_name,
-            donor_email_hash,
             amount,
             currency,
-            message,
             tier_id,
-            discord_user_id
+            kofi_transaction_id,
+            message
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-        guildId,
-        provider,
-        transactionId,
-
-        data.donorName
-            ? String(data.donorName).slice(0, 100)
-            : null,
-
-        hashEmail(data.donorEmail),
-
-        amount,
-
-        String(
-            data.currency || "USD"
-        )
-            .toUpperCase()
-            .slice(0, 8),
-
-        data.message
-            ? String(data.message).slice(0, 2000)
-            : null,
-
-        data.tierId
-            ? normalizeTierId(data.tierId)
-            : null,
-
-        data.discordUserId
-            ? String(data.discordUserId)
-            : null
-    );
-
-    return {
-        inserted: result.changes === 1,
-
-        donation: db.prepare(`
-            SELECT *
-            FROM donations
-            WHERE provider = ?
-              AND provider_transaction_id = ?
-        `).get(
-            provider,
-            transactionId
-        )
-    };
-}
-
-// --------------------------------------------------------
-// DONATION QUERIES
-// --------------------------------------------------------
-
-function getDonation(
-    guildId,
-    id
-) {
-    return (
-        db.prepare(`
-            SELECT *
-            FROM donations
-            WHERE guild_id = ?
-              AND id = ?
-        `).get(
-            String(guildId),
-            Number(id)
-        ) || null
-    );
-}
-
-function listDonations(
-    guildId,
-    limit = 10,
-    offset = 0
-) {
-    const safeLimit = Math.min(
-        Math.max(Number(limit) || 10, 1),
-        50
-    );
-
-    const safeOffset = Math.max(
-        Number(offset) || 0,
-        0
+        guildId ? String(guildId) : null,
+        donorId ? String(donorId) : null,
+        donorName,
+        Number(amount) || 0,
+        currency,
+        tierId ? String(tierId) : null,
+        kofiTransactionId,
+        message
     );
 
     return db.prepare(`
         SELECT *
         FROM donations
+        WHERE id = ?
+    `).get(result.lastInsertRowid);
+}
+
+function getDonationByTransactionId(transactionId) {
+    if (!transactionId) return null;
+
+    return db.prepare(`
+        SELECT *
+        FROM donations
+        WHERE kofi_transaction_id = ?
+        LIMIT 1
+    `).get(String(transactionId));
+}
+
+function listDonations(guildId, limit = 25) {
+    return db.prepare(`
+        SELECT *
+        FROM donations
         WHERE guild_id = ?
-        ORDER BY created_at DESC, id DESC
-        LIMIT ? OFFSET ?
+        ORDER BY id DESC
+        LIMIT ?
     `).all(
         String(guildId),
-        safeLimit,
-        safeOffset
+        Number(limit) || 25
     );
 }
 
-// --------------------------------------------------------
-// STATISTICS
-// --------------------------------------------------------
+// ------------------------------------------------------------
+// Statistics
+// ------------------------------------------------------------
 
-function getStats(guildId) {
-    const row = db.prepare(`
+function getDonationStats(guildId) {
+    guildId = String(guildId);
+
+    const stats = db.prepare(`
         SELECT
             COUNT(*) AS donation_count,
-            COALESCE(SUM(amount), 0) AS total_amount,
-            COUNT(DISTINCT discord_user_id) AS linked_donors
+            COALESCE(SUM(amount), 0) AS total_amount
         FROM donations
         WHERE guild_id = ?
-    `).get(String(guildId));
+    `).get(guildId);
 
     return {
-        donationCount: Number(
-            row?.donation_count || 0
-        ),
-
-        totalAmountCents: Number(
-            row?.total_amount || 0
-        ),
-
-        totalAmount: amountFromCents(
-            row?.total_amount || 0
-        ),
-
-        linkedDonors: Number(
-            row?.linked_donors || 0
-        )
+        donationCount: Number(stats?.donation_count || 0),
+        totalAmount: Number(stats?.total_amount || 0)
     };
 }
 
-// --------------------------------------------------------
-// FORMATTING
-// --------------------------------------------------------
+// ------------------------------------------------------------
+// Formatting
+// ------------------------------------------------------------
 
-function formatAmount(
-    cents,
-    currency = "USD"
-) {
-    const amount =
-        Number(cents || 0) / 100;
-
-    try {
-        return new Intl.NumberFormat(
-            undefined,
-            {
-                style: "currency",
-                currency: String(
-                    currency || "USD"
-                ).toUpperCase()
-            }
-        ).format(amount);
-    } catch {
-        return `${amount.toFixed(2)} ${String(
-            currency || "USD"
-        ).toUpperCase()}`;
-    }
+function formatUSD(cents) {
+    return `$${(Number(cents || 0) / 100).toFixed(2)}`;
 }
 
-// --------------------------------------------------------
-// EXPORTS
-// --------------------------------------------------------
+function formatTierAmount(amount) {
+    return `$${Number(amount || 0).toFixed(0)}`;
+}
+
+// ------------------------------------------------------------
+// Exports
+// ------------------------------------------------------------
 
 module.exports = {
-    ensureSettings,
     getSettings,
     updateSettings,
+    resetSettings,
 
-    normalizeTierId,
     setTier,
-    getTier,
     removeTier,
+    getTier,
     listTiers,
-    getTierForAmount,
+    toggleTier,
 
-    hasDonation,
-    recordDonation,
-    getDonation,
+    addDonation,
+    getDonationByTransactionId,
     listDonations,
-    getStats,
 
-    centsFromAmount,
-    amountFromCents,
-    formatAmount,
-    hashEmail
+    getDonationStats,
+
+    formatUSD,
+    formatTierAmount
 };
