@@ -11,100 +11,156 @@ const {
 } = require("discord.js");
 
 const db = require("../database/database");
-
-// Initialize donor database tables
-require("../database/donor");
+const donorDb = require("../database/donor");
 
 function isAdmin(interaction) {
-    return interaction.member?.permissions?.has(
-        PermissionFlagsBits.Administrator
+    return interaction.memberPermissions?.has(
+        PermissionFlagsBits.ManageGuild
     );
 }
 
 function getSettings(guildId) {
-    let settings = db.prepare(`
-        SELECT *
-        FROM donor_settings
-        WHERE guild_id = ?
-    `).get(String(guildId));
+    const settings = donorDb.getSettings(String(guildId));
 
-    if (!settings) {
-        db.prepare(`
-            INSERT INTO donor_settings (
-                guild_id,
-                enabled,
-                kofi_url,
-                announcement_channel_id,
-                log_channel_id,
-                announcements_enabled,
-                logging_enabled,
-                announcement_message
+    return {
+        enabled: Number(settings?.enabled ?? 1),
+        kofi_url: String(settings?.kofi_url ?? ""),
+        announcement_channel_id:
+            settings?.announcement_channel_id
+                ? String(settings.announcement_channel_id)
+                : null,
+        log_channel_id:
+            settings?.log_channel_id
+                ? String(settings.log_channel_id)
+                : null,
+        announcements_enabled:
+            Number(settings?.announcements_enabled ?? 1),
+        logging_enabled:
+            Number(settings?.logging_enabled ?? 1),
+        announcement_message:
+            String(
+                settings?.announcement_message ??
+                "Thank you {user} for supporting ASTER! 💜"
             )
-            VALUES (?, 1, '', NULL, NULL, 1, 1, ?)
-        `).run(
-            String(guildId),
-            "Thank you {user} for supporting ASTER! 💜"
-        );
-
-        settings = db.prepare(`
-            SELECT *
-            FROM donor_settings
-            WHERE guild_id = ?
-        `).get(String(guildId));
-    }
-
-    return settings;
+    };
 }
 
 function buildPanel(guildId) {
     const settings = getSettings(guildId);
+    const tiers = donorDb.listTiers(String(guildId)) || [];
 
-    const enabled = Number(settings.enabled) === 1;
-    const announcements = Number(settings.announcements_enabled) === 1;
-    const logging = Number(settings.logging_enabled) === 1;
+    const systemStatus = settings.enabled
+        ? "🟢 Enabled"
+        : "🔴 Disabled";
 
-    const tiers = db.prepare(`
-        SELECT tier_id, role_id, amount, enabled
-        FROM donor_tiers
-        WHERE guild_id = ?
-        ORDER BY amount ASC
-    `).all(guildId);
+    const announcementStatus = settings.announcements_enabled
+        ? "🟢 Enabled"
+        : "🔴 Disabled";
 
-    const container = new ContainerBuilder()
-        .setAccentColor(0x5865F2)
-        .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                "# ✦ ASTER • Donor System\n" +
-                "-# Manage Ko-fi donations, announcements, logging and donor tiers."
-            ),
-            new SeparatorBuilder(),
-            new TextDisplayBuilder().setContent(
-                `### ⚙️ System\n` +
-                `Status: **${enabled ? "Enabled" : "Disabled"}**\n` +
-                `Ko-fi: ${settings.provider_url ? `[Configured](${settings.provider_url})` : "**Not configured**"}`
-            ),
-            new SeparatorBuilder(),
-            new TextDisplayBuilder().setContent(
-                `### 📢 Notifications\n` +
-                `Announcements: **${announcements ? "On" : "Off"}**\n` +
-                `Announcement channel: ${settings.announcement_channel_id ? `<#${settings.announcement_channel_id}>` : "**Not set**"}\n` +
-                `Logging: **${logging ? "On" : "Off"}**\n` +
-                `Log channel: ${settings.log_channel_id ? `<#${settings.log_channel_id}>` : "**Not set**"}`
-            ),
-            new SeparatorBuilder(),
-            new TextDisplayBuilder().setContent(
-                `### 🏆 Donor Tiers\n` +
-                `${tiers.length ? tiers.map(t =>
-                    `• **${t.tier_id}** → <@&${t.role_id}> • **$${Number(t.amount).toFixed(0)}**`
-                ).join("\n") : "-# No donor tiers configured."}`
-            )
-        );
+    const loggingStatus = settings.logging_enabled
+        ? "🟢 Enabled"
+        : "🔴 Disabled";
+
+    const kofi = settings.kofi_url || "Not configured";
+
+    const announcementChannel =
+        settings.announcement_channel_id
+            ? `<#${settings.announcement_channel_id}>`
+            : "Not configured";
+
+    const logChannel =
+        settings.log_channel_id
+            ? `<#${settings.log_channel_id}>`
+            : "Not configured";
+
+    const tierText = tiers.length
+        ? tiers
+            .map((tier) => {
+                const status = Number(tier.enabled)
+                    ? "🟢"
+                    : "🔴";
+
+                const role = tier.role_id
+                    ? `<@&${tier.role_id}>`
+                    : "No role";
+
+                return `${status} **${String(tier.tier_id)}** — $${Number(
+                    tier.amount || 0
+                ).toFixed(0)} — ${role}`;
+            })
+            .join("\n")
+        : "No donor tiers configured.";
+
+    const container = new ContainerBuilder();
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+            "# 💜 ASTER Donor Configuration"
+        )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+            [
+                "## System",
+                `**Status:** ${systemStatus}`,
+                `**Ko-fi:** ${kofi}`,
+                `**Announcements:** ${announcementStatus}`,
+                `**Announcement channel:** ${announcementChannel}`,
+                `**Logging:** ${loggingStatus}`,
+                `**Log channel:** ${logChannel}`
+            ].join("\n")
+        )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+            [
+                "## Announcement Message",
+                settings.announcement_message ||
+                    "Thank you {user} for supporting ASTER! 💜"
+            ].join("\n")
+        )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+            [
+                "## Donor Tiers",
+                tierText
+            ].join("\n")
+        )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
 
     const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId("donor_toggle")
-            .setLabel(enabled ? "Disable System" : "Enable System")
-            .setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success),
+            .setLabel(
+                settings.enabled
+                    ? "Disable System"
+                    : "Enable System"
+            )
+            .setStyle(
+                settings.enabled
+                    ? ButtonStyle.Danger
+                    : ButtonStyle.Success
+            ),
 
         new ButtonBuilder()
             .setCustomId("donor_kofi")
@@ -125,44 +181,54 @@ function buildPanel(guildId) {
     const row2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId("donor_toggle_announcements")
-            .setLabel(announcements ? "Announcements: On" : "Announcements: Off")
-            .setStyle(announcements ? ButtonStyle.Success : ButtonStyle.Secondary),
+            .setLabel(
+                settings.announcements_enabled
+                    ? "Disable Announcements"
+                    : "Enable Announcements"
+            )
+            .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
             .setCustomId("donor_toggle_logging")
-            .setLabel(logging ? "Logging: On" : "Logging: Off")
-            .setStyle(logging ? ButtonStyle.Success : ButtonStyle.Secondary),
+            .setLabel(
+                settings.logging_enabled
+                    ? "Disable Logging"
+                    : "Enable Logging"
+            )
+            .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
-            .setCustomId("donor_message")
+            .setCustomId("donor_announcement_message")
             .setLabel("Announcement Message")
-            .setStyle(ButtonStyle.Primary),
-
-        new ButtonBuilder()
-            .setCustomId("donor_test")
-            .setLabel("Test Announcement")
-            .setStyle(ButtonStyle.Secondary)
+            .setStyle(ButtonStyle.Primary)
     );
 
     const row3 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
+            .setCustomId("donor_test")
+            .setLabel("Test Announcement")
+            .setStyle(ButtonStyle.Success),
+
+        new ButtonBuilder()
             .setCustomId("donor_add_tier")
             .setLabel("Add Tier")
-            .setStyle(ButtonStyle.Success),
+            .setStyle(ButtonStyle.Primary),
 
         new ButtonBuilder()
             .setCustomId("donor_manage_tiers")
             .setLabel("Manage Tiers")
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Secondary)
+    );
 
+    const row4 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId("donor_view")
+            .setCustomId("donor_view_config")
             .setLabel("View Config")
             .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
             .setCustomId("donor_reset")
-            .setLabel("Reset Settings")
+            .setLabel("Reset")
             .setStyle(ButtonStyle.Danger),
 
         new ButtonBuilder()
@@ -171,7 +237,12 @@ function buildPanel(guildId) {
             .setStyle(ButtonStyle.Secondary)
     );
 
-    return [container, row1, row2, row3];
+    container.addActionRowComponents(row1);
+    container.addActionRowComponents(row2);
+    container.addActionRowComponents(row3);
+    container.addActionRowComponents(row4);
+
+    return [container];
 }
 
 module.exports = {
@@ -179,21 +250,25 @@ module.exports = {
 
     data: new SlashCommandBuilder()
         .setName("donorconfig")
-        .setDescription("Manage the ASTER donor system")
+        .setDescription("Configure the ASTER donor system")
         .setDefaultMemberPermissions(
-            PermissionFlagsBits.Administrator
+            PermissionFlagsBits.ManageGuild.toString()
         ),
 
-    async execute(interaction) {
+    async execute(message) {
+        const interaction = message.interaction || message;
+
         if (!isAdmin(interaction)) {
             return interaction.reply({
-                content: "⛔ Administrator permission required.",
-                ephemeral: true
+                content: "❌ You need **Manage Server** permission to use this.",
+                flags: MessageFlags.Ephemeral
             });
         }
 
+        const components = buildPanel(interaction.guild.id);
+
         return interaction.reply({
-            components: buildPanel(interaction.guildId),
+            components,
             flags:
                 MessageFlags.IsComponentsV2 |
                 MessageFlags.Ephemeral
