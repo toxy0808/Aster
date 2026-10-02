@@ -13,8 +13,8 @@ const {
 const db = require("../database/database");
 const donorDb = require("../database/donor");
 
-function isAdmin(interaction) {
-    return interaction.memberPermissions?.has(
+function isAdmin(message) {
+    return message.member?.permissions?.has(
         PermissionFlagsBits.Administrator
     );
 }
@@ -256,24 +256,22 @@ module.exports = {
         ),
 
     async execute(message) {
-        const interaction = message.interaction || message;
-
-        if (!isAdmin(interaction)) {
-            return interaction.reply({
-                content: "❌ You need **Administrator permissions** permission to use this.",
-                flags: MessageFlags.Ephemeral
-            });
-        }
-
-        const components = buildPanel(interaction.guild.id);
-
-        return interaction.reply({
-            components,
-            flags:
-                MessageFlags.IsComponentsV2 |
-                MessageFlags.Ephemeral
+    if (!isAdmin(message)) {
+        return message.reply({
+            content: "❌ You need the **Administrator** permission to use this.",
+            flags: MessageFlags.Ephemeral
         });
-    },
+    }
+
+    const components = buildPanel(message.guild.id);
+
+    return message.reply({
+        components,
+        flags:
+            MessageFlags.IsComponentsV2 |
+            MessageFlags.Ephemeral
+    });
+},
 
     buildPanel
 };
