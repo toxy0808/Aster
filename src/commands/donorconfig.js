@@ -14,6 +14,8 @@ function isAdmin(message) {
 }
 
 module.exports = {
+    name: "donorconfig",
+
     data: new SlashCommandBuilder()
         .setName("donorconfig")
         .setDescription("Configure the ASTER donor system")
