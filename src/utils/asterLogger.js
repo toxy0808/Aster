@@ -5,22 +5,9 @@ const {
     MessageFlags
 } = require("discord.js");
 
-const db = require("../database/database")
+const db = require("../database/database");
 const { getConfig } = require("./serverConfig");
-
-// ========================================================
-// ASTER UI
-// ========================================================
-
 const symbols = require("./asterUI/symbols");
-const styles = require("./asterUI/styles");
-const timestamps = require("./asterUI/timestamps");
-
-// ========================================================
-// ASTER LOGGER
-// Centralized audit / system logging
-// Components V2 + ASTER UI
-// ========================================================
 
 class AsterLogger {
 
@@ -28,12 +15,11 @@ class AsterLogger {
         this.client = null;
     }
 
-    // ====================================================
+    // ========================================================
     // INITIALIZE
-    // ====================================================
+    // ========================================================
 
     init(client) {
-
         this.client = client;
 
         console.log(
@@ -41,9 +27,9 @@ class AsterLogger {
         );
     }
 
-    // ====================================================
-    // GET LOG CHANNEL
-    // ====================================================
+    // ========================================================
+    // GET CONFIGURED LOG CHANNEL
+    // ========================================================
 
     async getLogChannel(guildId) {
 
@@ -53,11 +39,9 @@ class AsterLogger {
 
         try {
 
-            const config =
-                getConfig(guildId);
+            const config = getConfig(String(guildId));
 
-            const channelId =
-                config?.log_channel;
+            const channelId = config?.log_channel;
 
             if (!channelId) {
                 return null;
@@ -65,18 +49,25 @@ class AsterLogger {
 
             const channel =
                 await this.client.channels
-                    .fetch(channelId)
+                    .fetch(String(channelId))
                     .catch(() => null);
 
             if (!channel) {
+                console.warn(
+                    `[ASTER LOGGER] Configured log channel ${channelId} could not be found.`
+                );
+
                 return null;
             }
 
-            // Make sure this is a text-capable channel
             if (
-                !channel.isTextBased ||
+                typeof channel.isTextBased !== "function" ||
                 !channel.isTextBased()
             ) {
+                console.warn(
+                    `[ASTER LOGGER] Configured log channel ${channelId} is not text based.`
+                );
+
                 return null;
             }
 
@@ -93,14 +84,13 @@ class AsterLogger {
         }
     }
 
-    // ====================================================
+    // ========================================================
     // BUILD DETAILS
-    // ====================================================
+    // ========================================================
 
     buildDetails(details = {}) {
 
-        const entries =
-            Object.entries(details);
+        const entries = Object.entries(details);
 
         if (!entries.length) {
             return null;
@@ -124,28 +114,25 @@ class AsterLogger {
 
                     try {
 
-                        formatted =
-                            JSON.stringify(
-                                value,
-                                null,
-                                2
-                            );
+                        formatted = JSON.stringify(
+                            value,
+                            null,
+                            2
+                        );
 
                     } catch {
 
-                        formatted =
-                            String(value);
+                        formatted = String(value);
+
                     }
 
                 } else {
 
-                    formatted =
-                        String(value);
+                    formatted = String(value);
+
                 }
 
-                // Discord TextDisplay safety
                 if (formatted.length > 1500) {
-
                     formatted =
                         formatted.slice(0, 1497) +
                         "...";
@@ -155,13 +142,14 @@ class AsterLogger {
                     `**${key}**\n` +
                     formatted
                 );
+
             })
             .join("\n\n");
     }
 
-    // ====================================================
-    // LOG
-    // ====================================================
+    // ========================================================
+    // MAIN LOG FUNCTION
+    // ========================================================
 
     async log({
         guildId,
@@ -176,42 +164,58 @@ class AsterLogger {
 
         try {
 
+            const normalizedGuildId =
+                guildId
+                    ? String(guildId)
+                    : null;
+
             // ------------------------------------------------
-            // CONSOLE
+            // ALWAYS CONSOLE LOG
             // ------------------------------------------------
 
             console.log(
-                `[ASTER:${type.toUpperCase()}] ${action}`,
+                `[ASTER:${String(type).toUpperCase()}] ${action}`,
                 details
             );
 
-            // ------------------------------------------------
-            // GUILD
-            // ------------------------------------------------
-
-            if (!guildId) {
-                return;
+            if (!normalizedGuildId) {
+                return false;
             }
 
             // ------------------------------------------------
-            // CHANNEL
+            // GET CONFIGURED CHANNEL
             // ------------------------------------------------
 
             const channel =
-                await this.getLogChannel(guildId);
+                await this.getLogChannel(
+                    normalizedGuildId
+                );
 
             if (!channel) {
-                return;
+                return false;
             }
 
             // ------------------------------------------------
             // ACTOR
             // ------------------------------------------------
 
-            const actor =
-                user?.id
-                    ? `<@${user.id}>`
-                    : "ASTER System";
+            let actor = "System";
+
+            if (user) {
+
+                if (user.id) {
+
+                    actor =
+                        user.tag ||
+                        user.username ||
+                        `<@${user.id}>`;
+
+                } else {
+
+                    actor = String(user);
+
+                }
+            }
 
             // ------------------------------------------------
             // DETAILS
@@ -221,193 +225,102 @@ class AsterLogger {
                 this.buildDetails(details);
 
             // ------------------------------------------------
-            // TYPE LABEL
-            // ------------------------------------------------
-
-            const typeLabel =
-                String(type)
-                    .toUpperCase();
-
-            // ------------------------------------------------
-            // CONTAINER
+            // BUILD COMPONENT
             // ------------------------------------------------
 
             const container =
                 new ContainerBuilder()
-                    .setAccentColor(color);
+                    .setAccentColor(color)
 
-            // ------------------------------------------------
-            // HEADER
-            // ------------------------------------------------
-
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder()
-                    .setContent(
-                        `# ${styles.brand.symbol} ASTER / ${typeLabel}\n` +
-                        `### ${symbol} ${action}\n` +
-                        `-# ${description || "No description provided."}`
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                `# ${symbol} ASTER / ${String(type).toUpperCase()}\n` +
+                                `### ${action}\n\n` +
+                                `${description || "No description provided."}`
+                            )
                     )
-            );
 
-            // ------------------------------------------------
-            // SEPARATOR
-            // ------------------------------------------------
-
-            container.addSeparatorComponents(
-                new SeparatorBuilder()
-            );
-
-            // ------------------------------------------------
-            // ACTOR + TIME
-            // ------------------------------------------------
-
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder()
-                    .setContent(
-                        `**${symbols.user} Actor**\n` +
-                        `${actor}\n\n` +
-
-                        `**${symbols.time} Time**\n` +
-                        `${timestamps.now()}`
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
                     )
-            );
 
-            // ------------------------------------------------
-            // DETAILS
-            // ------------------------------------------------
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                `**Actor**\n${actor}`
+                            )
+                    );
 
             if (detailText) {
 
-                container.addSeparatorComponents(
-                    new SeparatorBuilder()
-                );
-
-                container.addTextDisplayComponents(
-                    new TextDisplayBuilder()
-                        .setContent(
-                            `### ${styles.headers.section} Details\n` +
-                            detailText
-                        )
-                );
-            }
-
-            // ------------------------------------------------
-            // FOOTER
-            // ------------------------------------------------
-
-            container.addSeparatorComponents(
-                new SeparatorBuilder()
-            );
-
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder()
-                    .setContent(
-                        `-# ${styles.brand.symbol} ${styles.brand.name} • Audit System`
+                container
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
                     )
-            );
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                detailText
+                            )
+                    );
+            }
 
             // ------------------------------------------------
             // SEND
             // ------------------------------------------------
 
             await channel.send({
-    components: [container],
-    flags: MessageFlags.IsComponentsV2,
-    allowedMentions: {
-        users: [],
-        roles: [],
-        repliedUser: false
-    }
-});
+                components: [container],
+                flags: MessageFlags.IsComponentsV2
+            });
+
+            return true;
 
         } catch (error) {
 
             console.error(
-                `${symbols.error} ASTER Logger failed:`,
+                `${symbols.error} ASTER logger failed:`,
                 error
             );
+
+            return false;
         }
     }
 
-    // ====================================================
-    // SYSTEM
-    // ====================================================
-
-    system(
-        guildId,
-        action,
-        description,
-        details = {}
-    ) {
-
-        return this.log({
-            guildId,
-            type: "system",
-            action,
-            description,
-            details,
-            color: 0xFF4DA6,
-            symbol: symbols.brand
-        });
-    }
-
-    // ====================================================
+    // ========================================================
     // CONFIGURATION
-    // ====================================================
+    // ========================================================
 
-    config(
+    async config(
         guildId,
         action,
         description,
-        user,
+        user = null,
         details = {}
     ) {
 
         return this.log({
             guildId,
-            type: "configuration",
-            action,
-            description,
-            user,
-            details,
-            color: 0x9B59FF,
-            symbol: symbols.settings
-        });
-    }
-
-    // ====================================================
-    // AUTOMATION
-    // ====================================================
-
-    automation(
-        guildId,
-        action,
-        description,
-        user,
-        details = {}
-    ) {
-
-        return this.log({
-            guildId,
-            type: "automation",
+            type: "config",
             action,
             description,
             user,
             details,
             color: 0xFF4DA6,
-            symbol: symbols.automation
+            symbol: symbols.settings || symbols.brand
         });
     }
 
-    // ====================================================
+    // ========================================================
     // AUTORESPONDER
-    // ====================================================
+    // ========================================================
 
-    autoresponder(
+    async autoresponder(
         guildId,
         action,
         description,
-        user,
+        user = null,
         details = {}
     ) {
 
@@ -419,19 +332,19 @@ class AsterLogger {
             user,
             details,
             color: 0xFF4DA6,
-            symbol: symbols.autoresponder
+            symbol: symbols.autoresponder || symbols.brand
         });
     }
 
-    // ====================================================
+    // ========================================================
     // AUTOREACT
-    // ====================================================
+    // ========================================================
 
-    autoreact(
+    async autoreact(
         guildId,
         action,
         description,
-        user,
+        user = null,
         details = {}
     ) {
 
@@ -443,19 +356,19 @@ class AsterLogger {
             user,
             details,
             color: 0xFF4DA6,
-            symbol: symbols.autoreact
+            symbol: symbols.autoreact || symbols.brand
         });
     }
 
-    // ====================================================
+    // ========================================================
     // REPUTATION
-    // ====================================================
+    // ========================================================
 
-    reputation(
+    async reputation(
         guildId,
         action,
         description,
-        user,
+        user = null,
         details = {}
     ) {
 
@@ -467,18 +380,19 @@ class AsterLogger {
             user,
             details,
             color: 0xFF4DA6,
-            symbol: symbols.reputation
+            symbol: symbols.reputation || symbols.brand
         });
     }
 
-    // ====================================================
+    // ========================================================
     // LEADERBOARD
-    // ====================================================
+    // ========================================================
 
-    leaderboard(
+    async leaderboard(
         guildId,
         action,
         description,
+        user = null,
         details = {}
     ) {
 
@@ -487,20 +401,46 @@ class AsterLogger {
             type: "leaderboard",
             action,
             description,
+            user,
             details,
             color: 0xFF4DA6,
-            symbol: symbols.leaderboard
+            symbol: symbols.leaderboard || symbols.brand
         });
     }
 
-    // ====================================================
-    // ERROR
-    // ====================================================
+    // ========================================================
+    // SYSTEM
+    // ========================================================
 
-    error(
+    async system(
         guildId,
         action,
         description,
+        user = null,
+        details = {}
+    ) {
+
+        return this.log({
+            guildId,
+            type: "system",
+            action,
+            description,
+            user,
+            details,
+            color: 0xFF4DA6,
+            symbol: symbols.brand
+        });
+    }
+
+    // ========================================================
+    // ERROR
+    // ========================================================
+
+    async error(
+        guildId,
+        action,
+        description,
+        user = null,
         details = {}
     ) {
 
@@ -509,15 +449,13 @@ class AsterLogger {
             type: "error",
             action,
             description,
+            user,
             details,
-            color: 0xFF3B30,
-            symbol: symbols.error
+            color: 0xFF4D6D,
+            symbol: symbols.error || symbols.brand
         });
     }
 }
 
-// ========================================================
-// SINGLE LOGGER INSTANCE
-// ========================================================
-
-module.exports = new AsterLogger();
+module.exports =
+    new AsterLogger();
