@@ -3,7 +3,9 @@
 // ========================================================
 
 function unixTimestamp(date = new Date()) {
-    return Math.floor(new Date(date).getTime() / 1000);
+    const value = new Date(date).getTime();
+    if (!Number.isFinite(value)) throw new TypeError("Invalid date.");
+    return Math.floor(value / 1000);
 }
 
 function discordTimestamp(date = new Date(), style = "f") {

@@ -1,64 +1,58 @@
 // ========================================================
 // ASTER UI — SYMBOL SYSTEM
+// Keep semantic symbols centralized so the UI can be themed
+// without changing individual commands.
 // ========================================================
 
 module.exports = {
-    // Core
     brand: "✦",
     section: "◆",
     subSection: "◇",
 
-    // Status
     success: "✓",
     error: "✕",
     warning: "!",
     info: "ⓘ",
     pending: "◌",
 
-    // Activity
     chat: "◉",
     voice: "◈",
     activity: "⌁",
     time: "◷",
 
-    // Users
     user: "♙",
     users: "♙",
     staff: "♜",
 
-    // Rankings
     leaderboard: "♛",
     rank: "◆",
     trophy: "♛",
 
-    // Configuration
     settings: "⚙",
     config: "▣",
 
-    // Automation
     automation: "⌘",
     autoresponder: "↪",
     autoreact: "✧",
 
-    // Reputation
     reputation: "✚",
     positive: "+",
     negative: "−",
 
-    // Levels / XP
     level: "◇",
     xp: "✦",
 
-    // Actions
     add: "+",
     remove: "−",
     edit: "✎",
     delete: "⌫",
     refresh: "↻",
     search: "⌕",
-
-    // Misc
+    back: "‹",
+    next: "›",
     link: "↗",
+    external: "↗",
+
     lock: "◆",
     unlock: "◇",
     online: "●",
