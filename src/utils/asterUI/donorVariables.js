@@ -10,68 +10,95 @@ const {
     StringSelectMenuBuilder
 } = require("discord.js");
 
-const symbols =
-    require("./symbols");
+const symbols = require("./symbols");
+const styles = require("./styles");
 
-const ACCENT = 0xFF4DA6;
+const ACCENT =
+    styles?.getTheme?.().colors?.accent ??
+    0x7C5CFF;
 
-/* =========================================================
-   Helpers
-========================================================= */
+/* ============================================================
+   HELPERS
+   ============================================================ */
 
 function text(content) {
     return new TextDisplayBuilder()
-        .setContent(String(content ?? ""));
+        .setContent(
+            String(content ?? "")
+        );
 }
 
 function separator() {
     return new SeparatorBuilder()
         .setDivider(true)
-        .setSpacing(SeparatorSpacingSize.Small);
+        .setSpacing(
+            SeparatorSpacingSize.Small
+        );
 }
 
-function container(...components) {
+function container() {
     return new ContainerBuilder()
-        .setAccentColor(ACCENT)
-        .addTextDisplayComponents(
-            ...components.filter(
-                component =>
-                    component instanceof TextDisplayBuilder
-            )
-        );
+        .setAccentColor(ACCENT);
 }
 
 function enabled(value) {
     return Number(value) === 1
-        ? "Enabled"
-        : "Disabled";
+        ? "● Enabled"
+        : "○ Disabled";
 }
 
 function channel(id) {
     return id
         ? `<#${id}>`
-        : "Not configured";
+        : "`Not configured`";
 }
 
 function role(id) {
     return id
         ? `<@&${id}>`
-        : "Not configured";
+        : "`Not configured`";
 }
 
 function kofi(url) {
     return url
-        ? `[Ko-fi](${url})`
-        : "Not configured";
+        ? `[Open Ko-fi](<${url}>)`
+        : "`Not configured`";
 }
 
-/* =========================================================
-   Donor variable replacement
-========================================================= */
+function amount(value) {
+    const number = Number(value);
+
+    return Number.isFinite(number)
+        ? number.toFixed(0)
+        : "0";
+}
+
+function button(
+    customId,
+    label,
+    style = ButtonStyle.Secondary
+) {
+    return new ButtonBuilder()
+        .setCustomId(customId)
+        .setLabel(label)
+        .setStyle(style);
+}
+
+function header(
+    title,
+    description
+) {
+    return text(
+        `# ${symbols.brand || "✦"} ${title}\n` +
+        `-# ${description}`
+    );
+}
+
+/* ============================================================
+   DONOR VARIABLE REPLACEMENT
+   ============================================================ */
 
 /**
- * Replaces donor announcement variables.
- *
  * Supported variables:
  *
  * {user}
@@ -99,7 +126,7 @@ function replaceDonorVariables(
         channel,
         role,
         tier,
-        amount,
+        amount: donationAmount,
         currency,
         settings
     } = variables;
@@ -148,8 +175,8 @@ function replaceDonorVariables(
                 : "",
 
         "{amount}":
-            amount != null
-                ? String(amount)
+            donationAmount != null
+                ? String(donationAmount)
                 : "0",
 
         "{currency}":
@@ -159,34 +186,48 @@ function replaceDonorVariables(
     };
 
     for (
-        const [variable, value]
-        of Object.entries(replacements)
-    ) {
-        output = output.replaceAll(
+        const [
             variable,
             value
-        );
+        ] of Object.entries(
+            replacements
+        )
+    ) {
+        output =
+            output.replaceAll(
+                variable,
+                value
+            );
     }
 
     return output;
 }
 
-/* =========================================================
-   Main donor configuration panel
-========================================================= */
+/* ============================================================
+   MAIN DONOR PANEL
+   ============================================================ */
 
 function buildPanel(
-    settings,
+    settings = {},
     tiers = []
 ) {
     const panel =
-        new ContainerBuilder()
-            .setAccentColor(ACCENT);
+        container();
+
+    const activeTiers =
+        tiers.filter(
+            tier =>
+                Number(tier.enabled) === 1
+        );
+
+    const message =
+        settings.announcement_message ||
+        "Thank you {user} for supporting {guild}! 💜";
 
     panel.addTextDisplayComponents(
-        text(
-            "# 💜 ASTER Donor System\n" +
-            "Configure donations, Ko-fi integration, announcement messages, and donor tiers."
+        header(
+            "ASTER / DONOR SYSTEM",
+            "Donation management, announcements, logging and donor rewards."
         )
     );
 
@@ -196,77 +237,88 @@ function buildPanel(
 
     panel.addTextDisplayComponents(
         text(
-            "### ⚙️ Configuration\n" +
-            `**Announcements:** ${enabled(settings?.announcements_enabled)}\n` +
-            `**Announcement Channel:** ${channel(settings?.announcement_channel_id)}\n` +
-            `**Ko-fi Webhook:** ${enabled(settings?.kofi_enabled)}\n` +
-            `**Ko-fi Link:** ${kofi(settings?.kofi_url)}`
+            `### ◇ System\n` +
+            `**Status**  ${enabled(settings.enabled)}\n` +
+            `**Ko-fi**  ${kofi(settings.kofi_url)}\n\n` +
+
+            `### ⌘ Announcements\n` +
+            `**Status**  ${enabled(settings.announcements_enabled)}\n` +
+            `**Channel**  ${channel(settings.announcement_channel_id)}\n\n` +
+
+            `### ◈ Logging\n` +
+            `**Status**  ${enabled(settings.logging_enabled)}\n` +
+            `**Channel**  ${channel(settings.log_channel_id)}`
         )
     );
 
     panel.addSeparatorComponents(
         separator()
+    );
+
+    /* --------------------------------------------------------
+       System controls
+    -------------------------------------------------------- */
+
+    panel.addTextDisplayComponents(
+        text("### ✦ System Controls")
     );
 
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_toggle_announcements"
-                    )
-                    .setLabel(
-                        Number(settings?.announcements_enabled) === 1
-                            ? "Disable Announcements"
-                            : "Enable Announcements"
-                    )
-                    .setStyle(
-                        Number(settings?.announcements_enabled) === 1
-                            ? ButtonStyle.Danger
-                            : ButtonStyle.Success
-                    ),
+                button(
+                    "donor_toggle",
+                    settings.enabled
+                        ? "Disable System"
+                        : "Enable System",
+                    settings.enabled
+                        ? ButtonStyle.Danger
+                        : ButtonStyle.Success
+                ),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_toggle_kofi"
-                    )
-                    .setLabel(
-                        Number(settings?.kofi_enabled) === 1
-                            ? "Disable Ko-fi"
-                            : "Enable Ko-fi"
-                    )
-                    .setStyle(
-                        Number(settings?.kofi_enabled) === 1
-                            ? ButtonStyle.Danger
-                            : ButtonStyle.Success
-                    )
+                button(
+                    "donor_toggle_announcements",
+                    settings.announcements_enabled
+                        ? "Disable Announcements"
+                        : "Enable Announcements",
+                    settings.announcements_enabled
+                        ? ButtonStyle.Danger
+                        : ButtonStyle.Success
+                ),
+
+                button(
+                    "donor_toggle_logging",
+                    settings.logging_enabled
+                        ? "Disable Logging"
+                        : "Enable Logging",
+                    settings.logging_enabled
+                        ? ButtonStyle.Danger
+                        : ButtonStyle.Success
+                )
             )
     );
+
+    /* --------------------------------------------------------
+       Channel / Ko-fi controls
+    -------------------------------------------------------- */
 
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_channel_announcement"
-                    )
-                    .setLabel(
-                        "Announcement Channel"
-                    )
-                    .setStyle(
-                        ButtonStyle.Primary
-                    ),
+                button(
+                    "donor_kofi",
+                    "Ko-fi URL"
+                ),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_kofi_settings"
-                    )
-                    .setLabel(
-                        "Ko-fi Settings"
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
+                button(
+                    "donor_announcement_channel",
+                    "Announcement Channel"
+                ),
+
+                button(
+                    "donor_log_channel",
+                    "Log Channel"
+                )
             )
     );
 
@@ -274,27 +326,42 @@ function buildPanel(
         separator()
     );
 
+    /* --------------------------------------------------------
+       Donor tiers
+    -------------------------------------------------------- */
+
     panel.addTextDisplayComponents(
         text(
-            `### 🏆 Donor Tiers\n` +
-            `Configured tiers: **${tiers.length}**`
+            `### ♛ Donor Tiers\n` +
+            `-# ${activeTiers.length} active ${
+                activeTiers.length === 1
+                    ? "tier"
+                    : "tiers"
+            }`
         )
     );
 
-    if (tiers.length) {
-        for (const tier of tiers) {
+    if (activeTiers.length) {
+        for (
+            const tier of activeTiers.slice(
+                0,
+                10
+            )
+        ) {
             panel.addTextDisplayComponents(
                 text(
-                    `**${tier.tier_id}** — ${tier.amount} ${tier.currency || "USD"}\n` +
-                    `Role: ${role(tier.role_id)}\n` +
-                    `Status: ${enabled(tier.enabled)}`
+                    `**◆ ${tier.tier_id}**  •  ` +
+                    `**${amount(tier.amount)} ${
+                        tier.currency || "USD"
+                    }**\n` +
+                    `${role(tier.role_id)}`
                 )
             );
         }
     } else {
         panel.addTextDisplayComponents(
             text(
-                "No donor tiers have been configured yet."
+                "`No active donor tiers configured.`"
             )
         );
     }
@@ -302,27 +369,16 @@ function buildPanel(
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_tier_add"
-                    )
-                    .setLabel(
-                        "Add Tier"
-                    )
-                    .setStyle(
-                        ButtonStyle.Success
-                    ),
+                button(
+                    "donor_tier_add",
+                    "Add Tier",
+                    ButtonStyle.Primary
+                ),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_tier_manage"
-                    )
-                    .setLabel(
-                        "Manage Tiers"
-                    )
-                    .setStyle(
-                        ButtonStyle.Primary
-                    )
+                button(
+                    "donor_tier_manage",
+                    "Manage Tiers"
+                )
             )
     );
 
@@ -330,76 +386,89 @@ function buildPanel(
         separator()
     );
 
-    panel.addActionRowComponents(
-        row =>
-            row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_variables"
-                    )
-                    .setLabel(
-                        "Variables"
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    ),
+    /* --------------------------------------------------------
+       Announcement
+    -------------------------------------------------------- */
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_config_view"
-                    )
-                    .setLabel(
-                        "View Config"
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    ),
-
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_test"
-                    )
-                    .setLabel(
-                        "Test Announcement"
-                    )
-                    .setStyle(
-                        ButtonStyle.Primary
-                    )
-            )
+    panel.addTextDisplayComponents(
+        text(
+            `### ✦ Announcement\n` +
+            `\`\`\`\n` +
+            `${String(message).slice(
+                0,
+                900
+            )}\n` +
+            `\`\`\``
+        )
     );
 
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_reset"
-                    )
-                    .setLabel(
-                        "Reset Donor System"
-                    )
-                    .setStyle(
-                        ButtonStyle.Danger
-                    )
+                button(
+                    "donor_variables",
+                    "Variables",
+                    ButtonStyle.Primary
+                ),
+
+                button(
+                    "donor_test",
+                    "Test Announcement",
+                    ButtonStyle.Success
+                )
             )
+    );
+
+    panel.addSeparatorComponents(
+        separator()
+    );
+
+    /* --------------------------------------------------------
+       Utility controls
+    -------------------------------------------------------- */
+
+    panel.addActionRowComponents(
+        row =>
+            row.addComponents(
+                button(
+                    "donor_config_view",
+                    "View Config"
+                ),
+
+                button(
+                    "donor_refresh",
+                    "Refresh"
+                ),
+
+                button(
+                    "donor_reset",
+                    "Reset",
+                    ButtonStyle.Danger
+                )
+            )
+    );
+
+    panel.addTextDisplayComponents(
+        text(
+            "-# ASTER Donor System • Administrator configuration"
+        )
     );
 
     return [panel];
 }
 
-/* =========================================================
-   Variable reference
-========================================================= */
+/* ============================================================
+   VARIABLES / GUIDE
+   ============================================================ */
 
 function buildVariables() {
     const panel =
-        new ContainerBuilder()
-            .setAccentColor(ACCENT);
+        container();
 
     panel.addTextDisplayComponents(
-        text(
-            "# 🧩 Donor Variables\n" +
-            "These variables can be used in donor announcement messages."
+        header(
+            "ASTER / DONOR GUIDE",
+            "Dynamic variables available inside donor announcements."
         )
     );
 
@@ -409,35 +478,16 @@ function buildVariables() {
 
     panel.addTextDisplayComponents(
         text(
-            "**{user}**\n" +
-            "Mentions the user who made the donation.\n\n" +
+            `### ◇ User Variables\n\n` +
 
-            "**{username}**\n" +
-            "Displays the donor's username.\n\n" +
+            `**{user}**\n` +
+            `Mentions the donor.\n\n` +
 
-            "**{member}**\n" +
-            "Mentions the donor as a server member.\n\n" +
+            `**{username}**\n` +
+            `Shows the donor's username.\n\n` +
 
-            "**{guild}**\n" +
-            "Displays the server name.\n\n" +
-
-            "**{channel}**\n" +
-            "Mentions the configured announcement channel.\n\n" +
-
-            "**{link}**\n" +
-            "Displays the configured Ko-fi URL.\n\n" +
-
-            "**{role}**\n" +
-            "Mentions the donor tier role.\n\n" +
-
-            "**{tier}**\n" +
-            "Displays the donor tier ID/name.\n\n" +
-
-            "**{amount}**\n" +
-            "Displays the donation amount.\n\n" +
-
-            "**{currency}**\n" +
-            "Displays the donation currency."
+            `**{member}**\n` +
+            `Mentions the Discord member.`
         )
     );
 
@@ -447,45 +497,100 @@ function buildVariables() {
 
     panel.addTextDisplayComponents(
         text(
-            "**Example:**\n" +
-            "Thank you {user} for supporting {guild} with a {tier} donation of {amount} {currency}! 💜"
+            `### ◈ Server Variables\n\n` +
+
+            `**{guild}**\n` +
+            `Shows the server name.\n\n` +
+
+            `**{channel}**\n` +
+            `Mentions the announcement channel.\n\n` +
+
+            `**{link}**\n` +
+            `Inserts your Ko-fi URL.`
+        )
+    );
+
+    panel.addSeparatorComponents(
+        separator()
+    );
+
+    panel.addTextDisplayComponents(
+        text(
+            `### ♛ Donation Variables\n\n` +
+
+            `**{role}**\n` +
+            `Mentions the donor tier role.\n\n` +
+
+            `**{tier}**\n` +
+            `Shows the donor tier.\n\n` +
+
+            `**{amount}**\n` +
+            `Shows the donation amount.\n\n` +
+
+            `**{currency}**\n` +
+            `Shows the donation currency.`
+        )
+    );
+
+    panel.addSeparatorComponents(
+        separator()
+    );
+
+    panel.addTextDisplayComponents(
+        text(
+            `### ✦ Example\n\n` +
+            `> Thank you {user} for supporting {guild}! 💜\n` +
+            `> Tier: {tier}\n` +
+            `> Donation: {amount} {currency}\n` +
+            `> Support: {link}`
+        )
+    );
+
+    panel.addSeparatorComponents(
+        separator()
+    );
+
+    panel.addTextDisplayComponents(
+        text(
+            `### ⌘ Setup Checklist\n\n` +
+            `◆ Configure Ko-fi\n` +
+            `◆ Select announcement channel\n` +
+            `◆ Select logging channel\n` +
+            `◆ Create donor tiers\n` +
+            `◆ Assign donor roles\n` +
+            `◆ Customize the message\n` +
+            `◆ Run a test`
         )
     );
 
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_config_back"
-                    )
-                    .setLabel(
-                        "Back"
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
+                button(
+                    "donor_config_back",
+                    "Back"
+                )
             )
     );
 
     return [panel];
 }
 
-/* =========================================================
-   Configuration view
-========================================================= */
+/* ============================================================
+   CONFIGURATION VIEW
+   ============================================================ */
 
 function buildConfigView(
-    settings,
+    settings = {},
     tiers = []
 ) {
     const panel =
-        new ContainerBuilder()
-            .setAccentColor(ACCENT);
+        container();
 
     panel.addTextDisplayComponents(
-        text(
-            "# ⚙️ Donor Configuration"
+        header(
+            "ASTER / DONOR CONFIG",
+            "Current donor configuration."
         )
     );
 
@@ -495,14 +600,9 @@ function buildConfigView(
 
     panel.addTextDisplayComponents(
         text(
-            `**Announcements:** ${enabled(settings?.announcements_enabled)}\n` +
-            `**Announcement Channel:** ${channel(settings?.announcement_channel_id)}\n\n` +
-
-            `**Ko-fi:** ${enabled(settings?.kofi_enabled)}\n` +
-            `**Ko-fi URL:** ${kofi(settings?.kofi_url)}\n\n` +
-
-            `**Announcement Message:**\n` +
-            `${settings?.announcement_message || "Not configured"}`
+            `### ◇ General\n` +
+            `**System**  ${enabled(settings.enabled)}\n` +
+            `**Ko-fi**  ${kofi(settings.kofi_url)}`
         )
     );
 
@@ -512,81 +612,94 @@ function buildConfigView(
 
     panel.addTextDisplayComponents(
         text(
-            `### 🏆 Tiers (${tiers.length})`
+            `### ⌘ Announcements\n` +
+            `**Enabled**  ${enabled(settings.announcements_enabled)}\n` +
+            `**Channel**  ${channel(settings.announcement_channel_id)}\n` +
+            `**Message**  ${
+                settings.announcement_message
+                    ? "Configured"
+                    : "Default"
+            }`
         )
     );
 
-    if (tiers.length) {
-        for (const tier of tiers) {
-            panel.addTextDisplayComponents(
-                text(
-                    `**${tier.tier_id}**\n` +
-                    `Amount: ${tier.amount} ${tier.currency || "USD"}\n` +
-                    `Role: ${role(tier.role_id)}\n` +
-                    `Enabled: ${enabled(tier.enabled)}`
+    panel.addSeparatorComponents(
+        separator()
+    );
+
+    panel.addTextDisplayComponents(
+        text(
+            `### ◈ Logging\n` +
+            `**Enabled**  ${enabled(settings.logging_enabled)}\n` +
+            `**Channel**  ${channel(settings.log_channel_id)}`
+        )
+    );
+
+    panel.addSeparatorComponents(
+        separator()
+    );
+
+    const tierText =
+        tiers.length
+            ? tiers
+                .slice(0, 15)
+                .map(
+                    tier =>
+                        `**◆ ${tier.tier_id}** — ` +
+                        `${amount(tier.amount)} ${
+                            tier.currency || "USD"
+                        } — ` +
+                        `${role(tier.role_id)} — ` +
+                        `${enabled(tier.enabled)}`
                 )
-            );
-        }
-    } else {
-        panel.addTextDisplayComponents(
-            text(
-                "No tiers configured."
-            )
-        );
-    }
+                .join("\n")
+            : "`No tiers configured.`";
+
+    panel.addTextDisplayComponents(
+        text(
+            `### ♛ Donor Tiers\n${tierText}`
+        )
+    );
 
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_config_back"
-                    )
-                    .setLabel(
-                        "Back"
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
+                button(
+                    "donor_config_back",
+                    "Back"
+                )
             )
     );
 
     return [panel];
 }
 
-/* =========================================================
-   Announcement channel picker
-========================================================= */
+/* ============================================================
+   CHANNEL PICKER
+   ============================================================ */
 
 function buildChannelPicker(
     type,
     currentId
 ) {
     const panel =
-        new ContainerBuilder()
-            .setAccentColor(ACCENT);
+        container();
 
-    const picker =
-        new ChannelSelectMenuBuilder()
-            .setCustomId(
-                `donor_channel_select_${type}`
-            )
-            .setPlaceholder(
-                currentId
-                    ? "Change announcement channel"
-                    : "Select announcement channel"
-            )
-            .setMinValues(1)
-            .setMaxValues(1);
+    const isAnnouncement =
+        type === "announcement";
+
+    const title =
+        isAnnouncement
+            ? "ANNOUNCEMENT CHANNEL"
+            : "LOGGING CHANNEL";
+
+    const customId =
+        `donor_channel_select_${type}`;
 
     panel.addTextDisplayComponents(
-        text(
-            "# 📢 Announcement Channel\n" +
-            (
-                currentId
-                    ? `Current channel: <#${currentId}>`
-                    : "No announcement channel configured."
-            )
+        header(
+            `ASTER / ${title}`,
+            "Choose the Discord channel used by the donor system."
         )
     );
 
@@ -594,59 +707,56 @@ function buildChannelPicker(
         separator()
     );
 
+    panel.addTextDisplayComponents(
+        text(
+            `### ◇ Current\n` +
+            `${channel(currentId)}`
+        )
+    );
+
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                picker
+                new ChannelSelectMenuBuilder()
+                    .setCustomId(customId)
+                    .setPlaceholder(
+                        currentId
+                            ? "Change channel"
+                            : "Select channel"
+                    )
+                    .setMinValues(1)
+                    .setMaxValues(1)
             )
     );
 
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_config_back"
-                    )
-                    .setLabel(
-                        "Back"
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
+                button(
+                    "donor_config_back",
+                    "Back"
+                )
             )
     );
 
     return [panel];
 }
 
-/* =========================================================
-   Donor tier role picker
-========================================================= */
+/* ============================================================
+   TIER ROLE PICKER
+   ============================================================ */
 
 function buildTierRolePicker(
     tierId,
-    amount
+    donationAmount
 ) {
     const panel =
-        new ContainerBuilder()
-            .setAccentColor(ACCENT);
-
-    const picker =
-        new RoleSelectMenuBuilder()
-            .setCustomId(
-                `donor_tier_role_${tierId}_${amount}`
-            )
-            .setPlaceholder(
-                "Select the donor tier role"
-            )
-            .setMinValues(1)
-            .setMaxValues(1);
+        container();
 
     panel.addTextDisplayComponents(
-        text(
-            `# 🎭 Role for ${tierId}\n` +
-            `Donation amount: **${amount}**`
+        header(
+            "ASTER / DONOR ROLE",
+            "Connect a Discord role to this donor tier."
         )
     );
 
@@ -654,47 +764,58 @@ function buildTierRolePicker(
         separator()
     );
 
+    panel.addTextDisplayComponents(
+        text(
+            `### ◇ Tier\n` +
+            `**${tierId}**\n\n` +
+
+            `### ◈ Donation Amount\n` +
+            `**${amount(donationAmount)}**`
+        )
+    );
+
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                picker
+                new RoleSelectMenuBuilder()
+                    .setCustomId(
+                        `donor_tier_role_${tierId}_${donationAmount}`
+                    )
+                    .setPlaceholder(
+                        "Select donor role"
+                    )
+                    .setMinValues(1)
+                    .setMaxValues(1)
             )
     );
 
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_tier_manage"
-                    )
-                    .setLabel(
-                        "Back"
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
+                button(
+                    "donor_tier_manage",
+                    "Back"
+                )
             )
     );
 
     return [panel];
 }
 
-/* =========================================================
-   Tier manager
-========================================================= */
+/* ============================================================
+   TIER MANAGER
+   ============================================================ */
 
 function buildTierManager(
     tiers = []
 ) {
     const panel =
-        new ContainerBuilder()
-            .setAccentColor(ACCENT);
+        container();
 
     panel.addTextDisplayComponents(
-        text(
-            "# 🏆 Donor Tier Manager\n" +
-            "Select a donor tier to manage."
+        header(
+            "ASTER / DONOR TIERS",
+            "Manage donor tiers and their Discord rewards."
         )
     );
 
@@ -705,91 +826,106 @@ function buildTierManager(
     if (!tiers.length) {
         panel.addTextDisplayComponents(
             text(
-                "No donor tiers have been configured."
+                `### ✦ No Tiers Yet\n` +
+                `There are currently no donor tiers configured.\n\n` +
+                `Use **Add Tier** to create the first one.`
             )
         );
-    } else {
-        const options =
-            tiers.map(tier => ({
-                label:
-                    String(tier.tier_id).slice(
-                        0,
-                        100
-                    ),
-                description:
-                    `${tier.amount} ${tier.currency || "USD"} • ` +
-                    `${Number(tier.enabled) === 1 ? "Enabled" : "Disabled"}`.slice(
-                        0,
-                        100
-                    ),
-                value:
-                    String(tier.tier_id)
-            }));
-
-        const select =
-            new StringSelectMenuBuilder()
-                .setCustomId(
-                    "donor_tier_select"
-                )
-                .setPlaceholder(
-                    "Select a donor tier"
-                )
-                .addOptions(
-                    options
-                );
 
         panel.addActionRowComponents(
             row =>
                 row.addComponents(
-                    select
+                    button(
+                        "donor_tier_add",
+                        "Add Tier",
+                        ButtonStyle.Primary
+                    ),
+
+                    button(
+                        "donor_config_back",
+                        "Back"
+                    )
                 )
         );
+
+        return [panel];
     }
 
+    panel.addTextDisplayComponents(
+        text(
+            `### ◇ Available Tiers\n` +
+            `Select a tier to manage it.`
+        )
+    );
+
+    const options =
+        tiers
+            .slice(0, 25)
+            .map(tier => ({
+                label:
+                    `${tier.tier_id} — ` +
+                    `${amount(tier.amount)} ${
+                        tier.currency || "USD"
+                    }`,
+                description:
+                    tier.role_id
+                        ? "Discord role configured"
+                        : "Discord role not configured",
+                value:
+                    String(tier.tier_id)
+            }));
+
+    const menu =
+        new StringSelectMenuBuilder()
+            .setCustomId(
+                "donor_tier_select"
+            )
+            .setPlaceholder(
+                "Select a donor tier"
+            )
+            .addOptions(options);
+
+    panel.addActionRowComponents(
+        row =>
+            row.addComponents(menu)
+    );
+
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_tier_add"
-                    )
-                    .setLabel(
-                        "Add Tier"
-                    )
-                    .setStyle(
-                        ButtonStyle.Success
-                    ),
+                button(
+                    "donor_tier_add",
+                    "Add Tier",
+                    ButtonStyle.Primary
+                ),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_config_back"
-                    )
-                    .setLabel(
-                        "Back"
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
+                button(
+                    "donor_config_back",
+                    "Back"
+                )
             )
     );
 
     return [panel];
 }
 
-/* =========================================================
-   Selected tier
-========================================================= */
+/* ============================================================
+   SELECTED TIER
+   ============================================================ */
 
 function buildSelectedTier(
-    tier
+    tier = {}
 ) {
+    const active =
+        Number(tier.enabled) === 1;
+
     const panel =
-        new ContainerBuilder()
-            .setAccentColor(ACCENT);
+        container();
 
     panel.addTextDisplayComponents(
-        text(
-            `# 🏆 ${tier.tier_id}`
+        header(
+            `ASTER / ${tier.tier_id || "TIER"}`,
+            "Manage this donor reward tier."
         )
     );
 
@@ -799,9 +935,19 @@ function buildSelectedTier(
 
     panel.addTextDisplayComponents(
         text(
-            `**Amount:** ${tier.amount} ${tier.currency || "USD"}\n` +
-            `**Role:** ${role(tier.role_id)}\n` +
-            `**Status:** ${enabled(tier.enabled)}`
+            `### ◇ Tier\n` +
+            `**${tier.tier_id || "Unknown"}**\n\n` +
+
+            `### ◈ Donation\n` +
+            `**${amount(tier.amount)} ${
+                tier.currency || "USD"
+            }**\n\n` +
+
+            `### ♛ Discord Role\n` +
+            `${role(tier.role_id)}\n\n` +
+
+            `### ⌘ Status\n` +
+            `${enabled(tier.enabled)}`
         )
     );
 
@@ -809,84 +955,49 @@ function buildSelectedTier(
         separator()
     );
 
-    /*
-     * IMPORTANT:
-     * The interaction handler expects the tier role
-     * custom ID to contain both the tier ID and amount.
-     */
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        `donor_tier_toggle_${tier.tier_id}`
-                    )
-                    .setLabel(
-                        Number(tier.enabled) === 1
-                            ? "Disable Tier"
-                            : "Enable Tier"
-                    )
-                    .setStyle(
-                        Number(tier.enabled) === 1
-                            ? ButtonStyle.Danger
-                            : ButtonStyle.Success
-                    ),
+                button(
+                    `donor_tier_role_picker_${tier.tier_id}`,
+                    "Change Role",
+                    ButtonStyle.Primary
+                ),
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        `donor_tier_delete_${tier.tier_id}`
-                    )
-                    .setLabel(
-                        "Delete Tier"
-                    )
-                    .setStyle(
-                        ButtonStyle.Danger
-                    )
-            )
-    );
+                button(
+                    `donor_tier_toggle_${tier.tier_id}`,
+                    active
+                        ? "Disable"
+                        : "Enable",
+                    active
+                        ? ButtonStyle.Danger
+                        : ButtonStyle.Success
+                ),
 
-    /*
-     * This opens the role picker instead of pretending
-     * the button itself is a RoleSelectMenu interaction.
-     */
-    panel.addActionRowComponents(
-        row =>
-            row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        `donor_tier_role_picker_${tier.tier_id}`
-                    )
-                    .setLabel(
-                        "Change Role"
-                    )
-                    .setStyle(
-                        ButtonStyle.Primary
-                    )
+                button(
+                    `donor_tier_delete_${tier.tier_id}`,
+                    "Delete",
+                    ButtonStyle.Danger
+                )
             )
     );
 
     panel.addActionRowComponents(
         row =>
             row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        "donor_tier_manage"
-                    )
-                    .setLabel(
-                        "Back"
-                    )
-                    .setStyle(
-                        ButtonStyle.Secondary
-                    )
+                button(
+                    "donor_tier_manage",
+                    "Back to Tiers"
+                )
             )
     );
 
     return [panel];
 }
 
-/* =========================================================
-   Exports
-========================================================= */
+/* ============================================================
+   EXPORTS
+   ============================================================ */
 
 module.exports = {
     replaceDonorVariables,

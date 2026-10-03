@@ -1,19 +1,21 @@
 // ========================================================
-// ASTER UI — SYMBOL SYSTEM
-// Keep semantic symbols centralized so the UI can be themed
-// without changing individual commands.
+// ASTER UI — SEMANTIC SYMBOLS
 // ========================================================
 
 module.exports = {
     brand: "✦",
+
     section: "◆",
     subSection: "◇",
 
-    success: "✓",
-    error: "✕",
-    warning: "!",
-    info: "ⓘ",
+    success: "●",
+    error: "●",
+    warning: "●",
+    info: "●",
     pending: "◌",
+
+    online: "●",
+    offline: "○",
 
     chat: "◉",
     voice: "◈",
@@ -51,10 +53,7 @@ module.exports = {
     back: "‹",
     next: "›",
     link: "↗",
-    external: "↗",
 
     lock: "◆",
-    unlock: "◇",
-    online: "●",
-    offline: "○"
+    unlock: "◇"
 };

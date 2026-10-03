@@ -1,37 +1,37 @@
 // ========================================================
-// ASTER UI — THEME / STYLE SYSTEM
-// ========================================================
-//
-// Keep appearance here. Commands should not hard-code ASTER
-// symbols, accent colors, or repeated UI text.
-//
-// Discord container accent colors use integer RGB values.
+// ASTER UI — PREMIUM DESIGN SYSTEM
 // ========================================================
 
 const themes = {
     aster: {
         name: "ASTER",
-        symbol: "✦",
+        brand: {
+            symbol: "✦",
+            name: "ASTER"
+        },
+
         colors: {
-            accent: 0x5865F2,
-            success: 0x57F287,
-            warning: 0xFEE75C,
-            error: 0xED4245,
-            info: 0x5865F2,
-            neutral: 0x2B2D31
+            accent: 0x7C5CFF,
+            accentSoft: 0x5B46C9,
+            success: 0x43D17A,
+            warning: 0xF2C94C,
+            error: 0xFF5C7A,
+            info: 0x6EA8FF,
+            neutral: 0x20222A,
+            muted: 0x2B2E38
         },
 
         headers: {
-            default: "◆",
-            command: "✦",
+            default: "✦",
+            command: "◆",
             section: "◇"
         },
 
         status: {
-            success: "✓",
-            error: "✕",
-            warning: "!",
-            info: "ⓘ",
+            success: "●",
+            error: "●",
+            warning: "●",
+            info: "●",
             pending: "◌",
             online: "●",
             offline: "○"
@@ -48,7 +48,9 @@ const themes = {
             reputation: "✚",
             level: "◇",
             time: "◷",
-            donations: "☕"
+            donations: "☕",
+            security: "◆",
+            moderation: "▣"
         },
 
         actions: {
@@ -60,7 +62,8 @@ const themes = {
             search: "⌕",
             back: "‹",
             next: "›",
-            link: "↗"
+            link: "↗",
+            configure: "⚙"
         },
 
         text: {
@@ -83,12 +86,12 @@ function setTheme(name) {
     }
 
     activeTheme = name;
-    return getTheme();
+    return themes[name];
 }
 
 function registerTheme(name, theme) {
     if (!name || typeof theme !== "object") {
-        throw new TypeError("Theme name and object are required.");
+        throw new TypeError("Theme name and theme object are required.");
     }
 
     themes[name] = theme;
@@ -96,7 +99,7 @@ function registerTheme(name, theme) {
 }
 
 module.exports = {
-    ...getTheme(),
+    ...themes.aster,
     themes,
     getTheme,
     setTheme,

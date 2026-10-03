@@ -1,5 +1,5 @@
 // ========================================================
-// ASTER UI — CENTRAL INTERFACE
+// ASTER UI — CENTRAL EXPORT
 // ========================================================
 
 const symbols = require("./symbols");
