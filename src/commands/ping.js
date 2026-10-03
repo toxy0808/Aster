@@ -1,13 +1,20 @@
 const {
     SlashCommandBuilder,
     MessageFlags,
-    ContainerBuilder
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder
 } = require("discord.js");
 
 const {
     symbols,
-    timestamps
+    timestamps,
+    styles
 } = require("../utils/asterUI");
+
+const ACCENT =
+    styles?.getTheme?.()?.colors?.accent ??
+    0x7C5CFF;
 
 const EMOJI = {
     aster: "<a:pinkogniK:1537116042466164868>",
@@ -36,54 +43,70 @@ module.exports = {
 
         const container =
             new ContainerBuilder()
-                .setAccentColor(0xFF4FA3)
+                .setAccentColor(ACCENT)
+
+                // =================================================
+                // HEADER
+                // =================================================
 
                 .addTextDisplayComponents(
-                    component =>
-                        component.setContent(
-                            `## ${EMOJI.aster} ASTER / SYSTEM`
-                        )
+                    new TextDisplayBuilder().setContent(
+                        `# ${EMOJI.aster} ASTER / SYSTEM\n` +
+                        `-# Real-time gateway latency`
+                    )
                 )
 
-                .addSeparatorComponents()
-
-                .addTextDisplayComponents(
-                    component =>
-                        component.setContent(
-                            `### ${EMOJI.ping} PONG\n` +
-                            `**${ping}ms**`
-                        )
+                .addSeparatorComponents(
+                    new SeparatorBuilder()
                 )
 
-                .addSeparatorComponents()
+                // =================================================
+                // PING
+                // =================================================
 
                 .addTextDisplayComponents(
-                    component =>
-                        component.setContent(
-                            `### 🟢 STATUS\n` +
-                            `${status}`
-                        )
+                    new TextDisplayBuilder().setContent(
+                        `### ${EMOJI.ping} PONG\n` +
+                        `**${ping}ms**`
+                    )
                 )
 
-                .addSeparatorComponents()
-
-                .addTextDisplayComponents(
-                    component =>
-                        component.setContent(
-                            `${symbols.time} Updated ${timestamps.now()}`
-                        )
+                .addSeparatorComponents(
+                    new SeparatorBuilder()
                 )
 
+                // =================================================
+                // STATUS
+                // =================================================
+
                 .addTextDisplayComponents(
-                    component =>
-                        component.setContent(
-                            `-# ${symbols.brand} ASTER • System Status`
-                        )
+                    new TextDisplayBuilder().setContent(
+                        `### ${symbols.activity} STATUS\n` +
+                        `${status}`
+                    )
+                )
+
+                .addSeparatorComponents(
+                    new SeparatorBuilder()
+                )
+
+                // =================================================
+                // FOOTER
+                // =================================================
+
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        `-# ${symbols.time} Updated ${timestamps.now()}\n` +
+                        `-# ${symbols.brand} ASTER • System Status`
+                    )
                 );
 
         return message.reply({
             flags: MessageFlags.IsComponentsV2,
-            components: [container]
+            components: [container],
+            allowedMentions: {
+                parse: []
+            }
         });
     }
 };

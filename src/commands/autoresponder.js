@@ -16,6 +16,39 @@ const {
     MAX_AUTORESPONDERS_PER_GUILD
 } = require("../utils/autoresponder");
 
+const {
+    symbols,
+    timestamps,
+    styles
+} = require("../utils/asterUI");
+
+const ACCENT =
+    styles?.getTheme?.()?.colors?.accent ??
+    0x7C5CFF;
+
+function ui(title, content) {
+    return new ContainerBuilder()
+        .setAccentColor(ACCENT)
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder()
+                .setContent(
+                    `# ✦ ASTER / ${title}\n\n${content}`
+                )
+        )
+
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder()
+                .setContent(
+                    `-# ✦ ASTER • ${timestamps?.now?.() ?? "System"}`
+                )
+        );
+}
+
 module.exports = {
 
     name: "autoresponder",
@@ -78,10 +111,6 @@ module.exports = {
                         )
                         .setRequired(false)
                 )
-
-                // ------------------------------------------------
-                // NEW: SLASH COMMAND FILE UPLOAD
-                // ------------------------------------------------
 
                 .addAttachmentOption(option =>
                     option
@@ -159,35 +188,19 @@ module.exports = {
             const subcommand =
                 message.options.getSubcommand();
 
-            // ====================================================
-            // ADD
-            // ====================================================
-
             if (subcommand === "add") {
 
                 const trigger =
-                    message.options.getString(
-                        "trigger"
-                    );
+                    message.options.getString("trigger");
 
                 const type =
-                    message.options.getString(
-                        "type"
-                    );
+                    message.options.getString("type");
 
                 const response =
-                    message.options.getString(
-                        "response"
-                    );
-
-                // ------------------------------------------------
-                // Get uploaded file directly from slash command
-                // ------------------------------------------------
+                    message.options.getString("response");
 
                 const attachment =
-                    message.options.getAttachment(
-                        "attachment"
-                    );
+                    message.options.getAttachment("attachment");
 
                 args = [
                     "add",
@@ -196,76 +209,44 @@ module.exports = {
                 ];
 
                 if (response) {
-
-                    args.push(
-                        response
-                    );
-
+                    args.push(response);
                 }
-
-                // ------------------------------------------------
-                // Store attachment on adapter message
-                // ------------------------------------------------
 
                 message.attachment =
                     attachment || null;
-
             }
-
-            // ====================================================
-            // REMOVE
-            // ====================================================
 
             else if (subcommand === "remove") {
 
                 const trigger =
-                    message.options.getString(
-                        "trigger"
-                    );
+                    message.options.getString("trigger");
 
                 args = [
                     "remove",
                     trigger
                 ];
-
             }
-
-            // ====================================================
-            // LIST
-            // ====================================================
 
             else if (subcommand === "list") {
 
                 args = [
                     "list"
                 ];
-
             }
-
-            // ====================================================
-            // CLEAR
-            // ====================================================
 
             else if (subcommand === "clear") {
 
                 args = [
                     "clear"
                 ];
-
             }
-
-            // ====================================================
-            // GUIDE
-            // ====================================================
 
             else if (subcommand === "guide") {
 
                 args = [
                     "guide"
                 ];
-
             }
-
         }
 
         // ========================================================
@@ -279,32 +260,15 @@ module.exports = {
         ) {
 
             return message.reply({
-
                 components: [
-
-                    new ContainerBuilder()
-                        .setAccentColor(
-                            0xFF4FA3
-                        )
-
-                        .addTextDisplayComponents(
-
-                            new TextDisplayBuilder()
-                                .setContent(
-                                    "# ✦ ASTER / AUTORESPONDER\n" +
-                                    "### 🔒 Access Denied\n\n" +
-                                    "You need **Administrator** permission to manage autoresponders."
-                                )
-
-                        )
-
+                    ui(
+                        "AUTORESPONDER",
+                        `${symbols?.lock ?? "🔒"} **Access Denied**\n\n` +
+                        "You need **Administrator** permission to manage autoresponders."
+                    )
                 ],
-
-                flags:
-                    MessageFlags.IsComponentsV2
-
+                flags: MessageFlags.IsComponentsV2
             });
-
         }
 
         const action =
@@ -322,38 +286,18 @@ module.exports = {
             const type =
                 args.shift()?.toLowerCase();
 
-            if (
-                !trigger ||
-                !type
-            ) {
+            if (!trigger || !type) {
 
                 return message.reply({
-
                     components: [
-
-                        new ContainerBuilder()
-                            .setAccentColor(
-                                0xFF4FA3
-                            )
-
-                            .addTextDisplayComponents(
-
-                                new TextDisplayBuilder()
-                                    .setContent(
-                                        "# ✦ ASTER / AUTORESPONDER\n" +
-                                        "### ⚙ Usage\n\n" +
-                                        "`/autoresponder add <trigger> <type> [response] [attachment]`"
-                                    )
-
-                            )
-
+                        ui(
+                            "AUTORESPONDER",
+                            "### ⚙ Usage\n\n" +
+                            "`/autoresponder add <trigger> <type> [response] [attachment]`"
+                        )
                     ],
-
-                    flags:
-                        MessageFlags.IsComponentsV2
-
+                    flags: MessageFlags.IsComponentsV2
                 });
-
             }
 
             // ====================================================
@@ -370,33 +314,16 @@ module.exports = {
             ) {
 
                 return message.reply({
-
                     components: [
-
-                        new ContainerBuilder()
-                            .setAccentColor(
-                                0xFF4FA3
-                            )
-
-                            .addTextDisplayComponents(
-
-                                new TextDisplayBuilder()
-                                    .setContent(
-                                        "# ✦ ASTER / AUTORESPONDER\n" +
-                                        "### ⚠ Invalid Response Type\n\n" +
-                                        "Supported types:\n" +
-                                        "`text` · `gif` · `image` · `embed`"
-                                    )
-
-                            )
-
+                        ui(
+                            "AUTORESPONDER",
+                            "### ⚠ Invalid Response Type\n\n" +
+                            "Supported types:\n" +
+                            "`text` · `gif` · `image` · `embed`"
+                        )
                     ],
-
-                    flags:
-                        MessageFlags.IsComponentsV2
-
+                    flags: MessageFlags.IsComponentsV2
                 });
-
             }
 
             // ====================================================
@@ -409,32 +336,15 @@ module.exports = {
             ) {
 
                 return message.reply({
-
                     components: [
-
-                        new ContainerBuilder()
-                            .setAccentColor(
-                                0xFF4FA3
-                            )
-
-                            .addTextDisplayComponents(
-
-                                new TextDisplayBuilder()
-                                    .setContent(
-                                        "# ✦ ASTER / AUTORESPONDER\n" +
-                                        "### ⚠ Trigger Too Long\n\n" +
-                                        `Maximum trigger length: **${MAX_TRIGGER_LENGTH} characters**.`
-                                    )
-
-                            )
-
+                        ui(
+                            "AUTORESPONDER",
+                            "### ⚠ Trigger Too Long\n\n" +
+                            `Maximum trigger length: **${MAX_TRIGGER_LENGTH} characters**.`
+                        )
                     ],
-
-                    flags:
-                        MessageFlags.IsComponentsV2
-
+                    flags: MessageFlags.IsComponentsV2
                 });
-
             }
 
             // ====================================================
@@ -463,38 +373,20 @@ module.exports = {
                 if (!attachment) {
 
                     return message.reply({
-
                         components: [
-
-                            new ContainerBuilder()
-                                .setAccentColor(
-                                    0xFF4FA3
-                                )
-
-                                .addTextDisplayComponents(
-
-                                    new TextDisplayBuilder()
-                                        .setContent(
-                                            "# ✦ ASTER / AUTORESPONDER\n" +
-                                            "### 🖼 Media Required\n\n" +
-                                            "Upload the **image or GIF** using the **attachment** option.\n\n" +
-                                            "Example:\n" +
-                                            "`/autoresponder add trigger:cat type:gif attachment:cat.gif`"
-                                        )
-
-                                )
-
+                            ui(
+                                "AUTORESPONDER",
+                                "### 🖼 Media Required\n\n" +
+                                "Upload the **image or GIF** using the **attachment** option.\n\n" +
+                                "Example:\n" +
+                                "`/autoresponder add trigger:cat type:gif attachment:cat.gif`"
+                            )
                         ],
-
-                        flags:
-                            MessageFlags.IsComponentsV2
-
+                        flags: MessageFlags.IsComponentsV2
                     });
-
                 }
 
                 content = "";
-
             }
 
             // ====================================================
@@ -508,32 +400,15 @@ module.exports = {
             ) {
 
                 return message.reply({
-
                     components: [
-
-                        new ContainerBuilder()
-                            .setAccentColor(
-                                0xFF4FA3
-                            )
-
-                            .addTextDisplayComponents(
-
-                                new TextDisplayBuilder()
-                                    .setContent(
-                                        "# ✦ ASTER / AUTORESPONDER\n" +
-                                        "### ⚠ Response Required\n\n" +
-                                        "You need to provide a response."
-                                    )
-
-                            )
-
+                        ui(
+                            "AUTORESPONDER",
+                            "### ⚠ Response Required\n\n" +
+                            "You need to provide a response."
+                        )
                     ],
-
-                    flags:
-                        MessageFlags.IsComponentsV2
-
+                    flags: MessageFlags.IsComponentsV2
                 });
-
             }
 
             // ====================================================
@@ -561,32 +436,15 @@ module.exports = {
                 ) {
 
                     return message.reply({
-
                         components: [
-
-                            new ContainerBuilder()
-                                .setAccentColor(
-                                    0xFF4FA3
-                                )
-
-                                .addTextDisplayComponents(
-
-                                    new TextDisplayBuilder()
-                                        .setContent(
-                                            "# ✦ ASTER / AUTORESPONDER\n" +
-                                            "### ⚠ Server Limit Reached\n\n" +
-                                            `This server already has the maximum of **${MAX_AUTORESPONDERS_PER_GUILD}** autoresponders.`
-                                        )
-
-                                )
-
+                            ui(
+                                "AUTORESPONDER",
+                                "### ⚠ Server Limit Reached\n\n" +
+                                `This server already has the maximum of **${MAX_AUTORESPONDERS_PER_GUILD}** autoresponders.`
+                            )
                         ],
-
-                        flags:
-                            MessageFlags.IsComponentsV2
-
+                        flags: MessageFlags.IsComponentsV2
                     });
-
                 }
 
                 if (
@@ -595,32 +453,15 @@ module.exports = {
                 ) {
 
                     return message.reply({
-
                         components: [
-
-                            new ContainerBuilder()
-                                .setAccentColor(
-                                    0xFF4FA3
-                                )
-
-                                .addTextDisplayComponents(
-
-                                    new TextDisplayBuilder()
-                                        .setContent(
-                                            "# ✦ ASTER / AUTORESPONDER\n" +
-                                            "### ⚠ File Too Large\n\n" +
-                                            "The uploaded media must be **10 MB or smaller**."
-                                        )
-
-                                )
-
+                            ui(
+                                "AUTORESPONDER",
+                                "### ⚠ File Too Large\n\n" +
+                                "The uploaded media must be **10 MB or smaller**."
+                            )
                         ],
-
-                        flags:
-                            MessageFlags.IsComponentsV2
-
+                        flags: MessageFlags.IsComponentsV2
                     });
-
                 }
 
                 if (
@@ -629,32 +470,15 @@ module.exports = {
                 ) {
 
                     return message.reply({
-
                         components: [
-
-                            new ContainerBuilder()
-                                .setAccentColor(
-                                    0xFF4FA3
-                                )
-
-                                .addTextDisplayComponents(
-
-                                    new TextDisplayBuilder()
-                                        .setContent(
-                                            "# ✦ ASTER / AUTORESPONDER\n" +
-                                            "### ⚠ Invalid GIF\n\n" +
-                                            "For a GIF autoresponder, upload a valid `.gif` file."
-                                        )
-
-                                )
-
+                            ui(
+                                "AUTORESPONDER",
+                                "### ⚠ Invalid GIF\n\n" +
+                                "For a GIF autoresponder, upload a valid `.gif` file."
+                            )
                         ],
-
-                        flags:
-                            MessageFlags.IsComponentsV2
-
+                        flags: MessageFlags.IsComponentsV2
                     });
-
                 }
 
                 if (
@@ -663,61 +487,27 @@ module.exports = {
                 ) {
 
                     return message.reply({
-
                         components: [
-
-                            new ContainerBuilder()
-                                .setAccentColor(
-                                    0xFF4FA3
-                                )
-
-                                .addTextDisplayComponents(
-
-                                    new TextDisplayBuilder()
-                                        .setContent(
-                                            "# ✦ ASTER / AUTORESPONDER\n" +
-                                            "### ⚠ Invalid Image\n\n" +
-                                            "Please upload a PNG, JPG, JPEG, WEBP, or GIF image."
-                                        )
-
-                                )
-
+                            ui(
+                                "AUTORESPONDER",
+                                "### ⚠ Invalid Image\n\n" +
+                                "Please upload a PNG, JPG, JPEG, WEBP, or GIF image."
+                            )
                         ],
-
-                        flags:
-                            MessageFlags.IsComponentsV2
-
+                        flags: MessageFlags.IsComponentsV2
                     });
-
                 }
 
                 return message.reply({
-
                     components: [
-
-                        new ContainerBuilder()
-                            .setAccentColor(
-                                0xFF4FA3
-                            )
-
-                            .addTextDisplayComponents(
-
-                                new TextDisplayBuilder()
-                                    .setContent(
-                                        "# ✦ ASTER / AUTORESPONDER\n" +
-                                        "### ❌ Save Failed\n\n" +
-                                        "ASTER was unable to save this autoresponder."
-                                    )
-
-                            )
-
+                        ui(
+                            "AUTORESPONDER",
+                            "### ❌ Save Failed\n\n" +
+                            "ASTER was unable to save this autoresponder."
+                        )
                     ],
-
-                    flags:
-                        MessageFlags.IsComponentsV2
-
+                    flags: MessageFlags.IsComponentsV2
                 });
-
             }
 
             // ====================================================
@@ -726,13 +516,9 @@ module.exports = {
 
             const container =
                 new ContainerBuilder()
-
-                    .setAccentColor(
-                        0xFF4FA3
-                    )
+                    .setAccentColor(ACCENT)
 
                     .addTextDisplayComponents(
-
                         new TextDisplayBuilder()
                             .setContent(
                                 "# ✦ ASTER / AUTORESPONDER\n" +
@@ -747,7 +533,6 @@ module.exports = {
                                 ) +
                                 "-# Configuration saved successfully."
                             )
-
                     )
 
                     .addSeparatorComponents(
@@ -755,26 +540,31 @@ module.exports = {
                     )
 
                     .addTextDisplayComponents(
-
                         new TextDisplayBuilder()
                             .setContent(
                                 "### ⚡ Matching\n" +
                                 "The trigger is case-insensitive and can appear anywhere in a message."
                             )
+                    )
 
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
+                    )
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                `-# ✦ ASTER • Autoresponder • ${timestamps?.now?.() ?? "System"}`
+                            )
                     );
 
             return message.reply({
-
                 components: [
                     container
                 ],
-
                 flags:
                     MessageFlags.IsComponentsV2
-
             });
-
         }
 
         // ========================================================
@@ -791,32 +581,15 @@ module.exports = {
             if (!trigger) {
 
                 return message.reply({
-
                     components: [
-
-                        new ContainerBuilder()
-                            .setAccentColor(
-                                0xFF4FA3
-                            )
-
-                            .addTextDisplayComponents(
-
-                                new TextDisplayBuilder()
-                                    .setContent(
-                                        "# ✦ ASTER / AUTORESPONDER\n" +
-                                        "### ⚙ Usage\n\n" +
-                                        "`/autoresponder remove <trigger>`"
-                                    )
-
-                            )
-
+                        ui(
+                            "AUTORESPONDER",
+                            "### ⚙ Usage\n\n" +
+                            "`/autoresponder remove <trigger>`"
+                        )
                     ],
-
-                    flags:
-                        MessageFlags.IsComponentsV2
-
+                    flags: MessageFlags.IsComponentsV2
                 });
-
             }
 
             const deleted =
@@ -828,61 +601,27 @@ module.exports = {
             if (!deleted) {
 
                 return message.reply({
-
                     components: [
-
-                        new ContainerBuilder()
-                            .setAccentColor(
-                                0xFF4FA3
-                            )
-
-                            .addTextDisplayComponents(
-
-                                new TextDisplayBuilder()
-                                    .setContent(
-                                        "# ✦ ASTER / AUTORESPONDER\n" +
-                                        "### ⚠ Not Found\n\n" +
-                                        `No autoresponder exists for \`${trigger}\`.`
-                                    )
-
-                            )
-
+                        ui(
+                            "AUTORESPONDER",
+                            "### ⚠ Not Found\n\n" +
+                            `No autoresponder exists for \`${trigger}\`.`
+                        )
                     ],
-
-                    flags:
-                        MessageFlags.IsComponentsV2
-
+                    flags: MessageFlags.IsComponentsV2
                 });
-
             }
 
             return message.reply({
-
                 components: [
-
-                    new ContainerBuilder()
-                        .setAccentColor(
-                            0xFF4FA3
-                        )
-
-                        .addTextDisplayComponents(
-
-                            new TextDisplayBuilder()
-                                .setContent(
-                                    "# ✦ ASTER / AUTORESPONDER\n" +
-                                    "### 🔴 Autoresponder Removed\n\n" +
-                                    `Trigger \`${trigger}\` has been removed.`
-                                )
-
-                        )
-
+                    ui(
+                        "AUTORESPONDER",
+                        "### 🔴 Autoresponder Removed\n\n" +
+                        `Trigger \`${trigger}\` has been removed.`
+                    )
                 ],
-
-                flags:
-                    MessageFlags.IsComponentsV2
-
+                flags: MessageFlags.IsComponentsV2
             });
-
         }
 
         // ========================================================
@@ -902,61 +641,37 @@ module.exports = {
             ) {
 
                 return message.reply({
-
                     components: [
-
-                        new ContainerBuilder()
-                            .setAccentColor(
-                                0xFF4FA3
-                            )
-
-                            .addTextDisplayComponents(
-
-                                new TextDisplayBuilder()
-                                    .setContent(
-                                        "# ✦ ASTER / AUTORESPONDER\n" +
-                                        "### ◌ No Autoresponders\n\n" +
-                                        "This server currently has no configured autoresponders."
-                                    )
-
-                            )
-
+                        ui(
+                            "AUTORESPONDER",
+                            "### ◌ No Autoresponders\n\n" +
+                            "This server currently has no configured autoresponders."
+                        )
                     ],
-
-                    flags:
-                        MessageFlags.IsComponentsV2
-
+                    flags: MessageFlags.IsComponentsV2
                 });
-
             }
 
             const entries =
                 [
                     ...guild.entries()
                 ]
-
                     .map(
                         ([trigger, response]) =>
                             `**${trigger}**  ·  \`${response.type}\``
                     )
-
                     .join("\n");
 
             const container =
                 new ContainerBuilder()
-
-                    .setAccentColor(
-                        0xFF4FA3
-                    )
+                    .setAccentColor(ACCENT)
 
                     .addTextDisplayComponents(
-
                         new TextDisplayBuilder()
                             .setContent(
                                 "# ✦ ASTER / AUTORESPONDER\n" +
                                 `### 📋 Active Triggers\n\n${entries}`
                             )
-
                     )
 
                     .addSeparatorComponents(
@@ -964,26 +679,31 @@ module.exports = {
                     )
 
                     .addTextDisplayComponents(
-
                         new TextDisplayBuilder()
                             .setContent(
-                                `### 📊 Status\n` +
+                                "### 📊 Status\n" +
                                 `**${guild.size}** active autoresponder${guild.size === 1 ? "" : "s"}`
                             )
+                    )
 
+                    .addSeparatorComponents(
+                        new SeparatorBuilder()
+                    )
+
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder()
+                            .setContent(
+                                `-# ✦ ASTER • Autoresponder • ${timestamps?.now?.() ?? "System"}`
+                            )
                     );
 
             return message.reply({
-
                 components: [
                     container
                 ],
-
                 flags:
                     MessageFlags.IsComponentsV2
-
             });
-
         }
 
         // ========================================================
@@ -1003,32 +723,15 @@ module.exports = {
             ) {
 
                 return message.reply({
-
                     components: [
-
-                        new ContainerBuilder()
-                            .setAccentColor(
-                                0xFF4FA3
-                            )
-
-                            .addTextDisplayComponents(
-
-                                new TextDisplayBuilder()
-                                    .setContent(
-                                        "# ✦ ASTER / AUTORESPONDER\n" +
-                                        "### ◌ Nothing to Clear\n\n" +
-                                        "There are no autoresponders configured."
-                                    )
-
-                            )
-
+                        ui(
+                            "AUTORESPONDER",
+                            "### ◌ Nothing to Clear\n\n" +
+                            "There are no autoresponders configured."
+                        )
                     ],
-
-                    flags:
-                        MessageFlags.IsComponentsV2
-
+                    flags: MessageFlags.IsComponentsV2
                 });
-
             }
 
             clear(
@@ -1036,32 +739,15 @@ module.exports = {
             );
 
             return message.reply({
-
                 components: [
-
-                    new ContainerBuilder()
-                        .setAccentColor(
-                            0xFF4FA3
-                        )
-
-                        .addTextDisplayComponents(
-
-                            new TextDisplayBuilder()
-                                .setContent(
-                                    "# ✦ ASTER / AUTORESPONDER\n" +
-                                    "### 🗑 Autoresponders Cleared\n\n" +
-                                    "All autoresponders for this server have been removed."
-                                )
-
-                        )
-
+                    ui(
+                        "AUTORESPONDER",
+                        "### 🗑 Autoresponders Cleared\n\n" +
+                        "All autoresponders for this server have been removed."
+                    )
                 ],
-
-                flags:
-                    MessageFlags.IsComponentsV2
-
+                flags: MessageFlags.IsComponentsV2
             });
-
         }
 
         // ========================================================
@@ -1070,20 +756,15 @@ module.exports = {
 
         const container =
             new ContainerBuilder()
-
-                .setAccentColor(
-                    0xFF4FA3
-                )
+                .setAccentColor(ACCENT)
 
                 .addTextDisplayComponents(
-
                     new TextDisplayBuilder()
                         .setContent(
                             "# ✦ ASTER / AUTORESPONDER\n" +
                             "### ⚡ Automatic Server Responses\n\n" +
                             "ASTER automatically responds whenever a configured trigger appears in a message."
                         )
-
                 )
 
                 .addSeparatorComponents(
@@ -1091,14 +772,12 @@ module.exports = {
                 )
 
                 .addTextDisplayComponents(
-
                     new TextDisplayBuilder()
                         .setContent(
                             "### ✦ Create\n\n" +
                             "`/autoresponder add <trigger> <type> [response] [attachment]`\n\n" +
                             "For **image/GIF** responses, use the **attachment** option directly in the slash command."
                         )
-
                 )
 
                 .addSeparatorComponents(
@@ -1106,7 +785,6 @@ module.exports = {
                 )
 
                 .addTextDisplayComponents(
-
                     new TextDisplayBuilder()
                         .setContent(
                             "### ⚙ Manage\n\n" +
@@ -1114,7 +792,6 @@ module.exports = {
                             "`/autoresponder list`\n" +
                             "`/autoresponder clear`"
                         )
-
                 )
 
                 .addSeparatorComponents(
@@ -1122,7 +799,6 @@ module.exports = {
                 )
 
                 .addTextDisplayComponents(
-
                     new TextDisplayBuilder()
                         .setContent(
                             "### 🧪 Examples\n\n" +
@@ -1130,7 +806,6 @@ module.exports = {
                             "`/autoresponder add cat gif attachment:cat.gif`\n" +
                             "`/autoresponder add logo image attachment:logo.png`"
                         )
-
                 )
 
                 .addSeparatorComponents(
@@ -1138,14 +813,12 @@ module.exports = {
                 )
 
                 .addTextDisplayComponents(
-
                     new TextDisplayBuilder()
                         .setContent(
                             "### 🔎 Matching Rules\n\n" +
                             "**Case-insensitive** · triggers can appear anywhere in a message · replies are supported\n\n" +
                             "-# Word boundaries are respected, so `toxy` does not trigger from `toxic`."
                         )
-
                 )
 
                 .addSeparatorComponents(
@@ -1153,26 +826,19 @@ module.exports = {
                 )
 
                 .addTextDisplayComponents(
-
                     new TextDisplayBuilder()
                         .setContent(
-                            "-# ✦ ASTER • Autoresponder System\n" +
+                            `-# ✦ ASTER • Autoresponder System • ${timestamps?.now?.() ?? "System"}\n` +
                             "-# Administrator access required"
                         )
-
                 );
 
         return message.reply({
-
             components: [
                 container
             ],
-
             flags:
                 MessageFlags.IsComponentsV2
-
         });
-
     }
-
 };

@@ -55,11 +55,20 @@ function createActivityEmbed(
     period,
     resetTimestamp = null
 ) {
-    const safeChatUsers = Array.isArray(chatUsers) ? chatUsers : [];
-    const safeVoiceUsers = Array.isArray(voiceUsers) ? voiceUsers : [];
+    const safeChatUsers = Array.isArray(chatUsers)
+        ? chatUsers
+        : [];
+
+    const safeVoiceUsers = Array.isArray(voiceUsers)
+        ? voiceUsers
+        : [];
+
     const is24h = period === "24h";
 
-    const periodLabel = is24h ? "24 HOURS" : "7 DAYS";
+    const periodLabel = is24h
+        ? "24 HOURS"
+        : "7 DAYS";
+
     const periodDescription = is24h
         ? "Daily activity rankings"
         : "Weekly activity rankings";
@@ -101,8 +110,13 @@ function createActivityEmbed(
     // CONTAINER
     // ====================================================
 
+    const accent =
+        styles.colors?.accent ??
+        styles.theme?.colors?.accent ??
+        0x7C5CFF;
+
     const container = new ContainerBuilder()
-        .setAccentColor(0xFF4DA6);
+        .setAccentColor(accent);
 
     // ====================================================
     // HEADER
@@ -178,7 +192,8 @@ function createActivityEmbed(
         ? "Resets daily at midnight"
         : "Resets every Monday";
 
-    const updatedTimestamp = Math.floor(Date.now() / 1000);
+    const updatedTimestamp =
+        Math.floor(Date.now() / 1000);
 
     container.addTextDisplayComponents(
         sections.text(

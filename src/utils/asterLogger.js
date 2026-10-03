@@ -7,7 +7,24 @@ const {
 
 const db = require("../database/database");
 const { getConfig } = require("./serverConfig");
-const symbols = require("./asterUI/symbols");
+
+const {
+    symbols,
+    styles
+} = require("./asterUI");
+
+// ========================================================
+// THEME
+// ========================================================
+
+const ACCENT =
+    styles?.colors?.accent ??
+    styles?.theme?.colors?.accent ??
+    0x7C5CFF;
+
+// ========================================================
+// LOGGER
+// ========================================================
 
 class AsterLogger {
 
@@ -38,7 +55,6 @@ class AsterLogger {
         }
 
         try {
-
             const config = getConfig(String(guildId));
 
             const channelId = config?.log_channel;
@@ -74,7 +90,6 @@ class AsterLogger {
             return channel;
 
         } catch (error) {
-
             console.error(
                 `${symbols.error} Failed to get ASTER log channel:`,
                 error
@@ -105,31 +120,20 @@ class AsterLogger {
                     value === null ||
                     value === undefined
                 ) {
-
                     formatted = "None";
 
-                } else if (
-                    typeof value === "object"
-                ) {
-
+                } else if (typeof value === "object") {
                     try {
-
                         formatted = JSON.stringify(
                             value,
                             null,
                             2
                         );
-
                     } catch {
-
                         formatted = String(value);
-
                     }
-
                 } else {
-
                     formatted = String(value);
-
                 }
 
                 if (formatted.length > 1500) {
@@ -142,7 +146,6 @@ class AsterLogger {
                     `**${key}**\n` +
                     formatted
                 );
-
             })
             .join("\n\n");
     }
@@ -158,12 +161,11 @@ class AsterLogger {
         description = "",
         user = null,
         details = {},
-        color = 0xFF4DA6,
+        color = ACCENT,
         symbol = symbols.brand
     }) {
 
         try {
-
             const normalizedGuildId =
                 guildId
                     ? String(guildId)
@@ -202,18 +204,13 @@ class AsterLogger {
             let actor = "System";
 
             if (user) {
-
                 if (user.id) {
-
                     actor =
                         user.tag ||
                         user.username ||
                         `<@${user.id}>`;
-
                 } else {
-
                     actor = String(user);
-
                 }
             }
 
@@ -253,16 +250,13 @@ class AsterLogger {
                     );
 
             if (detailText) {
-
                 container
                     .addSeparatorComponents(
                         new SeparatorBuilder()
                     )
                     .addTextDisplayComponents(
                         new TextDisplayBuilder()
-                            .setContent(
-                                detailText
-                            )
+                            .setContent(detailText)
                     );
             }
 
@@ -272,13 +266,15 @@ class AsterLogger {
 
             await channel.send({
                 components: [container],
-                flags: MessageFlags.IsComponentsV2
+                flags: MessageFlags.IsComponentsV2,
+                allowedMentions: {
+                    parse: []
+                }
             });
 
             return true;
 
         } catch (error) {
-
             console.error(
                 `${symbols.error} ASTER logger failed:`,
                 error
@@ -299,7 +295,6 @@ class AsterLogger {
         user = null,
         details = {}
     ) {
-
         return this.log({
             guildId,
             type: "config",
@@ -307,7 +302,7 @@ class AsterLogger {
             description,
             user,
             details,
-            color: 0xFF4DA6,
+            color: ACCENT,
             symbol: symbols.settings || symbols.brand
         });
     }
@@ -323,7 +318,6 @@ class AsterLogger {
         user = null,
         details = {}
     ) {
-
         return this.log({
             guildId,
             type: "autoresponder",
@@ -331,7 +325,7 @@ class AsterLogger {
             description,
             user,
             details,
-            color: 0xFF4DA6,
+            color: ACCENT,
             symbol: symbols.autoresponder || symbols.brand
         });
     }
@@ -347,7 +341,6 @@ class AsterLogger {
         user = null,
         details = {}
     ) {
-
         return this.log({
             guildId,
             type: "autoreact",
@@ -355,7 +348,7 @@ class AsterLogger {
             description,
             user,
             details,
-            color: 0xFF4DA6,
+            color: ACCENT,
             symbol: symbols.autoreact || symbols.brand
         });
     }
@@ -371,7 +364,6 @@ class AsterLogger {
         user = null,
         details = {}
     ) {
-
         return this.log({
             guildId,
             type: "reputation",
@@ -379,7 +371,7 @@ class AsterLogger {
             description,
             user,
             details,
-            color: 0xFF4DA6,
+            color: ACCENT,
             symbol: symbols.reputation || symbols.brand
         });
     }
@@ -395,7 +387,6 @@ class AsterLogger {
         user = null,
         details = {}
     ) {
-
         return this.log({
             guildId,
             type: "leaderboard",
@@ -403,7 +394,7 @@ class AsterLogger {
             description,
             user,
             details,
-            color: 0xFF4DA6,
+            color: ACCENT,
             symbol: symbols.leaderboard || symbols.brand
         });
     }
@@ -419,7 +410,6 @@ class AsterLogger {
         user = null,
         details = {}
     ) {
-
         return this.log({
             guildId,
             type: "system",
@@ -427,7 +417,7 @@ class AsterLogger {
             description,
             user,
             details,
-            color: 0xFF4DA6,
+            color: ACCENT,
             symbol: symbols.brand
         });
     }
@@ -443,7 +433,6 @@ class AsterLogger {
         user = null,
         details = {}
     ) {
-
         return this.log({
             guildId,
             type: "error",

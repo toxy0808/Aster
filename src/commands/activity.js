@@ -9,7 +9,7 @@ const {
 } = require("discord.js");
 
 const db = require("../database/database");
-const { symbols, timestamps } = require("../utils/asterUI");
+const { symbols, timestamps, styles } = require("../utils/asterUI");
 
 module.exports = {
     name: "activity",
@@ -60,9 +60,16 @@ module.exports = {
             WHERE messages > ?
         `).get(messages).rank;
 
-        const container = new ContainerBuilder()
-            .setAccentColor(0xFF4FA3);
+        const accent =
+            styles?.getTheme?.()?.colors?.accent ??
+            0x7C5CFF;
 
+        const container = new ContainerBuilder()
+            .setAccentColor(accent);
+
+        /*
+         * HEADER
+         */
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `# ${symbols.activity} ASTER / ACTIVITY\n` +
@@ -74,12 +81,15 @@ module.exports = {
             new SeparatorBuilder()
         );
 
+        /*
+         * USER SUMMARY
+         */
         container.addSectionComponents(
             new SectionBuilder()
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(
                         `### ${symbols.user} ${message.author.username}\n` +
-                        `${symbols.rank} Rank **#${rank}**`
+                        `> ${symbols.rank} **Rank #${rank}**`
                     )
                 )
                 .setThumbnailAccessory(
@@ -98,10 +108,13 @@ module.exports = {
             new SeparatorBuilder()
         );
 
+        /*
+         * ACTIVITY OVERVIEW
+         */
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `### ${symbols.chat} Chat Activity\n` +
-                `**Messages**\n` +
+                `### ${symbols.activity} Activity Overview\n` +
+                `**${symbols.chat} Messages**\n` +
                 `${messages.toLocaleString()}`
             )
         );
@@ -110,10 +123,13 @@ module.exports = {
             new SeparatorBuilder()
         );
 
+        /*
+         * VOICE
+         */
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `### ${symbols.voice} Voice Activity\n` +
-                `**Voice Time**\n` +
+                `**Time Active**\n` +
                 `${voice.toLocaleString()} minutes`
             )
         );
@@ -122,6 +138,9 @@ module.exports = {
             new SeparatorBuilder()
         );
 
+        /*
+         * PROGRESSION
+         */
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `### ${symbols.level} Progression\n` +
@@ -134,6 +153,9 @@ module.exports = {
             new SeparatorBuilder()
         );
 
+        /*
+         * FOOTER
+         */
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `-# ${symbols.time} Updated ${timestamps.now()}\n` +

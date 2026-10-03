@@ -24,6 +24,13 @@ module.exports = {
         ),
 
     async execute(message) {
+        if (!message.guild) {
+            return message.reply({
+                content: "❌ **This command can only be used in a server.**",
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
         if (!isAdmin(message)) {
             return message.reply({
                 content:
@@ -33,8 +40,13 @@ module.exports = {
             });
         }
 
-        const settings = donorDb.getSettings(message.guild.id);
-        const tiers = donorDb.listTiers(message.guild.id);
+        const settings = donorDb.getSettings(
+            String(message.guild.id)
+        );
+
+        const tiers = donorDb.listTiers(
+            String(message.guild.id)
+        );
 
         return message.reply({
             components: donorUI.buildPanel(settings, tiers),

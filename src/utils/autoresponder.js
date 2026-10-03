@@ -18,13 +18,9 @@ const mediaDirectory = path.join(
 
 // Automatically create the media directory
 if (!fs.existsSync(mediaDirectory)) {
-
-    fs.mkdirSync(
-        mediaDirectory,
-        {
-            recursive: true
-        }
-    );
+    fs.mkdirSync(mediaDirectory, {
+        recursive: true
+    });
 }
 
 // ============================================================
@@ -45,11 +41,8 @@ const MAX_MEDIA_SIZE =
 // ============================================================
 
 function load() {
-
     try {
-
         if (!fs.existsSync(filePath)) {
-
             fs.writeFileSync(
                 filePath,
                 "{}"
@@ -77,7 +70,6 @@ function load() {
             const [guildId, responses]
             of Object.entries(data)
         ) {
-
             const guildMap =
                 new Map();
 
@@ -85,13 +77,11 @@ function load() {
                 const [trigger, response]
                 of Object.entries(responses)
             ) {
-
                 if (
                     !response ||
                     !response.type ||
                     typeof response.content !== "string"
                 ) {
-
                     continue;
                 }
 
@@ -102,7 +92,6 @@ function load() {
             }
 
             if (guildMap.size > 0) {
-
                 autoresponders.set(
                     guildId,
                     guildMap
@@ -115,7 +104,6 @@ function load() {
         );
 
     } catch (error) {
-
         console.error(
             "AUTO-RESPONDER LOAD ERROR:",
             error
@@ -128,16 +116,13 @@ function load() {
 // ============================================================
 
 function save() {
-
     try {
-
         const data = {};
 
         for (
             const [guildId, responses]
             of autoresponders
         ) {
-
             data[guildId] =
                 Object.fromEntries(
                     responses
@@ -162,7 +147,6 @@ function save() {
         );
 
     } catch (error) {
-
         console.error(
             "AUTO-RESPONDER SAVE ERROR:",
             error
@@ -175,7 +159,6 @@ function save() {
 // ============================================================
 
 function getGuild(guildId) {
-
     return autoresponders.get(
         guildId
     );
@@ -188,7 +171,6 @@ function getGuild(guildId) {
 function getExtension(
     attachment
 ) {
-
     const name =
         attachment?.name || "";
 
@@ -210,7 +192,6 @@ function getExtension(
             extension
         )
     ) {
-
         return extension;
     }
 
@@ -227,9 +208,7 @@ async function downloadMedia(
     type,
     attachment
 ) {
-
     if (!attachment?.url) {
-
         throw new Error(
             "MISSING_ATTACHMENT"
         );
@@ -241,10 +220,8 @@ async function downloadMedia(
 
     if (
         attachment.size &&
-        attachment.size >
-            MAX_MEDIA_SIZE
+        attachment.size > MAX_MEDIA_SIZE
     ) {
-
         throw new Error(
             "MEDIA_TOO_LARGE"
         );
@@ -270,12 +247,10 @@ async function downloadMedia(
     // --------------------------------------------------------
 
     if (type === "gif") {
-
         if (
             extension !== ".gif" &&
             !contentType.includes("gif")
         ) {
-
             throw new Error(
                 "INVALID_GIF"
             );
@@ -289,42 +264,33 @@ async function downloadMedia(
     // --------------------------------------------------------
 
     else {
-
         if (
             contentType &&
-            !contentType.startsWith(
-                "image/"
-            )
+            !contentType.startsWith("image/")
         ) {
-
             throw new Error(
                 "INVALID_IMAGE"
             );
         }
 
         if (!extension) {
-
             if (
                 contentType.includes("png")
             ) {
-
                 extension = ".png";
 
             } else if (
                 contentType.includes("jpeg") ||
                 contentType.includes("jpg")
             ) {
-
                 extension = ".jpg";
 
             } else if (
                 contentType.includes("webp")
             ) {
-
                 extension = ".webp";
 
             } else {
-
                 throw new Error(
                     "INVALID_IMAGE"
                 );
@@ -343,7 +309,6 @@ async function downloadMedia(
         );
 
     if (!fs.existsSync(guildDirectory)) {
-
         fs.mkdirSync(
             guildDirectory,
             {
@@ -391,7 +356,6 @@ async function downloadMedia(
         );
 
     if (!response.ok) {
-
         throw new Error(
             "MEDIA_DOWNLOAD_FAILED"
         );
@@ -408,10 +372,8 @@ async function downloadMedia(
 
     if (
         contentLength &&
-        Number(contentLength) >
-            MAX_MEDIA_SIZE
+        Number(contentLength) > MAX_MEDIA_SIZE
     ) {
-
         throw new Error(
             "MEDIA_TOO_LARGE"
         );
@@ -428,10 +390,8 @@ async function downloadMedia(
 
     // Final size protection
     if (
-        buffer.length >
-        MAX_MEDIA_SIZE
+        buffer.length > MAX_MEDIA_SIZE
     ) {
-
         throw new Error(
             "MEDIA_TOO_LARGE"
         );
@@ -456,11 +416,9 @@ async function downloadMedia(
 function deleteMedia(
     content
 ) {
-
     if (
         typeof content !== "string"
     ) {
-
         return;
     }
 
@@ -477,29 +435,24 @@ function deleteMedia(
 
     if (
         !resolvedContent.startsWith(
-            resolvedDirectory +
-            path.sep
+            resolvedDirectory + path.sep
         )
     ) {
-
         return;
     }
 
     try {
-
         if (
             fs.existsSync(
                 resolvedContent
             )
         ) {
-
             fs.unlinkSync(
                 resolvedContent
             );
         }
 
     } catch (error) {
-
         console.error(
             "AUTO-RESPONDER MEDIA DELETE ERROR:",
             error
@@ -514,7 +467,6 @@ function deleteMedia(
 function deleteGuildMedia(
     guildId
 ) {
-
     const guildDirectory =
         path.join(
             mediaDirectory,
@@ -522,13 +474,11 @@ function deleteGuildMedia(
         );
 
     try {
-
         if (
             fs.existsSync(
                 guildDirectory
             )
         ) {
-
             fs.rmSync(
                 guildDirectory,
                 {
@@ -539,7 +489,6 @@ function deleteGuildMedia(
         }
 
     } catch (error) {
-
         console.error(
             "AUTO-RESPONDER GUILD MEDIA DELETE ERROR:",
             error
@@ -558,14 +507,12 @@ async function add(
     content,
     attachment = null
 ) {
-
     trigger =
         trigger
             .trim()
             .toLowerCase();
 
     if (!trigger) {
-
         return {
             success: false,
             reason: "invalid_trigger"
@@ -576,7 +523,6 @@ async function add(
         trigger.length >
         MAX_TRIGGER_LENGTH
     ) {
-
         return {
             success: false,
             reason: "trigger_too_long"
@@ -589,7 +535,6 @@ async function add(
         );
 
     if (!guild) {
-
         guild = new Map();
 
         autoresponders.set(
@@ -600,10 +545,8 @@ async function add(
 
     if (
         !guild.has(trigger) &&
-        guild.size >=
-            MAX_AUTORESPONDERS_PER_GUILD
+        guild.size >= MAX_AUTORESPONDERS_PER_GUILD
     ) {
-
         return {
             success: false,
             reason: "guild_limit"
@@ -618,9 +561,7 @@ async function add(
         type === "image" ||
         type === "gif"
     ) {
-
         if (!attachment) {
-
             return {
                 success: false,
                 reason: "attachment_required"
@@ -628,7 +569,6 @@ async function add(
         }
 
         try {
-
             content =
                 await downloadMedia(
                     guildId,
@@ -638,7 +578,6 @@ async function add(
                 );
 
         } catch (error) {
-
             console.error(
                 "AUTO-RESPONDER MEDIA ERROR:",
                 error
@@ -700,7 +639,6 @@ async function add(
         ) &&
         previous.content !== content
     ) {
-
         deleteMedia(
             previous.content
         );
@@ -721,7 +659,6 @@ function remove(
     guildId,
     trigger
 ) {
-
     const guild =
         autoresponders.get(
             guildId
@@ -747,7 +684,6 @@ function remove(
         );
 
     if (deleted) {
-
         if (
             response &&
             (
@@ -755,14 +691,12 @@ function remove(
                 response.type === "gif"
             )
         ) {
-
             deleteMedia(
                 response.content
             );
         }
 
         if (guild.size === 0) {
-
             autoresponders.delete(
                 guildId
             );
@@ -785,7 +719,6 @@ function remove(
 function clear(
     guildId
 ) {
-
     const guild =
         autoresponders.get(
             guildId

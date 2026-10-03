@@ -7,7 +7,7 @@ const {
 } = require("discord.js");
 
 const db = require("../database/database");
-const { symbols, timestamps } = require("../utils/asterUI");
+const { symbols, timestamps, styles } = require("../utils/asterUI");
 
 module.exports = {
     name: "activitylb",
@@ -58,7 +58,6 @@ module.exports = {
         }
 
         async function addUserData(users) {
-
             return Promise.all(
                 users.map(async (user) => {
 
@@ -96,7 +95,6 @@ module.exports = {
             );
 
         function formatVoice(minutes) {
-
             minutes = Number(minutes) || 0;
 
             const hours =
@@ -120,10 +118,17 @@ module.exports = {
             "⑤"
         ];
 
+        const accent =
+            styles?.getTheme?.()?.colors?.accent ??
+            0x7C5CFF;
+
         const container =
             new ContainerBuilder()
-                .setAccentColor(0xFF4FA3);
+                .setAccentColor(accent);
 
+        /*
+         * HEADER
+         */
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `# ${symbols.activity} ASTER / ACTIVITY\n` +
@@ -135,6 +140,9 @@ module.exports = {
             new SeparatorBuilder()
         );
 
+        /*
+         * CHAT LEADERBOARD
+         */
         let chatText;
 
         if (!chat.length) {
@@ -154,7 +162,8 @@ module.exports = {
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `### ${symbols.chat} Chat Kings\n\n` +
+                `### ${symbols.chat} Chat Leaderboard\n` +
+                `-# Top activity over the last 24 hours\n\n` +
                 chatText
             )
         );
@@ -163,6 +172,9 @@ module.exports = {
             new SeparatorBuilder()
         );
 
+        /*
+         * VOICE LEADERBOARD
+         */
         let voiceText;
 
         if (!voice.length) {
@@ -182,7 +194,8 @@ module.exports = {
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `### ${symbols.voice} Voice Kings\n\n` +
+                `### ${symbols.voice} Voice Leaderboard\n` +
+                `-# Top activity over the last 24 hours\n\n` +
                 voiceText
             )
         );
@@ -191,6 +204,9 @@ module.exports = {
             new SeparatorBuilder()
         );
 
+        /*
+         * FOOTER
+         */
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `-# ${symbols.time} Updated ${timestamps.now()}\n` +

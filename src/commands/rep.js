@@ -1,14 +1,50 @@
 const {
     SlashCommandBuilder,
     MessageFlags,
-    ContainerBuilder
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder
 } = require("discord.js");
 
 const db = require("../database/database");
 const { syncRepRewards } = require("../systems/repRewards");
 
+const {
+    symbols,
+    timestamps,
+    styles
+} = require("../utils/asterUI");
+
 const COOLDOWN = 10 * 60 * 1000;
 const DEFAULT_BASE_LIMIT = 3;
+
+const ACCENT =
+    styles?.getTheme?.()?.colors?.accent ??
+    0x7C5CFF;
+
+/* =========================================================
+   UI
+========================================================= */
+
+function buildUI(title, content) {
+    return new ContainerBuilder()
+        .setAccentColor(ACCENT)
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `# ${symbols.brand} ASTER / ${title}\n` +
+                content
+            )
+        )
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+        .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `-# ${symbols.time} ${timestamps.now()}  •  ` +
+                `${symbols.brand} Reputation System`
+            )
+        );
+}
 
 /* =========================================================
    COMMAND
@@ -54,8 +90,13 @@ module.exports = {
 
         if (!guild || !member) {
             return message.reply({
-                content:
-                    "This command can only be used inside a server."
+                components: [
+                    buildUI(
+                        "REPUTATION",
+                        `${symbols.error} This command can only be used inside a server.`
+                    )
+                ],
+                flags: MessageFlags.IsComponentsV2
             });
         }
 
@@ -202,14 +243,11 @@ module.exports = {
             return message.reply({
                 flags: MessageFlags.IsComponentsV2,
                 components: [
-                    new ContainerBuilder()
-                        .addTextDisplayComponents(text =>
-                            text.setContent(
-                                `## ⭐ Your Reputation\n\n` +
-                                `**Reputation:** ${reputation}\n` +
-                                `**Daily given:** ${dailyGiven}/${limit}`
-                            )
-                        )
+                    buildUI(
+                        "YOUR REPUTATION",
+                        `${symbols.reputation} **Reputation:** ${reputation}\n` +
+                        `${symbols.activity} **Daily given:** ${dailyGiven}/${limit}`
+                    )
                 ]
             });
         }
@@ -221,16 +259,26 @@ module.exports = {
         if (target.id === member.id) {
 
             return message.reply({
-                content:
-                    "You cannot give reputation to yourself."
+                flags: MessageFlags.IsComponentsV2,
+                components: [
+                    buildUI(
+                        "REPUTATION",
+                        `${symbols.error} You cannot give reputation to yourself.`
+                    )
+                ]
             });
         }
 
         if (target.bot) {
 
             return message.reply({
-                content:
-                    "You cannot give reputation to bots."
+                flags: MessageFlags.IsComponentsV2,
+                components: [
+                    buildUI(
+                        "REPUTATION",
+                        `${symbols.error} You cannot give reputation to bots.`
+                    )
+                ]
             });
         }
 
@@ -243,8 +291,13 @@ module.exports = {
         ) {
 
             return message.reply({
-                content:
-                    "Invalid reputation type."
+                flags: MessageFlags.IsComponentsV2,
+                components: [
+                    buildUI(
+                        "REPUTATION",
+                        `${symbols.error} Invalid reputation type.`
+                    )
+                ]
             });
         }
 
@@ -380,14 +433,11 @@ module.exports = {
             return message.reply({
                 flags: MessageFlags.IsComponentsV2,
                 components: [
-                    new ContainerBuilder()
-                        .addTextDisplayComponents(text =>
-                            text.setContent(
-                                `## ⛔ Daily Limit Reached\n\n` +
-                                `You have used your entire reputation allowance for this reset period.\n\n` +
-                                `**Used:** ${giver.daily_given}/${limit}`
-                            )
-                        )
+                    buildUI(
+                        "DAILY LIMIT",
+                        `${symbols.error} You have used your entire reputation allowance for this reset period.\n\n` +
+                        `**Used:** ${giver.daily_given}/${limit}`
+                    )
                 ]
             });
         }
@@ -432,8 +482,13 @@ module.exports = {
                 );
 
                 return message.reply({
-                    content:
-                        `You must wait about ${remaining} minute(s) before giving reputation to this user again.`
+                    flags: MessageFlags.IsComponentsV2,
+                    components: [
+                        buildUI(
+                            "COOLDOWN",
+                            `${symbols.time} You must wait about **${remaining} minute(s)** before giving reputation to this user again.`
+                        )
+                    ]
                 });
             }
         }
@@ -568,15 +623,12 @@ module.exports = {
         return message.reply({
             flags: MessageFlags.IsComponentsV2,
             components: [
-                new ContainerBuilder()
-                    .addTextDisplayComponents(text =>
-                        text.setContent(
-                            `## ⭐ Reputation Given\n\n` +
-                            `**${member.user.username}** gave **${symbol}1 reputation** to **${target.username}**.\n\n` +
-                            `**${target.username}'s reputation:** ${updatedReceiver.reputation}\n` +
-                            `**Your daily usage:** ${updatedGiver.daily_given}/${limit}`
-                        )
-                    )
+                buildUI(
+                    "REPUTATION GIVEN",
+                    `${symbols.reputation} **${member.user.username}** gave **${symbol}1 reputation** to **${target.username}**.\n\n` +
+                    `**${target.username}'s reputation:** ${updatedReceiver.reputation}\n` +
+                    `**Your daily usage:** ${updatedGiver.daily_given}/${limit}`
+                )
             ]
         });
     }

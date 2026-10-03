@@ -2,6 +2,7 @@ const {
     SlashCommandBuilder,
     ContainerBuilder,
     TextDisplayBuilder,
+    SeparatorBuilder,
     MessageFlags
 } = require("discord.js");
 
@@ -10,6 +11,10 @@ const {
     timestamps,
     styles
 } = require("../utils/asterUI");
+
+const ACCENT =
+    styles?.getTheme?.()?.colors?.accent ??
+    0x7C5CFF;
 
 module.exports = {
     name: "help",
@@ -21,9 +26,12 @@ module.exports = {
 
     async execute(message) {
         const container = new ContainerBuilder()
-            .setAccentColor(0xFF4FA3)
+            .setAccentColor(ACCENT)
 
+            // =================================================
             // HEADER
+            // =================================================
+
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
                     `# ${symbols.brand} ASTER / HELP\n` +
@@ -31,7 +39,14 @@ module.exports = {
                 )
             )
 
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            // =================================================
             // ACTIVITY
+            // =================================================
+
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
                     `### ${symbols.activity} Activity\n` +
@@ -41,7 +56,14 @@ module.exports = {
                 )
             )
 
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            // =================================================
             // REPUTATION
+            // =================================================
+
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
                     `### ${symbols.reputation} Reputation\n` +
@@ -53,7 +75,14 @@ module.exports = {
                 )
             )
 
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            // =================================================
             // AUTOMATION
+            // =================================================
+
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
                     `### ${symbols.automation} Automation\n` +
@@ -64,7 +93,14 @@ module.exports = {
                 )
             )
 
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            // =================================================
             // CONFIGURATION
+            // =================================================
+
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
                     `### ${symbols.settings || symbols.automation} Configuration\n` +
@@ -72,7 +108,14 @@ module.exports = {
                 )
             )
 
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            // =================================================
             // QUICK START
+            // =================================================
+
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
                     `### ${symbols.brand} Quick Start\n` +
@@ -81,7 +124,14 @@ module.exports = {
                 )
             )
 
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+            )
+
+            // =================================================
             // FOOTER
+            // =================================================
+
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
                     `-# ${symbols.time} ${timestamps.now()} ${styles.text.bullet} ` +

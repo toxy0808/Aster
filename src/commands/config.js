@@ -16,8 +16,11 @@ const { getConfig } = require("../utils/serverConfig");
 // ASTER UI
 // ========================================================
 
-const symbols = require("../utils/asterUI/symbols");
-const timestamps = require("../utils/asterUI/timestamps");
+const { symbols, timestamps, styles } = require("../utils/asterUI");
+
+const ACCENT =
+    styles?.getTheme?.()?.colors?.accent ??
+    0x7C5CFF;
 
 // ========================================================
 // CONFIG COMMAND
@@ -85,7 +88,7 @@ module.exports = {
         // ====================================================
 
         const container = new ContainerBuilder()
-            .setAccentColor(0xFF4DA6)
+            .setAccentColor(ACCENT)
 
             // =================================================
             // HEADER

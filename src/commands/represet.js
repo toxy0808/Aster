@@ -19,7 +19,7 @@ const {
 } = require("../utils/asterUI");
 
 // ========================================================
-// ASTER COMPONENT BUILDER
+// COMPONENT BUILDER
 // ========================================================
 
 function buildContainer(...components) {
@@ -111,9 +111,28 @@ module.exports = {
         // ====================================================
 
         if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-            return message.reply(
-                `${symbols.error} Administrator permission required.`
+            const output = buildContainer(
+                header(
+                    "ASTER / REP RESET",
+                    styles.sections.reputation
+                ),
+
+                separator(),
+
+                section(
+                    "Access Denied",
+                    `${symbols.error} Administrator permission required.`,
+                    styles.status.error
+                )
             );
+
+            return message.reply({
+                components: [output],
+                flags: MessageFlags.IsComponentsV2,
+                allowedMentions: {
+                    parse: []
+                }
+            });
         }
 
         // ====================================================
@@ -161,12 +180,30 @@ module.exports = {
         // ====================================================
 
         if (isEveryone) {
-
             if (args[1]?.toLowerCase() !== "confirm") {
-                return message.reply(
-                    `${symbols.warning} This will reset **everyone's REP**.\n` +
-                    `-# Use \`,represet all confirm\` to continue.`
+                const output = buildContainer(
+                    header(
+                        "ASTER / REP RESET",
+                        styles.sections.reputation
+                    ),
+
+                    separator(),
+
+                    section(
+                        "Confirmation Required",
+                        `${symbols.warning} This will reset **everyone's REP**.\n` +
+                        `-# Use \`,represet all confirm\` to continue.`,
+                        styles.status.warning
+                    )
                 );
+
+                return message.reply({
+                    components: [output],
+                    flags: MessageFlags.IsComponentsV2,
+                    allowedMentions: {
+                        parse: []
+                    }
+                });
             }
 
             db.prepare(`
@@ -234,15 +271,53 @@ module.exports = {
         // ====================================================
 
         if (target.bot) {
-            return message.reply(
-                `${symbols.error} You can't reset a bot's REP.`
+            const output = buildContainer(
+                header(
+                    "ASTER / REP RESET",
+                    styles.sections.reputation
+                ),
+
+                separator(),
+
+                section(
+                    "Invalid Target",
+                    `${symbols.error} You can't reset a bot's REP.`,
+                    styles.status.error
+                )
             );
+
+            return message.reply({
+                components: [output],
+                flags: MessageFlags.IsComponentsV2,
+                allowedMentions: {
+                    parse: []
+                }
+            });
         }
 
         if (target.id === message.author.id) {
-            return message.reply(
-                `${symbols.error} You can't reset your own REP.`
+            const output = buildContainer(
+                header(
+                    "ASTER / REP RESET",
+                    styles.sections.reputation
+                ),
+
+                separator(),
+
+                section(
+                    "Invalid Target",
+                    `${symbols.error} You can't reset your own REP.`,
+                    styles.status.error
+                )
             );
+
+            return message.reply({
+                components: [output],
+                flags: MessageFlags.IsComponentsV2,
+                allowedMentions: {
+                    parse: []
+                }
+            });
         }
 
         // ====================================================
@@ -259,9 +334,28 @@ module.exports = {
                 : Number(valueArg);
 
         if (!Number.isInteger(newValue)) {
-            return message.reply(
-                `${symbols.error} REP must be a whole number.`
+            const output = buildContainer(
+                header(
+                    "ASTER / REP RESET",
+                    styles.sections.reputation
+                ),
+
+                separator(),
+
+                section(
+                    "Invalid REP Value",
+                    `${symbols.error} REP must be a whole number.`,
+                    styles.status.error
+                )
             );
+
+            return message.reply({
+                components: [output],
+                flags: MessageFlags.IsComponentsV2,
+                allowedMentions: {
+                    parse: []
+                }
+            });
         }
 
         // ====================================================

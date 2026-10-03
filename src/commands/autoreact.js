@@ -2,39 +2,47 @@ const {
     SlashCommandBuilder,
     ContainerBuilder,
     TextDisplayBuilder,
+    SeparatorBuilder,
     MessageFlags,
     PermissionFlagsBits
 } = require("discord.js");
 
 const db = require("../database/database");
-
-const ACCENT = 0xFF4FA3;
-
-// ========================================================
-// UI
-// ========================================================
+const { symbols, timestamps, styles } = require("../utils/asterUI");
 
 function ui(title, content, mentions = {}) {
+
+    const accent =
+        styles?.getTheme?.()?.colors?.accent ??
+        0x7C5CFF;
+
+    const container = new ContainerBuilder()
+        .setAccentColor(accent);
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+            `# ${symbols.brand} ASTER / AUTO REACT\n` +
+            `### ${title}\n` +
+            content
+        )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder()
+    );
+
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+            `-# ${symbols.time} ${timestamps.now()} • Auto Reaction System`
+        )
+    );
+
     return {
-        components: [
-            new ContainerBuilder()
-                .setAccentColor(ACCENT)
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(
-                        `# ✦ ASTER / AUTO REACT\n` +
-                        `### ${title}\n` +
-                        content
-                    )
-                )
-        ],
+        components: [container],
         flags: MessageFlags.IsComponentsV2,
         ...mentions
     };
 }
-
-// ========================================================
-// COMMAND
-// ========================================================
 
 module.exports = {
     name: "autoreact",
@@ -77,6 +85,7 @@ module.exports = {
         ),
 
     async execute(message, args) {
+
         const isAdmin = message.member.permissions.has(
             PermissionFlagsBits.Administrator
         );
@@ -88,14 +97,22 @@ module.exports = {
         // ====================================================
 
         if (message.options?.getSubcommand) {
-            const subcommand = message.options.getSubcommand();
 
-            const slashUser = message.options.getUser("user");
-            const slashEmoji = message.options.getString("emoji");
+            const subcommand =
+                message.options.getSubcommand();
+
+            const slashUser =
+                message.options.getUser("user");
+
+            const slashEmoji =
+                message.options.getString("emoji");
 
             if (subcommand === "list") {
+
                 args = ["list"];
+
             } else if (subcommand === "enable") {
+
                 args = ["enable"];
 
                 if (slashUser) {
@@ -104,7 +121,9 @@ module.exports = {
                 } else {
                     args.push(slashEmoji);
                 }
+
             } else if (subcommand === "disable") {
+
                 args = ["disable"];
 
                 if (slashUser) {
@@ -113,12 +132,15 @@ module.exports = {
             }
         }
 
-        const action = args[0]?.toLowerCase();
+        const action =
+            args[0]?.toLowerCase();
 
-        const mentionedUser = message.mentions.users.first();
+        const mentionedUser =
+            message.mentions.users.first();
 
         const rawUserId =
-            args[1] && /^\d{17,20}$/.test(args[1])
+            args[1] &&
+            /^\d{17,20}$/.test(args[1])
                 ? args[1]
                 : null;
 
@@ -137,45 +159,51 @@ module.exports = {
         // ====================================================
 
         if (action === "list") {
+
             if (!isAdmin) {
                 return message.reply(
                     ui(
-                        "🔒 Access Denied",
+                        `${symbols.lock ?? "🔒"} Access Denied`,
                         `Administrator permission is required to view configured Auto Reactions.`
                     )
                 );
             }
 
-            const autoreacts = db.prepare(`
-                SELECT user_id, emoji
-                FROM autoreacts
-                WHERE enabled = 1
-                ORDER BY user_id ASC
-            `).all();
+            const autoreacts =
+                db.prepare(`
+                    SELECT user_id, emoji
+                    FROM autoreacts
+                    WHERE enabled = 1
+                    ORDER BY user_id ASC
+                `).all();
 
-            const existingMembers = autoreacts.filter(entry =>
-                message.guild.members.cache.has(entry.user_id)
-            );
+            const existingMembers =
+                autoreacts.filter(entry =>
+                    message.guild.members.cache.has(
+                        entry.user_id
+                    )
+                );
 
             if (!existingMembers.length) {
                 return message.reply(
                     ui(
-                        "📋 Auto Reactions",
+                        `${symbols.list ?? "📋"} Auto Reactions`,
                         `No auto reactions are currently configured.\n\n` +
                         `-# Boosters can use \`,autoreact enable <:emoji>\` to configure their own.`
                     )
                 );
             }
 
-            const list = existingMembers
-                .map((entry, index) =>
-                    `**${index + 1}.** <@${entry.user_id}> → ${entry.emoji}`
-                )
-                .join("\n");
+            const list =
+                existingMembers
+                    .map((entry, index) =>
+                        `**${index + 1}.** <@${entry.user_id}> → ${entry.emoji}`
+                    )
+                    .join("\n");
 
             return message.reply(
                 ui(
-                    "📋 Configured Reactions",
+                    `${symbols.list ?? "📋"} Configured Reactions`,
                     `${list}\n\n` +
                     `-# ${existingMembers.length} configured`,
                     {
@@ -191,10 +219,13 @@ module.exports = {
         // INVALID ACTION
         // ====================================================
 
-        if (action !== "enable" && action !== "disable") {
+        if (
+            action !== "enable" &&
+            action !== "disable"
+        ) {
             return message.reply(
                 ui(
-                    "⚙ Usage",
+                    `${symbols.settings ?? "⚙️"} Usage`,
                     `**Booster**\n` +
                     `\`,autoreact enable <:emoji>\`\n` +
                     `\`,autoreact disable\`\n\n` +
@@ -223,24 +254,29 @@ module.exports = {
         // ====================================================
 
         if (isSelfMode) {
+
             if (!isBooster) {
                 return message.reply(
                     ui(
-                        "🚀 Booster Perk Required",
+                        `${symbols.boost ?? "🚀"} Booster Perk Required`,
                         `You need to be **actively boosting this server** to configure your own Auto Reaction.\n\n` +
                         `-# Boost the server to unlock this perk.`
                     )
                 );
             }
 
+            // ==================================================
             // BOOSTER ENABLE
+            // ==================================================
+
             if (action === "enable") {
+
                 const emoji = args[1];
 
                 if (!emoji) {
                     return message.reply(
                         ui(
-                            "⚠ Missing Emoji",
+                            `${symbols.warning ?? "⚠️"} Missing Emoji`,
                             `Please provide the emoji ASTER should react with.\n\n` +
                             `-# Example: \`,autoreact enable <:emoji>\``
                         )
@@ -273,11 +309,11 @@ module.exports = {
 
                 return message.reply(
                     ui(
-                        "🟢 Booster Auto Reaction Enabled",
+                        `${symbols.success ?? "🟢"} Booster Auto Reaction Enabled`,
                         `**Target** <@${message.author.id}>\n` +
                         `**Reaction** ${emoji}\n\n` +
                         `-# Active while you are boosting.\n` +
-                        `-# Run again with another emoji to change it.`,
+                        `-# Run the command again with another emoji to change it.`,
                         {
                             allowedMentions: {
                                 parse: []
@@ -287,12 +323,18 @@ module.exports = {
                 );
             }
 
+            // ==================================================
             // BOOSTER DISABLE
+            // ==================================================
+
             if (action === "disable") {
+
                 db.prepare(`
                     DELETE FROM autoreacts
                     WHERE user_id = ?
-                `).run(message.author.id);
+                `).run(
+                    message.author.id
+                );
 
                 if (message.client.autoreacts) {
                     message.client.autoreacts.delete(
@@ -302,7 +344,7 @@ module.exports = {
 
                 return message.reply(
                     ui(
-                        "🔴 Auto Reaction Disabled",
+                        `${symbols.error ?? "🔴"} Auto Reaction Disabled`,
                         `**Your Auto Reaction has been removed.**\n\n` +
                         `-# You can configure another reaction while boosting.`
                     )
@@ -317,7 +359,7 @@ module.exports = {
         if (!isAdmin) {
             return message.reply(
                 ui(
-                    "🔒 Access Denied",
+                    `${symbols.lock ?? "🔒"} Access Denied`,
                     `You can only configure your **own** Auto Reaction if you are a server booster.\n\n` +
                     `-# Administrators can configure reactions for other members.`
                 )
@@ -327,7 +369,7 @@ module.exports = {
         if (!targetUser) {
             return message.reply(
                 ui(
-                    "⚠ Invalid User",
+                    `${symbols.warning ?? "⚠️"} Invalid User`,
                     `Please provide a valid user mention or Discord user ID.`
                 )
             );
@@ -338,12 +380,13 @@ module.exports = {
         // ====================================================
 
         if (action === "enable") {
+
             const emoji = args[2];
 
             if (!emoji) {
                 return message.reply(
                     ui(
-                        "⚠ Missing Emoji",
+                        `${symbols.warning ?? "⚠️"} Missing Emoji`,
                         `Please provide the emoji ASTER should react with.\n\n` +
                         `-# Example: \`,autoreact enable @user <:emoji>\``
                     )
@@ -376,7 +419,7 @@ module.exports = {
 
             return message.reply(
                 ui(
-                    "🟢 Enabled",
+                    `${symbols.success ?? "🟢"} Enabled`,
                     `**Target** <@${targetUser.id}>\n` +
                     `**Reaction** ${emoji}\n\n` +
                     `-# Auto Reaction configured successfully.\n` +
@@ -395,10 +438,13 @@ module.exports = {
         // ====================================================
 
         if (action === "disable") {
+
             db.prepare(`
                 DELETE FROM autoreacts
                 WHERE user_id = ?
-            `).run(targetUser.id);
+            `).run(
+                targetUser.id
+            );
 
             if (message.client.autoreacts) {
                 message.client.autoreacts.delete(
@@ -408,7 +454,7 @@ module.exports = {
 
             return message.reply(
                 ui(
-                    "🔴 Disabled",
+                    `${symbols.error ?? "🔴"} Disabled`,
                     `**Target** <@${targetUser.id}>\n\n` +
                     `-# Automatic reactions removed for this user.`,
                     {

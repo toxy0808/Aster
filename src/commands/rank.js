@@ -13,12 +13,17 @@ const { getXPData } = require("../utils/xp");
 
 const {
     symbols,
-    timestamps
+    timestamps,
+    styles
 } = require("../utils/asterUI");
 
 const {
     getMemberIntelligence
 } = require("../utils/memberIntelligence");
+
+const ACCENT =
+    styles?.getTheme?.()?.colors?.accent ??
+    0x7C5CFF;
 
 module.exports = {
     name: "rank",
@@ -207,7 +212,7 @@ module.exports = {
         // ========================================================
 
         const container = new ContainerBuilder()
-            .setAccentColor(0xFF4FA3);
+            .setAccentColor(ACCENT);
 
         // ========================================================
         // HEADER

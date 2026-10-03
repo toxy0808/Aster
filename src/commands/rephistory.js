@@ -49,6 +49,7 @@ module.exports = {
         .setDescription("View your recent reputation history."),
 
     async execute(message) {
+        const userId = message.author.id;
 
         const logs = db.prepare(`
             SELECT
@@ -61,10 +62,7 @@ module.exports = {
                OR receiver_id = ?
             ORDER BY id DESC
             LIMIT 10
-        `).all(
-            message.author.id,
-            message.author.id
-        );
+        `).all(userId, userId);
 
         const components = [
             header(
@@ -110,42 +108,32 @@ module.exports = {
         // ====================================================
 
         const lines = logs.map(log => {
-            const received =
-                log.receiver_id === message.author.id;
+            const received = log.receiver_id === userId;
 
-            const otherUser =
-                received
-                    ? log.giver_id
-                    : log.receiver_id;
+            const otherUser = received
+                ? log.giver_id
+                : log.receiver_id;
 
-            const positive =
-                log.type === "positive";
+            const positive = log.type === "positive";
 
-            const amount =
-                positive
-                    ? "+1"
-                    : "-1";
+            const amount = positive ? "+1" : "-1";
 
-            const symbol =
-                positive
-                    ? symbols.positive
-                    : symbols.negative;
+            const symbol = positive
+                ? symbols.positive
+                : symbols.negative;
 
-            const timestamp =
+            const rawTimestamp =
                 typeof log.created_at === "number"
                     ? (
                         log.created_at > 1e12
                             ? log.created_at
                             : log.created_at * 1000
                     )
-                    : new Date(
-                        log.created_at
-                    ).getTime();
+                    : new Date(log.created_at).getTime();
 
-            const time =
-                Number.isFinite(timestamp)
-                    ? timestamps.relative(timestamp)
-                    : "unknown";
+            const time = Number.isFinite(rawTimestamp)
+                ? timestamps.relative(rawTimestamp)
+                : "unknown";
 
             return (
                 `${symbol} **${amount} REP** · ` +
@@ -209,10 +197,10 @@ module.exports = {
                 ) AS negative_received
             FROM reputation_logs
         `).get(
-            message.author.id,
-            message.author.id,
-            message.author.id,
-            message.author.id
+            userId,
+            userId,
+            userId,
+            userId
         );
 
         components.push(
@@ -231,6 +219,10 @@ module.exports = {
                 symbols.time
             )
         );
+
+        // ====================================================
+        // RESPONSE
+        // ====================================================
 
         const output = buildContainer(...components);
 

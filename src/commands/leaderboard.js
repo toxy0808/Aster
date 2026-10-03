@@ -7,7 +7,15 @@ const {
 } = require("discord.js");
 
 const db = require("../database/database");
-const { symbols, timestamps } = require("../utils/asterUI");
+const {
+    symbols,
+    timestamps,
+    styles
+} = require("../utils/asterUI");
+
+const ACCENT =
+    styles?.getTheme?.()?.colors?.accent ??
+    0x7C5CFF;
 
 module.exports = {
 
@@ -53,6 +61,10 @@ module.exports = {
 
         let users;
 
+        // ====================================================
+        // LOAD LEADERBOARD
+        // ====================================================
+
         if (type === "chat") {
 
             users = db.prepare(`
@@ -62,9 +74,7 @@ module.exports = {
                 LIMIT 10
             `).all();
 
-        }
-
-        else if (type === "voice") {
+        } else if (type === "voice") {
 
             users = db.prepare(`
                 SELECT *
@@ -74,9 +84,7 @@ module.exports = {
                 LIMIT 10
             `).all();
 
-        }
-
-        else if (type === "overall") {
+        } else if (type === "overall") {
 
             users = db.prepare(`
                 SELECT *,
@@ -86,31 +94,46 @@ module.exports = {
                 LIMIT 10
             `).all();
 
+        } else {
+
+            return message.reply({
+                content:
+                    `${symbols.error} Invalid leaderboard type.\n` +
+                    `-# Available: \`chat\`, \`voice\`, \`overall\``,
+                allowedMentions: {
+                    parse: []
+                }
+            });
+
         }
 
-        else {
-
-            return message.reply(
-                `${symbols.error} Invalid leaderboard type.\n` +
-                `-# Available: \`chat\`, \`voice\`, \`overall\``
-            );
-
-        }
+        // ====================================================
+        // EMPTY STATE
+        // ====================================================
 
         if (!users.length) {
 
-            return message.reply(
-                `${symbols.info} No users found for this leaderboard.`
-            );
+            return message.reply({
+                content:
+                    `${symbols.info} No users found for this leaderboard.`,
+                allowedMentions: {
+                    parse: []
+                }
+            });
 
         }
+
+        // ====================================================
+        // LEADERBOARD MODE
+        // ====================================================
 
         const mode = {
             chat: {
                 title: "Chat",
                 icon: symbols.chat,
                 description: "Top members ranked by messages",
-                value: user => `${user.messages.toLocaleString()} messages`
+                value: user =>
+                    `${(user.messages || 0).toLocaleString()} messages`
             },
 
             voice: {
@@ -126,13 +149,21 @@ module.exports = {
                 icon: symbols.activity,
                 description: "Top members ranked by total activity",
                 value: user =>
-                    `${user.messages.toLocaleString()} msgs + ` +
+                    `${(user.messages || 0).toLocaleString()} msgs + ` +
                     `${(user.voice_time || 0).toLocaleString()} voice min`
             }
         }[type];
 
+        // ====================================================
+        // ASTER CONTAINER
+        // ====================================================
+
         const container = new ContainerBuilder()
-            .setAccentColor(0xFF4FA3);
+            .setAccentColor(ACCENT);
+
+        // ====================================================
+        // HEADER
+        // ====================================================
 
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
@@ -144,6 +175,10 @@ module.exports = {
         container.addSeparatorComponents(
             new SeparatorBuilder()
         );
+
+        // ====================================================
+        // RANKINGS
+        // ====================================================
 
         const lines = [];
 
@@ -191,12 +226,20 @@ module.exports = {
             new SeparatorBuilder()
         );
 
+        // ====================================================
+        // FOOTER
+        // ====================================================
+
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `-# ${symbols.time} Updated ${timestamps.now()}\n` +
                 `-# ${symbols.brand} ASTER • Activity Leaderboard`
             )
         );
+
+        // ====================================================
+        // SEND
+        // ====================================================
 
         return message.reply({
             components: [container],

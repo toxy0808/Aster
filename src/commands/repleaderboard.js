@@ -49,7 +49,6 @@ module.exports = {
         .setDescription("View the server reputation leaderboard."),
 
     async execute(message) {
-
         // ====================================================
         // FETCH TOP 10
         // ====================================================
@@ -122,7 +121,6 @@ module.exports = {
         // ====================================================
 
         const lines = users.map((user, index) => {
-
             let rank;
 
             if (index === 0) {
@@ -132,8 +130,7 @@ module.exports = {
             } else if (index === 2) {
                 rank = `${symbols.rank} **03**`;
             } else {
-                rank =
-                    `**${String(index + 1).padStart(2, "0")}**`;
+                rank = `**${String(index + 1).padStart(2, "0")}**`;
             }
 
             return (
@@ -162,8 +159,7 @@ module.exports = {
             WHERE user_id = ?
         `).get(message.author.id);
 
-        const myReputation =
-            myRep?.reputation ?? 0;
+        const myReputation = myRep?.reputation ?? 0;
 
         const rankResult = db.prepare(`
             SELECT COUNT(*) + 1 AS rank
@@ -200,6 +196,10 @@ module.exports = {
                 styles.brand.symbol
             )
         );
+
+        // ====================================================
+        // RESPONSE
+        // ====================================================
 
         const output = buildContainer(...components);
 

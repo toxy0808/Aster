@@ -1,6 +1,10 @@
 const {
     AttachmentBuilder,
-    SlashCommandBuilder
+    SlashCommandBuilder,
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder,
+    MessageFlags
 } = require("discord.js");
 
 const sharp = require("sharp");
@@ -9,12 +13,60 @@ const https = require("https");
 const http = require("http");
 const { URL } = require("url");
 
+const {
+    symbols,
+    timestamps,
+    styles
+} = require("../utils/asterUI");
+
+const ACCENT =
+    styles?.getTheme?.()?.colors?.accent ??
+    0x7C5CFF;
+
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 const MAX_PIXELS = 100_000_000;
 const DOWNLOAD_TIMEOUT = 30_000;
 
 const activeJobs = new Set();
 const emojiCache = new Map();
+
+/* =========================================================
+   ASTER UI
+========================================================= */
+
+function buildUI(title, content) {
+
+    return new ContainerBuilder()
+        .setAccentColor(ACCENT)
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder()
+                .setContent(
+                    `# ✦ ASTER / ${title}\n\n${content}`
+                )
+        )
+
+        .addSeparatorComponents(
+            new SeparatorBuilder()
+        )
+
+        .addTextDisplayComponents(
+            new TextDisplayBuilder()
+                .setContent(
+                    `-# ✦ ASTER • ${timestamps?.now?.() ?? "System"}`
+                )
+        );
+}
+
+function replyUI(message, title, content) {
+
+    return message.reply({
+        components: [
+            buildUI(title, content)
+        ],
+        flags: MessageFlags.IsComponentsV2
+    });
+}
 
 /* =========================================================
    DOWNLOAD
@@ -25,6 +77,7 @@ function downloadBuffer(url, redirects = 0) {
     return new Promise((resolve, reject) => {
 
         if (redirects > 5) {
+
             return reject(
                 new Error("Too many redirects.")
             );
@@ -33,8 +86,11 @@ function downloadBuffer(url, redirects = 0) {
         let parsed;
 
         try {
+
             parsed = new URL(url);
+
         } catch {
+
             return reject(
                 new Error("Invalid URL.")
             );
@@ -115,7 +171,6 @@ function downloadBuffer(url, redirects = 0) {
                     resolve(
                         Buffer.concat(chunks)
                     );
-
                 });
 
                 res.on("error", reject);
@@ -131,14 +186,11 @@ function downloadBuffer(url, redirects = 0) {
                         "Download timed out."
                     )
                 );
-
             }
         );
 
         req.on("error", reject);
-
     });
-
 }
 
 /* =========================================================
@@ -150,7 +202,6 @@ function isSupportedImage(name) {
     return /\.(png|jpe?g|gif|webp|avif)$/i.test(
         name || ""
     );
-
 }
 
 function getOwnAttachment(message) {
@@ -173,7 +224,6 @@ function getOwnAttachment(message) {
                     )
             ) || null
         );
-
     }
 
     if (
@@ -196,7 +246,6 @@ function getOwnAttachment(message) {
     }
 
     return null;
-
 }
 
 function getCachedReference(message) {
@@ -227,7 +276,6 @@ function getCachedReference(message) {
                 )
         ) || null
     );
-
 }
 
 async function getReferencedAttachment(message) {
@@ -269,9 +317,7 @@ async function getReferencedAttachment(message) {
     } catch {
 
         return null;
-
     }
-
 }
 
 /* =========================================================
@@ -294,6 +340,7 @@ function isEmojiCluster(value) {
             value
         )
     ) {
+
         return true;
     }
 
@@ -302,6 +349,7 @@ function isEmojiCluster(value) {
             value
         )
     ) {
+
         return true;
     }
 
@@ -310,11 +358,11 @@ function isEmojiCluster(value) {
             value
         )
     ) {
+
         return true;
     }
 
     return false;
-
 }
 
 function splitGraphemes(text) {
@@ -324,7 +372,6 @@ function splitGraphemes(text) {
     ].map(
         item => item.segment
     );
-
 }
 
 function splitCaption(text) {
@@ -341,13 +388,12 @@ function splitCaption(text) {
                 isEmojiCluster(segment)
                     ? "emoji"
                     : "text",
+
             value: segment
         });
-
     }
 
     return parts;
-
 }
 
 async function getEmojiSvg(emoji) {
@@ -385,9 +431,7 @@ async function getEmojiSvg(emoji) {
         throw new Error(
             `Couldn't load emoji: ${emoji}`
         );
-
     }
-
 }
 
 /* =========================================================
@@ -402,7 +446,6 @@ function escapeXml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&apos;");
-
 }
 
 /* =========================================================
@@ -415,6 +458,7 @@ function getFontSize(width, text) {
         [...text].length;
 
     if (length <= 8) {
+
         return Math.min(
             96,
             Math.round(width * 0.090)
@@ -422,6 +466,7 @@ function getFontSize(width, text) {
     }
 
     if (length <= 14) {
+
         return Math.min(
             82,
             Math.round(width * 0.078)
@@ -429,6 +474,7 @@ function getFontSize(width, text) {
     }
 
     if (length <= 22) {
+
         return Math.min(
             70,
             Math.round(width * 0.068)
@@ -436,6 +482,7 @@ function getFontSize(width, text) {
     }
 
     if (length <= 32) {
+
         return Math.min(
             60,
             Math.round(width * 0.058)
@@ -443,6 +490,7 @@ function getFontSize(width, text) {
     }
 
     if (length <= 45) {
+
         return Math.min(
             52,
             Math.round(width * 0.050)
@@ -450,6 +498,7 @@ function getFontSize(width, text) {
     }
 
     if (length <= 60) {
+
         return Math.min(
             45,
             Math.round(width * 0.043)
@@ -457,6 +506,7 @@ function getFontSize(width, text) {
     }
 
     if (length <= 80) {
+
         return Math.min(
             39,
             Math.round(width * 0.037)
@@ -464,6 +514,7 @@ function getFontSize(width, text) {
     }
 
     if (length <= 110) {
+
         return Math.min(
             34,
             Math.round(width * 0.032)
@@ -471,13 +522,11 @@ function getFontSize(width, text) {
     }
 
     return 30;
-
 }
 
 function getTextFont() {
 
     return "Arial, Helvetica, sans-serif";
-
 }
 
 /* =========================================================
@@ -523,13 +572,10 @@ function estimateTextWidth(
 
             width +=
                 fontSize * 0.54;
-
         }
-
     }
 
     return width;
-
 }
 
 /* =========================================================
@@ -537,14 +583,6 @@ function estimateTextWidth(
 ========================================================= */
 
 function getEmojiMetrics(fontSize) {
-
-    /*
-     * The emoji receives a fixed "cell".
-     *
-     * Text is NEVER positioned based on the visual
-     * size of the SVG. It is positioned after this
-     * entire cell has been consumed.
-     */
 
     const size =
         Math.round(
@@ -560,11 +598,8 @@ function getEmojiMetrics(fontSize) {
         );
 
     return {
-
         size,
-
         gap,
-
         cellWidth:
             size +
             gap * 2,
@@ -572,9 +607,7 @@ function getEmojiMetrics(fontSize) {
         width:
             size +
             gap * 2
-
     };
-
 }
 
 /* =========================================================
@@ -611,13 +644,10 @@ function wrapCaption(
 
             current = [];
             currentWidth = 0;
-
         }
 
         current.push(part);
-
         currentWidth += width;
-
     }
 
     if (current.length) {
@@ -625,11 +655,9 @@ function wrapCaption(
         lines.push(
             current
         );
-
     }
 
     return lines;
-
 }
 
 /* =========================================================
@@ -646,14 +674,12 @@ function estimatePartWidth(
         return getEmojiMetrics(
             fontSize
         ).cellWidth;
-
     }
 
     return estimateTextWidth(
         part.value,
         fontSize
     );
-
 }
 
 /* =========================================================
@@ -670,7 +696,6 @@ function buildLineSvg(
 ) {
 
     const parts = [];
-
     let textBuffer = "";
 
     const flushText = () => {
@@ -685,7 +710,6 @@ function buildLineSvg(
         });
 
         textBuffer = "";
-
     };
 
     for (const part of line) {
@@ -693,25 +717,16 @@ function buildLineSvg(
         if (part.type === "emoji") {
 
             flushText();
-
             parts.push(part);
 
         } else {
 
             textBuffer +=
                 part.value;
-
         }
-
     }
 
     flushText();
-
-    /*
-     * Every emoji is treated as a complete protected
-     * cell. The exact same cell width is used here
-     * and by the wrapping calculation.
-     */
 
     let totalWidth = 0;
 
@@ -722,7 +737,6 @@ function buildLineSvg(
                 part,
                 fontSize
             );
-
     }
 
     let x =
@@ -746,16 +760,7 @@ function buildLineSvg(
 
             emojiIndexRef.value++;
 
-            /*
-             * The entire emoji cell is protected.
-             */
-
             const cellStartX = x;
-
-            /*
-             * Center the actual SVG inside the
-             * protected cell.
-             */
 
             const emojiX =
                 cellStartX +
@@ -764,14 +769,6 @@ function buildLineSvg(
             const emojiY =
                 y -
                 metrics.size * 0.82;
-
-            /*
-             * Clip the emoji to its own cell.
-             *
-             * Even if the SVG itself contains artwork
-             * extending beyond its nominal bounds, it
-             * cannot visually escape into the text area.
-             */
 
             const clipId =
                 `emojiClip${emojiIndexRef.value}`;
@@ -805,19 +802,11 @@ function buildLineSvg(
                 </g>
             `);
 
-            /*
-             * CRITICAL:
-             *
-             * Move past the ENTIRE protected emoji cell.
-             * The next text character cannot enter it.
-             */
-
             x =
                 cellStartX +
                 metrics.cellWidth;
 
             continue;
-
         }
 
         const safe =
@@ -844,11 +833,9 @@ function buildLineSvg(
         `);
 
         x += textWidth;
-
     }
 
     return elements.join("\n");
-
 }
 
 /* =========================================================
@@ -874,11 +861,6 @@ async function createCaptionSvg(
     let paddingX;
     let maxWidth;
     let lines;
-
-    /*
-     * Recalculate wrapping and padding every time
-     * the font size changes.
-     */
 
     for (
         let attempt = 0;
@@ -918,7 +900,6 @@ async function createCaptionSvg(
                         part,
                         finalFontSize
                     );
-
             }
 
             widest =
@@ -926,7 +907,6 @@ async function createCaptionSvg(
                     widest,
                     lineWidth
                 );
-
         }
 
         if (widest <= maxWidth) {
@@ -940,7 +920,6 @@ async function createCaptionSvg(
                     finalFontSize * 0.92
                 )
             );
-
     }
 
     const lineHeight =
@@ -961,10 +940,6 @@ async function createCaptionSvg(
         verticalPadding * 2 +
         lineHeight * lines.length;
 
-    /*
-     * Download emoji graphics.
-     */
-
     const emojiImages = [];
 
     for (const line of lines) {
@@ -983,9 +958,7 @@ async function createCaptionSvg(
                     part.value
                 )
             );
-
         }
-
     }
 
     const emojiIndexRef = {
@@ -1015,7 +988,6 @@ async function createCaptionSvg(
                 emojiImages
             )
         );
-
     }
 
     const svg = `
@@ -1039,7 +1011,6 @@ async function createCaptionSvg(
         svg: Buffer.from(svg),
         height
     };
-
 }
 
 /* =========================================================
@@ -1071,7 +1042,6 @@ async function renderStatic(
         throw new Error(
             "Could not determine image dimensions."
         );
-
     }
 
     const captionLayer =
@@ -1086,7 +1056,9 @@ async function renderStatic(
             .toBuffer();
 
     return sharp({
+
         create: {
+
             width:
                 metadata.width,
 
@@ -1103,13 +1075,17 @@ async function renderStatic(
                 alpha: 1
             }
         }
+
     })
+
         .composite([
+
             {
                 input:
                     captionLayer.svg,
 
                 left: 0,
+
                 top: 0
             },
 
@@ -1122,10 +1098,12 @@ async function renderStatic(
                 top:
                     captionLayer.height
             }
-        ])
-        .png()
-        .toBuffer();
 
+        ])
+
+        .png()
+
+        .toBuffer();
 }
 
 /* =========================================================
@@ -1165,7 +1143,6 @@ async function renderGif(
         throw new Error(
             "Could not read GIF dimensions."
         );
-
     }
 
     let delays =
@@ -1179,7 +1156,6 @@ async function renderGif(
                     ? delays
                     : 100
             );
-
     }
 
     if (
@@ -1191,7 +1167,6 @@ async function renderGif(
             Array(frameCount).fill(
                 delays[0] || 100
             );
-
     }
 
     const loop =
@@ -1246,7 +1221,9 @@ async function renderGif(
 
         const rendered =
             await sharp({
+
                 create: {
+
                     width,
 
                     height:
@@ -1262,13 +1239,17 @@ async function renderGif(
                         alpha: 1
                     }
                 }
+
             })
+
                 .composite([
+
                     {
                         input:
                             captionBuffer,
 
                         left: 0,
+
                         top: 0
                     },
 
@@ -1287,14 +1268,16 @@ async function renderGif(
                         top:
                             captionLayer.height
                     }
+
                 ])
+
                 .raw()
+
                 .toBuffer();
 
         outputFrames.push(
             rendered
         );
-
     }
 
     const combined =
@@ -1307,13 +1290,10 @@ async function renderGif(
         {
             raw: {
                 width,
-
                 height:
                     captionLayer.height +
                     frameHeight,
-
                 channels: 4,
-
                 pages:
                     frameCount
             },
@@ -1325,6 +1305,7 @@ async function renderGif(
                 frameHeight
         }
     )
+
         .gif({
             reuse: true,
             delay: delays,
@@ -1333,8 +1314,8 @@ async function renderGif(
             effort: 3,
             colours: 256
         })
-        .toBuffer();
 
+        .toBuffer();
 }
 
 /* =========================================================
@@ -1383,10 +1364,12 @@ module.exports = {
 
         if (activeJobs.has(userId)) {
 
-            return message.reply(
-                "You already have a caption job running."
+            return replyUI(
+                message,
+                "CAPTION",
+                `${symbols?.loading ?? "⏳"} **Caption job already running**\n\n` +
+                "You already have a caption job running. Please wait for it to finish."
             );
-
         }
 
         const isSlash =
@@ -1410,7 +1393,6 @@ module.exports = {
                 message.options.getAttachment(
                     "attachment"
                 ) || null;
-
         }
 
         /* =====================================================
@@ -1426,10 +1408,12 @@ module.exports = {
 
             if (!match) {
 
-                return message.reply(
-                    'Usage: `,caption "your text"`'
+                return replyUI(
+                    message,
+                    "CAPTION",
+                    "### ⚙ Usage\n\n" +
+                    "`,caption \"your text\"`"
                 );
-
             }
 
             caption =
@@ -1454,7 +1438,6 @@ module.exports = {
                         1,
                         -1
                     );
-
             }
 
             caption =
@@ -1471,9 +1454,7 @@ module.exports = {
                     await getReferencedAttachment(
                         message
                     );
-
             }
-
         }
 
         /* =====================================================
@@ -1485,18 +1466,22 @@ module.exports = {
 
         if (!caption) {
 
-            return message.reply(
+            return replyUI(
+                message,
+                "CAPTION",
+                "### ⚠ Caption Required\n\n" +
                 "Caption cannot be empty."
             );
-
         }
 
         if (caption.length > 500) {
 
-            return message.reply(
-                "Caption is too long. Maximum is 500 characters."
+            return replyUI(
+                message,
+                "CAPTION",
+                "### ⚠ Caption Too Long\n\n" +
+                "Caption is too long. Maximum is **500 characters**."
             );
-
         }
 
         /* =====================================================
@@ -1509,7 +1494,6 @@ module.exports = {
                 message.attachment ||
                 message.attachments?.first?.() ||
                 null;
-
         }
 
         /* =====================================================
@@ -1518,10 +1502,12 @@ module.exports = {
 
         if (!attachment) {
 
-            return message.reply(
+            return replyUI(
+                message,
+                "CAPTION",
+                "### 🖼 Media Required\n\n" +
                 "Reply to an image or GIF, or attach one to the command."
             );
-
         }
 
         /* =====================================================
@@ -1553,10 +1539,14 @@ module.exports = {
             ].includes(extension)
         ) {
 
-            return message.reply(
-                "That file type is not supported. Use PNG, JPG, GIF, WebP, or AVIF."
+            return replyUI(
+                message,
+                "CAPTION",
+                "### ⚠ Unsupported File\n\n" +
+                "That file type is not supported.\n\n" +
+                "Supported formats:\n" +
+                "`PNG` · `JPG` · `GIF` · `WebP` · `AVIF`"
             );
-
         }
 
         /* =====================================================
@@ -1574,7 +1564,6 @@ module.exports = {
             ) {
 
                 await message.channel.sendTyping();
-
             }
 
             const input =
@@ -1590,7 +1579,6 @@ module.exports = {
                 throw new Error(
                     "The image is larger than 25 MB."
                 );
-
             }
 
             const metadata =
@@ -1633,7 +1621,6 @@ module.exports = {
 
                 outputName =
                     "caption.png";
-
             }
 
             if (
@@ -1644,7 +1631,6 @@ module.exports = {
                 throw new Error(
                     "The resulting image is larger than 25 MB."
                 );
-
             }
 
             const file =
@@ -1696,21 +1682,18 @@ module.exports = {
 
                 errorMessage =
                     "Couldn't load one of the emojis. Please try again.";
-
             }
 
-            await message
-                .reply(errorMessage)
-                .catch(() => {});
-
+            await replyUI(
+                message,
+                "CAPTION",
+                `### ⚠ Caption Failed\n\n${errorMessage}`
+            ).catch(() => {});
         } finally {
 
             activeJobs.delete(
                 userId
             );
-
         }
-
     }
-
 };
